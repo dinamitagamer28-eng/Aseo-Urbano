@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, CheckCircle, MapPin, CreditCard, Shield, AlertTriangle, ListTodo, LogIn, FileText, Loader2, BarChart3, Phone, Mail, Upload, ImagePlus, Settings, ChevronDown, ChevronUp } from 'lucide-react';
@@ -234,7 +234,7 @@ export default function AseoUrbanoApp() {
         {activeTab === 'ciudadano' && <AppCiudadana userData={userData} onSubmitReport={handleSubmitReport} reportesActivos={reportesActivos} pagosActivos={pagosActivos} onSubmitPago={handleSubmitPago} />}
         {activeTab === 'supervisor' && <AppSupervisor reportesActivos={reportesActivos} onResolveReport={handleResolveReport} historialRutas={historialRutas} setHistorialRutas={setHistorialRutas} />}
         {activeTab === 'admin' && <PanelAdmin pagosActivos={pagosActivos} onApprovePago={handleApprovePago} onRejectPago={handleRejectPago} onResetPagos={() => setPagosActivos(pagosActivos.filter(p => p.estado !== 'aprobado'))} />}
-        {activeTab === 'settings' && <SettingsScreen userData={userData} onBack={() => setActiveTab(userData.rol === 'admin' ? 'admin' : userData.rol === 'supervisor' ? 'supervisor' : 'ciudadano')} />}
+        {activeTab === 'settings' && <SettingsScreen userData={userData} reportesActivos={reportesActivos} pagosActivos={pagosActivos} onBack={() => setActiveTab(userData.rol === 'admin' ? 'admin' : userData.rol === 'supervisor' ? 'supervisor' : 'ciudadano')} />}
       </main>
     </div>
   );
@@ -449,8 +449,54 @@ function AuthScreen({ onLogin }: { onLogin: (data: any) => void }) {
 // PANTALLAS (MOCKS)
 // ==========================================
 
-function SettingsScreen({ userData, onBack }: { userData: any, onBack: () => void }) {
+function SettingsScreen({ userData, reportesActivos, pagosActivos, onBack }: { userData: any, reportesActivos: any[], pagosActivos: any[], onBack: () => void }) {
+  const [historyView, setHistoryView] = useState<'none' | 'reportes' | 'pagos'>('none');
   const [loading, setLoading] = useState(false);
+
+  if (historyView === 'reportes') {
+    return (
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-4 animate-in fade-in slide-in-from-right-4">
+        <h2 className="text-xl font-black text-gray-800 border-b pb-3">Historial Global de Reportes</h2>
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+          {reportesActivos.length === 0 && <p className="text-gray-500 text-sm font-medium text-center py-4">No hay reportes registrados.</p>}
+          {reportesActivos.map(r => (
+             <div key={r.id} className="p-3 bg-gray-50 border border-gray-100 rounded-lg shadow-sm">
+                <div className="flex justify-between items-start mb-1">
+                  <span className="font-bold text-sm text-gray-800">{r.problema}</span>
+                  <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded ml-2 ${r.estado === 'resuelto' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{r.estado === 'resuelto' ? 'Resuelto' : 'Pendiente'}</span>
+                </div>
+                <p className="text-xs text-gray-500 font-medium">{r.usuario || 'Anónimo'} • {r.sector || 'Sin sector'}</p>
+                <p className="text-xs text-gray-400 mt-1">{r.tiempo}</p>
+             </div>
+          ))}
+        </div>
+        <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-lg transition mt-4" onClick={() => setHistoryView('none')}>Volver a Ajustes</button>
+      </div>
+    );
+  }
+
+  if (historyView === 'pagos') {
+    const pagosFiltrados = pagosActivos.filter(p => p.estado === 'aprobado' || p.estado === 'rechazado');
+    return (
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-4 animate-in fade-in slide-in-from-right-4">
+        <h2 className="text-xl font-black text-gray-800 border-b pb-3">Historial de Pagos Procesados</h2>
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+          {pagosFiltrados.length === 0 && <p className="text-gray-500 text-sm font-medium text-center py-4">No hay pagos procesados (aprobados o rechazados).</p>}
+          {pagosFiltrados.map(p => (
+             <div key={p.id} className="p-3 bg-gray-50 border border-gray-100 rounded-lg shadow-sm">
+                <div className="flex justify-between items-start mb-1">
+                  <span className="font-bold text-sm text-gray-800">{p.usuario || 'Anónimo'}</span>
+                  <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded ml-2 ${p.estado === 'aprobado' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.estado}</span>
+                </div>
+                <p className="text-xs text-gray-500 font-medium">{p.monto} • {p.metodo === 'pago_movil' ? 'Pago Móvil' : p.metodo}</p>
+                <p className="text-xs text-gray-400 mt-1">{p.fecha}</p>
+             </div>
+          ))}
+        </div>
+        <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-lg transition mt-4" onClick={() => setHistoryView('none')}>Volver a Ajustes</button>
+      </div>
+    );
+  }
 
   const handlePasswordReset = async () => {
     if (!userData.correo) {
@@ -989,7 +1035,7 @@ function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHi
           </div>
         )}
 
-        {reportesActivos.map((reporte) => {
+        {reportesActivos.filter(r => r.estado !== 'resuelto').map((reporte) => {
           const isExpanded = expandedReportes.includes(reporte.id);
           return (
             <div key={reporte.id} className="bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm mb-4 transition-all">
@@ -1358,6 +1404,11 @@ function PanelAdmin({ pagosActivos, onApprovePago, onRejectPago, onResetPagos }:
     </div>
   );
 }
+
+
+
+
+
 
 
 
