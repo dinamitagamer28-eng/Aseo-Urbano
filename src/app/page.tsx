@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, CheckCircle, MapPin, CreditCard, Shield, AlertTriangle, ListTodo, LogIn, FileText, Loader2, BarChart3, Phone, Mail, Upload, ImagePlus, Settings, ChevronDown, ChevronUp } from 'lucide-react';
@@ -105,6 +105,29 @@ export default function AseoUrbanoApp() {
   const [reportesActivos, setReportesActivos] = useState<any[]>([]);
   // Estado global falso (mock) para los pagos de la sesión
   const [pagosActivos, setPagosActivos] = useState<any[]>([]);
+
+  // Persistir en LocalStorage (Solo para este prototipo mock)
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    const r = localStorage.getItem('mockReportes');
+    const p = localStorage.getItem('mockPagos');
+    if (r) setReportesActivos(JSON.parse(r));
+    if (p) setPagosActivos(JSON.parse(p));
+    setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('mockReportes', JSON.stringify(reportesActivos));
+    }
+  }, [reportesActivos, isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('mockPagos', JSON.stringify(pagosActivos));
+    }
+  }, [pagosActivos, isLoaded]);
   // Historial de rutas completadas por los camiones
   const [historialRutas, setHistorialRutas] = useState<{ tramo: string, fecha: string, tipo: string }[]>([]);
 
@@ -1415,6 +1438,8 @@ function PanelAdmin({ pagosActivos, onApprovePago, onRejectPago, onResetPagos }:
     </div>
   );
 }
+
+
 
 
 
