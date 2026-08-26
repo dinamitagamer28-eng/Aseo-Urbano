@@ -551,7 +551,7 @@ function SettingsScreen({ userData, reportesActivos, pagosActivos, onBack }: { u
         </div>
       </div>
 
-      <div className="border-t pt-4">
+      <div className="border-t pt-4 space-y-3">
         <button 
           onClick={handlePasswordReset}
           disabled={loading}
@@ -559,6 +559,17 @@ function SettingsScreen({ userData, reportesActivos, pagosActivos, onBack }: { u
         >
           {loading ? "Enviando correo..." : "Cambiar Contraseña"}
         </button>
+
+        {userData.rol === 'admin' && (
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+            <button onClick={() => setHistoryView('reportes')} className="w-full bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 font-bold py-2 rounded-lg text-sm transition">
+              Historial Reportes
+            </button>
+            <button onClick={() => setHistoryView('pagos')} className="w-full bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 font-bold py-2 rounded-lg text-sm transition">
+              Pagos Procesados
+            </button>
+          </div>
+        )}
       </div>
 
       <button className="w-full text-gray-500 font-bold py-2 text-sm hover:text-gray-800 transition" onClick={onBack}>
@@ -1404,6 +1415,8 @@ function PanelAdmin({ pagosActivos, onApprovePago, onRejectPago, onResetPagos }:
     </div>
   );
 }
+
+
 
 
 
