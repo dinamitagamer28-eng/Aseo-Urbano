@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, CheckCircle, MapPin, CreditCard, Shield, AlertTriangle, ListTodo, LogIn, FileText, Loader2, BarChart3, Phone, Mail, Upload, ImagePlus, Settings, ChevronDown, ChevronUp } from 'lucide-react';
@@ -907,8 +907,9 @@ function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHi
         <div className="bg-blue-600 px-3 py-1 rounded text-xs font-bold uppercase">En Ruta</div>
       </div>
 
-      {/* CHECKLIST DE RUTAS */}
-      <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+        {/* COLUMNA 1: CHECKLIST DE RUTAS */}
+        <div className="space-y-4">
         <div className="flex flex-col gap-2">
           <h2 className="font-black text-xl text-gray-800 flex items-center gap-2">
             <ListTodo className="w-6 h-6 text-green-600"/> Tramos Asignados
@@ -966,8 +967,8 @@ function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHi
         </div>
       </div>
 
-      {/* REPORTES ASIGNADOS */}
-      <div className="space-y-4 pt-4 border-t-2 border-dashed border-gray-300">
+        {/* COLUMNA 2: REPORTES ASIGNADOS */}
+        <div className="space-y-4 pt-4 md:pt-0 border-t-2 md:border-t-0 md:border-l-2 md:pl-8 border-dashed border-gray-300">
         <h2 className="font-black text-xl text-gray-800">Reportes Asignados ({reportesActivos.length})</h2>
         
         {reportesActivos.length === 0 && (
@@ -1056,6 +1057,7 @@ function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHi
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );
@@ -1337,6 +1339,7 @@ function PanelAdmin({ pagosActivos, onApprovePago, onResetPagos }: { pagosActivo
     </div>
   );
 }
+
 
 
 
