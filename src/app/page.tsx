@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Camera, CheckCircle, MapPin, CreditCard, Shield, AlertTriangle, ListTodo, LogIn, FileText, Loader2, BarChart3, Phone, Mail, Upload, ImagePlus, Settings } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Camera, CheckCircle, MapPin, CreditCard, Shield, AlertTriangle, ListTodo, LogIn, FileText, Loader2, BarChart3, Phone, Mail, Upload, ImagePlus, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { 
   createUserWithEmailAndPassword, 
@@ -220,7 +220,7 @@ export default function AseoUrbanoApp() {
       )}
 
       {/* CONTENIDO PRINCIPAL */}
-      <main className="max-w-md mx-auto w-full p-4 relative z-0">
+      <main className="max-w-md md:max-w-3xl lg:max-w-4xl mx-auto w-full p-4 relative z-0">
         {activeTab === 'ciudadano' && <AppCiudadana userData={userData} onSubmitReport={handleSubmitReport} reportesActivos={reportesActivos} pagosActivos={pagosActivos} onSubmitPago={handleSubmitPago} />}
         {activeTab === 'supervisor' && <AppSupervisor reportesActivos={reportesActivos} onResolveReport={handleResolveReport} historialRutas={historialRutas} setHistorialRutas={setHistorialRutas} />}
         {activeTab === 'admin' && <PanelAdmin pagosActivos={pagosActivos} onApprovePago={handleApprovePago} onResetPagos={() => setPagosActivos(pagosActivos.filter(p => p.estado !== 'aprobado'))} />}
@@ -846,6 +846,7 @@ function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHi
   const todayStr = new Date().toISOString().split('T')[0];
   
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string>(todayStr);
+  const [expandedReportes, setExpandedReportes] = useState<string[]>([]);
 
   const toggleTramo = (tramo: string, tipo: string) => {
     const exists = historialRutas.find(h => h.tramo === tramo && h.fecha === fechaSeleccionada);
@@ -975,68 +976,86 @@ function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHi
           </div>
         )}
 
-        {reportesActivos.map((reporte) => (
-          <div key={reporte.id} className="bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm mb-4">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex-1">
-                <span className="inline-block px-2 py-1 bg-red-100 text-red-800 text-xs font-black rounded mb-2 uppercase">Alta Prioridad</span>
-                <h3 className="font-bold text-lg leading-tight text-gray-900">{reporte.problema}</h3>
-                <p className="text-gray-500 text-sm mt-1 flex items-center gap-1">
-                  <MapPin className="w-4 h-4"/> {reporte.ubicacion}
-                </p>
-                {reporte.descripcion && (
-                  <p className="text-gray-600 text-sm mt-2 italic border-l-2 border-gray-300 pl-2">
-                    "{reporte.descripcion}"
+        {reportesActivos.map((reporte) => {
+          const isExpanded = expandedReportes.includes(reporte.id);
+          return (
+            <div key={reporte.id} className="bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm mb-4 transition-all">
+              <div 
+                className={`flex justify-between items-start cursor-pointer group ${isExpanded ? 'mb-4 border-b pb-4' : ''}`}
+                onClick={() => setExpandedReportes(prev => prev.includes(reporte.id) ? prev.filter(id => id !== reporte.id) : [...prev, reporte.id])}
+              >
+                <div className="flex-1 pr-4">
+                  <span className="inline-block px-2 py-1 bg-red-100 text-red-800 text-[10px] font-black rounded mb-2 uppercase">Alta Prioridad</span>
+                  <h3 className="font-bold text-lg leading-tight text-gray-900">{reporte.problema}</h3>
+                  <p className="text-gray-500 text-sm mt-1 flex items-center gap-1">
+                    <MapPin className="w-4 h-4 flex-shrink-0"/> <span className="truncate">{reporte.ubicacion}</span>
                   </p>
-                )}
-              </div>
-              <span className="text-xs font-bold text-gray-400 ml-2 whitespace-nowrap">{reporte.tiempo}</span>
-            </div>
-
-            {reporte.foto && (
-              <div className="mb-4 rounded-lg border border-gray-200">
-                <p className="text-xs font-bold text-gray-500 bg-gray-50 p-2 uppercase text-center border-b border-gray-200 rounded-t-lg">Foto del Ciudadano</p>
-                <img src={reporte.foto} alt="Evidencia" className="w-full h-auto rounded-b-lg" />
-              </div>
-            )}
-
-            {reporte.estado === 'asignado' && (
-              <button onClick={() => onResolveReport(reporte.id, 'foto_requerida')} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-xl text-lg uppercase flex items-center justify-center gap-2 transition">
-                <CheckCircle className="w-6 h-6" /> Iniciar Resolución
-              </button>
-            )}
-
-            {reporte.estado === 'foto_requerida' && (
-              <div className="p-4 bg-orange-50 border-2 border-orange-200 rounded-xl">
-                <p className="text-orange-800 font-bold mb-3 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5"/> ¡Evidencia requerida por el sistema!
-                </p>
-                <div className="flex gap-2">
-                  <label className="flex-1 cursor-pointer bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm uppercase flex flex-col items-center justify-center gap-1 shadow-md transition">
-                    <Camera className="w-6 h-6" /> Tomar Foto
-                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) onResolveReport(reporte.id, 'resuelto', URL.createObjectURL(file));
-                    }} />
-                  </label>
-                  <label className="flex-1 cursor-pointer bg-blue-500 hover:bg-blue-600 text-white font-black py-3 rounded-xl text-sm uppercase flex flex-col items-center justify-center gap-1 shadow-md transition">
-                    <ImagePlus className="w-6 h-6" /> De Galería
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) onResolveReport(reporte.id, 'resuelto', URL.createObjectURL(file));
-                    }} />
-                  </label>
+                </div>
+                <div className="text-right flex flex-col items-end gap-2">
+                  <span className="text-xs font-bold text-gray-400 whitespace-nowrap">{reporte.tiempo}</span>
+                  <div className="text-gray-400 group-hover:text-green-600 transition-colors">
+                    {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                  </div>
                 </div>
               </div>
-            )}
 
-            {reporte.estado === 'resuelto' && (
-              <div className="w-full bg-gray-100 text-green-700 font-black py-4 rounded-xl text-lg flex items-center justify-center gap-2 border-2 border-green-200">
-                <CheckCircle className="w-6 h-6" /> ¡Resuelto y Sincronizado!
-              </div>
-            )}
-          </div>
-        ))}
+              {isExpanded && (
+                <div className="animate-fade-in">
+                  {reporte.descripcion && (
+                    <p className="text-gray-600 text-sm mb-4 italic border-l-2 border-gray-300 pl-3 py-1 bg-gray-50 rounded-r-lg">
+                      "{reporte.descripcion}"
+                    </p>
+                  )}
+
+                  {reporte.foto && (
+                    <div className="mb-4 rounded-lg border border-gray-200">
+                      <p className="text-xs font-bold text-gray-500 bg-gray-50 p-2 uppercase text-center border-b border-gray-200 rounded-t-lg">Foto del Ciudadano</p>
+                      <img src={reporte.foto} alt="Evidencia" className="w-full h-auto max-h-64 object-contain rounded-b-lg bg-black" />
+                    </div>
+                  )}
+
+                  {reporte.estado === 'asignado' && (
+                    <button onClick={(e) => { e.stopPropagation(); onResolveReport(reporte.id, 'foto_requerida'); }} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-xl text-base uppercase flex items-center justify-center gap-2 transition">
+                      <CheckCircle className="w-5 h-5" /> Iniciar Resolución
+                    </button>
+                  )}
+
+                  {reporte.estado === 'foto_requerida' && (
+                    <div className="bg-orange-50 border-2 border-dashed border-orange-300 p-4 rounded-xl text-center">
+                      <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto mb-2" />
+                      <p className="text-orange-800 font-bold mb-3 leading-tight">Trabajo en sitio. Sube foto para cerrar el caso.</p>
+                      
+                      <div className="flex gap-2">
+                        <label className="flex-1 bg-white border-2 border-orange-300 text-orange-700 hover:bg-orange-100 py-3 rounded-xl font-bold cursor-pointer transition flex items-center justify-center gap-2">
+                          <Camera className="w-5 h-5"/> Tomar Foto
+                          <input type="file" accept="image/*" capture="environment" className="hidden" onClick={(e) => e.stopPropagation()} onChange={(e) => {
+                            if(e.target.files && e.target.files[0]) {
+                              onResolveReport(reporte.id, 'resuelto', URL.createObjectURL(e.target.files[0]));
+                            }
+                          }}/>
+                        </label>
+                        <label className="flex-1 bg-white border-2 border-orange-300 text-orange-700 hover:bg-orange-100 py-3 rounded-xl font-bold cursor-pointer transition flex items-center justify-center gap-2">
+                          <ImagePlus className="w-5 h-5"/> Subir Foto
+                          <input type="file" accept="image/*" className="hidden" onClick={(e) => e.stopPropagation()} onChange={(e) => {
+                            if(e.target.files && e.target.files[0]) {
+                              onResolveReport(reporte.id, 'resuelto', URL.createObjectURL(e.target.files[0]));
+                            }
+                          }}/>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {reporte.estado === 'resuelto' && (
+                    <div className="bg-gray-100 text-gray-500 font-bold p-4 rounded-xl text-center flex items-center justify-center gap-2">
+                      <CheckCircle className="w-5 h-5" /> Completado y Registrado
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -1049,6 +1068,7 @@ function PanelAdmin({ pagosActivos, onApprovePago, onResetPagos }: { pagosActivo
   const [adminTab, setAdminTab] = useState<'resumen' | 'pagos' | 'usuarios'>('resumen');
   const [tasaBcv, setTasaBcv] = useState<number | null>(null);
   const [usuarios, setUsuarios] = useState<any[]>([]);
+  const [expandedPagos, setExpandedPagos] = useState<string[]>([]);
 
   useEffect(() => {
     fetch('https://ve.dolarapi.com/v1/dolares/oficial')
@@ -1165,6 +1185,17 @@ function PanelAdmin({ pagosActivos, onApprovePago, onResetPagos }: { pagosActivo
 
       {adminTab === 'pagos' && (
         <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex justify-between items-center shadow-sm mb-2">
+            <div>
+              <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-0.5">Tarifa Oficial (5 USD)</p>
+              <p className="font-black text-blue-900 text-lg">{(5 * (tasaBcv || 0)).toFixed(2)} Bs</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-bold text-blue-500 uppercase">Tasa BCV Referencial</p>
+              <p className="font-bold text-blue-800">{tasaBcv || '---'} Bs/USD</p>
+            </div>
+          </div>
+
           <h3 className="font-bold text-gray-800 text-lg">Pagos por Validar</h3>
           {pendingPayments.length === 0 ? (
             <div className="bg-white p-8 rounded-xl text-center shadow-sm border border-gray-100">
@@ -1174,46 +1205,64 @@ function PanelAdmin({ pagosActivos, onApprovePago, onResetPagos }: { pagosActivo
               <p className="text-gray-500 font-bold">No hay pagos pendientes de revisión.</p>
             </div>
           ) : (
-            pendingPayments.map(pago => (
-              <div key={pago.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex justify-between items-start mb-3 border-b pb-3">
-                  <div>
-                    <p className="font-bold text-gray-800">{pago.usuario}</p>
-                    <p className="text-xs text-gray-500">{pago.cedula} • Sector {pago.sector}</p>
+            pendingPayments.map(pago => {
+              const isExpanded = expandedPagos.includes(pago.id);
+              return (
+                <div key={pago.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 transition-all">
+                  <div 
+                    className={`flex justify-between items-start cursor-pointer group ${isExpanded ? 'mb-3 border-b pb-3' : ''}`}
+                    onClick={() => setExpandedPagos(prev => prev.includes(pago.id) ? prev.filter(id => id !== pago.id) : [...prev, pago.id])}
+                  >
+                    <div>
+                      <p className="font-bold text-gray-800 flex items-center gap-2">
+                        {pago.usuario}
+                      </p>
+                      <p className="text-xs text-gray-500">{pago.cedula} • Sector {pago.sector}</p>
+                    </div>
+                    <div className="text-right flex items-center gap-3">
+                      <div>
+                        <p className="font-black text-green-700">{pago.monto}</p>
+                        <p className="text-xs font-bold text-gray-400">{pago.fecha}</p>
+                      </div>
+                      <div className="text-gray-400 group-hover:text-green-600 transition-colors">
+                        {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-black text-green-700">{pago.monto}</p>
-                    <p className="text-xs font-bold text-gray-400">{pago.fecha}</p>
-                  </div>
-                </div>
-                <div className="bg-gray-50 p-3 rounded-lg flex flex-col gap-2 mb-4">
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-gray-500 uppercase font-bold">Método</p>
-                    <p className="text-sm font-bold text-gray-800 capitalize">{pago.metodo === 'pago_movil' ? 'Pago Móvil' : pago.metodo}</p>
-                  </div>
-                  {pago.ref && pago.ref !== 'Foto adjunta' && (
-                    <div className="flex justify-between items-center border-t border-gray-200 pt-2">
-                      <p className="text-xs text-gray-500 uppercase font-bold">Referencia</p>
-                      <p className="text-sm font-mono font-bold text-gray-800">{pago.ref}</p>
+                  
+                  {isExpanded && (
+                    <div className="animate-fade-in">
+                      <div className="bg-gray-50 p-3 rounded-lg flex flex-col gap-2 mb-4">
+                        <div className="flex justify-between items-center">
+                          <p className="text-xs text-gray-500 uppercase font-bold">Método</p>
+                          <p className="text-sm font-bold text-gray-800 capitalize">{pago.metodo === 'pago_movil' ? 'Pago Móvil' : pago.metodo}</p>
+                        </div>
+                        {pago.ref && pago.ref !== 'Foto adjunta' && (
+                          <div className="flex justify-between items-center border-t border-gray-200 pt-2">
+                            <p className="text-xs text-gray-500 uppercase font-bold">Referencia</p>
+                            <p className="text-sm font-mono font-bold text-gray-800">{pago.ref}</p>
+                          </div>
+                        )}
+                        {pago.foto && (
+                          <div className="border-t border-gray-200 pt-2 mt-2">
+                            <p className="text-xs text-gray-500 uppercase font-bold mb-2">Comprobante / Captura</p>
+                            <img src={pago.foto} alt="Comprobante" className="w-full h-auto max-h-64 object-contain rounded-lg border border-gray-300 shadow-sm" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={(e) => { e.stopPropagation(); aprobarPago(pago.id); }} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold text-sm transition-colors shadow-sm">
+                          Aprobar
+                        </button>
+                        <button onClick={(e) => e.stopPropagation()} className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 py-3 rounded-lg font-bold text-sm transition-colors">
+                          Rechazar
+                        </button>
+                      </div>
                     </div>
                   )}
-                  {pago.foto && (
-                    <div className="border-t border-gray-200 pt-2 mt-2">
-                      <p className="text-xs text-gray-500 uppercase font-bold mb-2">Comprobante / Captura</p>
-                      <img src={pago.foto} alt="Comprobante" className="w-full h-auto rounded-lg border border-gray-300 shadow-sm" />
-                    </div>
-                  )}
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => aprobarPago(pago.id)} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold text-sm transition-colors">
-                    Aprobar y Emitir Folio
-                  </button>
-                  <button className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 py-2 rounded-lg font-bold text-sm transition-colors">
-                    Rechazar
-                  </button>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
@@ -1288,3 +1337,6 @@ function PanelAdmin({ pagosActivos, onApprovePago, onResetPagos }: { pagosActivo
     </div>
   );
 }
+
+
+
