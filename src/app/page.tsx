@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Camera, CheckCircle, MapPin, CreditCard, Shield, AlertTriangle, ListTodo, LogIn, FileText, Loader2, BarChart3, Phone, Mail } from 'lucide-react';
+import { Camera, CheckCircle, MapPin, CreditCard, Shield, AlertTriangle, ListTodo, LogIn, FileText, Loader2, BarChart3, Phone, Mail, Upload, ImagePlus, Settings } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   onAuthStateChanged,
-  signOut
+  signOut,
+  sendPasswordResetEmail
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, getDocs, onSnapshot } from 'firebase/firestore';
 
 // --- MOCK DATA ---
 const SECTORES = [
@@ -96,20 +97,33 @@ const SECTORES = [
 
 export default function AseoUrbanoApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeTab, setActiveTab] = useState<'ciudadano' | 'supervisor' | 'admin'>('ciudadano');
-  const [userData, setUserData] = useState({ nombre: '', sector: '', documento: '', uid: '', rol: 'ciudadano' });
+  const [activeTab, setActiveTab] = useState<'ciudadano' | 'supervisor' | 'admin' | 'settings'>('ciudadano');
+  const [userData, setUserData] = useState({ nombre: '', sector: '', documento: '', uid: '', correo: '', rol: 'ciudadano' });
   const [loadingSession, setLoadingSession] = useState(true);
 
   // Estado global falso (mock) para los reportes de la sesión
   const [reportesActivos, setReportesActivos] = useState<any[]>([]);
+  // Estado global falso (mock) para los pagos de la sesión
+  const [pagosActivos, setPagosActivos] = useState<any[]>([]);
+  // Historial de rutas completadas por los camiones
+  const [historialRutas, setHistorialRutas] = useState<{ tramo: string, fecha: string, tipo: string }[]>([]);
 
   const handleSubmitReport = (nuevoReporte: any) => {
     const r = { ...nuevoReporte, id: Date.now().toString() };
     setReportesActivos([r, ...reportesActivos]);
   };
 
-  const handleResolveReport = (id: string, nuevoEstado: string) => {
-    setReportesActivos(reportesActivos.map(r => r.id === id ? { ...r, estado: nuevoEstado } : r));
+  const handleResolveReport = (id: string, nuevoEstado: string, fotoRespuesta?: string) => {
+    setReportesActivos(reportesActivos.map(r => r.id === id ? { ...r, estado: nuevoEstado, ...(fotoRespuesta && { fotoRespuesta }) } : r));
+  };
+
+  const handleSubmitPago = (nuevoPago: any) => {
+    const p = { ...nuevoPago, id: Date.now().toString() };
+    setPagosActivos([p, ...pagosActivos]);
+  };
+
+  const handleApprovePago = (id: string) => {
+    setPagosActivos(pagosActivos.map(p => p.id === id ? { ...p, estado: 'aprobado' } : p));
   };
 
   // Escuchar el estado de autenticación en tiempo real
@@ -122,18 +136,18 @@ export default function AseoUrbanoApp() {
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
-            setUserData({ ...data as any, uid: user.uid });
+            setUserData({ ...data as any, uid: user.uid, correo: user.email });
             // Forzar vista de ciudadano si no es admin/supervisor
             if (data.rol === 'ciudadano') {
               setActiveTab('ciudadano');
             }
           } else {
-            setUserData({ nombre: 'Usuario', sector: 'Desconocido', documento: '', uid: user.uid, rol: 'ciudadano' });
+            setUserData({ nombre: 'Usuario', sector: 'Desconocido', documento: '', uid: user.uid, correo: user.email || '', rol: 'ciudadano' });
           }
           setIsLoggedIn(true);
         } catch (error) {
           console.error("Error cargando perfil de Firestore:", error);
-          setUserData({ nombre: 'Usuario', sector: 'Error de BD', documento: '', uid: user.uid, rol: 'ciudadano' });
+          setUserData({ nombre: 'Usuario', sector: 'Error de BD', documento: '', uid: user.uid, correo: user.email || '', rol: 'ciudadano' });
           setIsLoggedIn(true); // Permitir entrar aunque falle la BD para que pueda cerrar sesión
         }
       } else {
@@ -167,19 +181,26 @@ export default function AseoUrbanoApp() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* HEADER PRINCIPAL */}
-      <header className="bg-green-700 text-white p-4 shadow-md z-10 sticky top-0 flex justify-between items-center">
+    <div className="min-h-screen bg-gray-50 font-sans pb-20">
+      {/* HEADER GLOBAL */}
+      <header className="bg-green-700 text-white p-4 flex justify-between items-center shadow-md sticky top-0 z-20">
         <div className="flex items-center gap-3">
-          <Shield className="w-8 h-8" />
+          <div className="bg-white p-1.5 rounded-full shadow-sm">
+            <Shield className="w-6 h-6 text-green-700" />
+          </div>
           <div>
-            <h1 className="font-black text-lg leading-tight">Alcaldía de Rosario de Perijá</h1>
+            <h1 className="font-black text-lg leading-none tracking-tight">Alcaldía</h1>
             <p className="text-green-100 text-xs">Sistema de Aseo Urbano</p>
           </div>
         </div>
-        <button onClick={handleLogout} className="text-xs font-bold bg-green-800 hover:bg-green-900 px-3 py-2 rounded-lg transition">
-          Cerrar Sesión
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setActiveTab('settings')} className="p-2 bg-green-800 hover:bg-green-900 rounded-full transition shadow-inner">
+             <Settings className="w-5 h-5 text-white" />
+          </button>
+          <button onClick={handleLogout} className="text-xs font-bold bg-green-800 hover:bg-green-900 px-3 py-2 rounded-lg transition shadow-inner">
+            Cerrar Sesión
+          </button>
+        </div>
       </header>
 
       {/* NAVBAR: MODO DE PRUEBA (Solo visible para Admin/Supervisor) */}
@@ -188,7 +209,7 @@ export default function AseoUrbanoApp() {
           <span className="text-gray-500 uppercase">Modo Personal:</span>
           <select 
             className="bg-transparent border-none focus:outline-none text-green-700 cursor-pointer text-right"
-            value={activeTab} 
+            value={activeTab === 'settings' ? (userData.rol === 'admin' ? 'admin' : 'supervisor') : activeTab} 
             onChange={(e) => setActiveTab(e.target.value as any)}
           >
             <option value="ciudadano">Vista Ciudadano</option>
@@ -200,9 +221,10 @@ export default function AseoUrbanoApp() {
 
       {/* CONTENIDO PRINCIPAL */}
       <main className="max-w-md mx-auto w-full p-4 relative z-0">
-        {activeTab === 'ciudadano' && <AppCiudadana userData={userData} onSubmitReport={handleSubmitReport} />}
-        {activeTab === 'supervisor' && <AppSupervisor reportesActivos={reportesActivos} onResolveReport={handleResolveReport} />}
-        {activeTab === 'admin' && <PanelAdmin />}
+        {activeTab === 'ciudadano' && <AppCiudadana userData={userData} onSubmitReport={handleSubmitReport} reportesActivos={reportesActivos} pagosActivos={pagosActivos} onSubmitPago={handleSubmitPago} />}
+        {activeTab === 'supervisor' && <AppSupervisor reportesActivos={reportesActivos} onResolveReport={handleResolveReport} historialRutas={historialRutas} setHistorialRutas={setHistorialRutas} />}
+        {activeTab === 'admin' && <PanelAdmin pagosActivos={pagosActivos} onApprovePago={handleApprovePago} onResetPagos={() => setPagosActivos(pagosActivos.filter(p => p.estado !== 'aprobado'))} />}
+        {activeTab === 'settings' && <SettingsScreen userData={userData} onBack={() => setActiveTab(userData.rol === 'admin' ? 'admin' : userData.rol === 'supervisor' ? 'supervisor' : 'ciudadano')} />}
       </main>
     </div>
   );
@@ -266,29 +288,44 @@ function AuthScreen({ onLogin }: { onLogin: (data: any) => void }) {
         // Recuperar datos extra de Firestore
         const docSnap = await getDoc(doc(db, 'usuarios', user.uid));
         if (docSnap.exists()) {
-          onLogin({ ...docSnap.data(), uid: user.uid });
+          const data = docSnap.data();
+          onLogin({ ...data, uid: user.uid, correo: data.correo || user.email });
         } else {
           // Fallback por si la cuenta existe pero no tiene documento
-          onLogin({ nombre: 'Usuario', sector: '1', documento: '', uid: user.uid, rol: 'ciudadano' });
+          onLogin({ nombre: 'Usuario', sector: '1', documento: '', uid: user.uid, correo: user.email, rol: 'ciudadano' });
         }
       }
-    } catch (error: any) {
-      console.error(error);
-      if (error.code === 'auth/email-already-in-use') setErrorMsg("Este correo ya está registrado.");
-      else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') setErrorMsg("Correo o contraseña incorrectos.");
-      else if (error.code === 'auth/user-not-found') setErrorMsg("No existe una cuenta con este correo.");
-      else setErrorMsg("Ocurrió un error. Intenta nuevamente.");
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/email-already-in-use') setErrorMsg("El correo ya está registrado.");
+      else if (err.code === 'auth/invalid-credential') setErrorMsg("Correo o contraseña incorrectos.");
+      else setErrorMsg("Ocurrió un error. Verifica tus datos.");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!formData.correo) {
+      setErrorMsg("Por favor, ingresa tu correo electrónico arriba para poder enviarte el enlace de recuperación.");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, formData.correo);
+      alert("Te hemos enviado un enlace de recuperación. Por favor, revisa tu bandeja de entrada (y la carpeta de spam).");
+    } catch (err: any) {
+      setErrorMsg("No se pudo enviar el correo: " + err.message);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
-        <div className="bg-green-700 p-6 text-center text-white">
-          <Shield className="w-12 h-12 mx-auto mb-3" />
-          <h1 className="text-2xl font-black">Aseo Urbano</h1>
+    <div className="min-h-screen bg-green-50 flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95">
+        <div className="bg-green-700 p-6 text-center">
+          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+            <Shield className="w-8 h-8 text-green-700" />
+          </div>
+          <h1 className="text-white font-black text-2xl">Aseo Urbano</h1>
           <p className="text-green-100 text-sm">Rosario de Perijá</p>
         </div>
         
@@ -306,8 +343,8 @@ function AuthScreen({ onLogin }: { onLogin: (data: any) => void }) {
           {isRegistering && (
             <>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre y Apellido</label>
-                <input required type="text" className="w-full border p-2.5 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ej. Juan Pérez" 
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre y Apellido Completo</label>
+                <input required type="text" className="w-full border p-2.5 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ej. Juan Pérez Sánchez" 
                   value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} />
               </div>
 
@@ -315,39 +352,36 @@ function AuthScreen({ onLogin }: { onLogin: (data: any) => void }) {
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cédula o RIF</label>
                 <div className="flex gap-2">
                   <div className="relative">
-                    <select className="appearance-none border p-2.5 pr-8 rounded-lg bg-gray-50 font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer" 
+                    <select className="appearance-none bg-gray-50 border p-2.5 rounded-lg text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-green-500 pr-8"
                       value={formData.tipoDoc} onChange={e => setFormData({...formData, tipoDoc: e.target.value})}>
-                      <option value="V">V</option>
-                      <option value="E">E</option>
-                      <option value="J">J</option>
-                      <option value="G">G</option>
+                      <option value="V">V-</option>
+                      <option value="E">E-</option>
+                      <option value="J">J-</option>
                     </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                       <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                     </div>
                   </div>
-                  <input required type="text" inputMode="numeric" pattern="\d*" maxLength={10} className="w-full border p-2.5 rounded-lg bg-gray-50 flex-1 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ej. 12345678" 
-                    value={formData.documento} onChange={e => setFormData({...formData, documento: e.target.value.replace(/\D/g, '')})} />
+                  <input required type="text" inputMode="numeric" pattern="\d*" minLength={7} maxLength={9} className="w-full border p-2.5 rounded-lg bg-gray-50 flex-1 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ej. 12345678" 
+                    value={formData.documento} onChange={e => setFormData({...formData, documento: e.target.value.replace(/\D/g, '').slice(0, 9)})} />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Sector Residencial / Comercial</label>
+                <select required className="w-full border p-2.5 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  value={formData.sector} onChange={e => setFormData({...formData, sector: e.target.value})}>
+                  <option value="">Selecciona tu sector...</option>
+                  {SECTORES.map(s => (
+                    <option key={s.id} value={s.id}>{s.nombre}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Teléfono</label>
-                <input required type="tel" inputMode="numeric" className="w-full border p-2.5 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ej. 04141234567" 
-                  value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value.replace(/\D/g, '')})} />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Sector (Ruta de Recolección)</label>
-                <div className="relative">
-                  <select className="appearance-none w-full border p-2.5 pr-8 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer"
-                    value={formData.sector} onChange={e => setFormData({...formData, sector: e.target.value})}>
-                    {SECTORES.map(s => <option key={s.id} value={s.id}>{s.id} - {s.nombre}</option>)}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                  </div>
-                </div>
+                <input required type="tel" inputMode="numeric" minLength={11} maxLength={11} className="w-full border p-2.5 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ej. 04141234567" 
+                  value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value.replace(/\D/g, '').slice(0, 11)})} />
               </div>
 
               <div>
@@ -361,7 +395,7 @@ function AuthScreen({ onLogin }: { onLogin: (data: any) => void }) {
                 <input type="text" className="w-full border p-2.5 rounded-lg bg-yellow-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500" placeholder="Ej. CLAVE-123" 
                   value={formData.codigoAcceso} onChange={e => setFormData({...formData, codigoAcceso: e.target.value})} />
                 <p className="text-xs text-orange-600 mt-1.5 font-semibold leading-tight">
-                  ⚠️ <b>Atención:</b> Este campo es exclusivo para empleados y supervisores de la Alcaldía. Si eres ciudadano, déjalo en blanco.
+                  Solo para registro de administradores de la alcaldía. Déjalo en blanco si eres ciudadano.
                 </p>
               </div>
             </>
@@ -384,7 +418,12 @@ function AuthScreen({ onLogin }: { onLogin: (data: any) => void }) {
             {isRegistering ? "Crear Cuenta" : "Entrar"}
           </button>
           
-          <div className="text-center mt-4">
+          <div className="text-center mt-4 flex flex-col gap-3">
+            {!isRegistering && (
+              <button type="button" onClick={handleResetPassword} className="text-sm font-bold text-gray-500 hover:text-green-700 hover:underline">
+                ¿Olvidaste tu contraseña?
+              </button>
+            )}
             <button type="button" onClick={() => { setIsRegistering(!isRegistering); setErrorMsg(""); }} className="text-sm font-bold text-green-700 hover:underline">
               {isRegistering ? "¿Ya tienes cuenta? Inicia sesión aquí" : "¿No tienes cuenta? Regístrate aquí"}
             </button>
@@ -399,11 +438,86 @@ function AuthScreen({ onLogin }: { onLogin: (data: any) => void }) {
 // PANTALLAS (MOCKS)
 // ==========================================
 
-function AppCiudadana({ userData, onSubmitReport }: { userData: any, onSubmitReport: (r: any) => void }) {
-  const [view, setView] = useState<'home' | 'report' | 'report-success' | 'pay'>('home');
+function SettingsScreen({ userData, onBack }: { userData: any, onBack: () => void }) {
+  const [loading, setLoading] = useState(false);
+
+  const handlePasswordReset = async () => {
+    if (!userData.correo) {
+      alert("No hay un correo registrado para esta cuenta.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, userData.correo);
+      alert("Te hemos enviado un correo a " + userData.correo + " con el enlace para cambiar tu contraseña.");
+    } catch (err: any) {
+      alert("Error al enviar el correo: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-6 animate-in fade-in slide-in-from-bottom-4">
+      <div className="flex justify-between items-center border-b pb-3">
+        <h2 className="font-bold text-xl text-gray-800 flex items-center gap-2">
+          <Shield className="w-6 h-6 text-green-600" /> Mi Cuenta
+        </h2>
+      </div>
+      
+      <div className="space-y-4">
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Nombre Completo</p>
+          <p className="font-medium text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200">{userData.nombre}</p>
+        </div>
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Cédula de Identidad</p>
+          <p className="font-medium text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200">{userData.documento}</p>
+        </div>
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Correo Electrónico</p>
+          <p className="font-medium text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200">{userData.correo || 'correo@ejemplo.com'}</p>
+        </div>
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Teléfono</p>
+          <p className="font-medium text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200">{userData.telefono || 'No registrado'}</p>
+        </div>
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Sector Residencial</p>
+          <p className="font-medium text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200">
+            {SECTORES.find(s => s.id === userData.sector)?.nombre || 'Sector no especificado'}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Rol de Sistema</p>
+          <p className="font-medium text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200 capitalize">{userData.rol}</p>
+        </div>
+      </div>
+
+      <div className="border-t pt-4">
+        <button 
+          onClick={handlePasswordReset}
+          disabled={loading}
+          className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3 rounded-lg transition border border-blue-200 disabled:opacity-50"
+        >
+          {loading ? "Enviando correo..." : "Cambiar Contraseña"}
+        </button>
+      </div>
+
+      <button className="w-full text-gray-500 font-bold py-2 text-sm hover:text-gray-800 transition" onClick={onBack}>
+        Volver
+      </button>
+    </div>
+  );
+}
+
+function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos, onSubmitPago }: { userData: any, onSubmitReport: (r: any) => void, reportesActivos: any[], pagosActivos: any[], onSubmitPago: (p: any) => void }) {
+  const [view, setView] = useState<'home' | 'report' | 'report-success' | 'pay' | 'settings'>('home');
   const [tasaBcv, setTasaBcv] = useState<number>(36.5);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'submitted'>('pending');
   const [paymentMethod, setPaymentMethod] = useState<'pago_movil' | 'zelle' | 'efectivo'>('efectivo');
+  const [paymentRef, setPaymentRef] = useState('');
+  const [paymentPhoto, setPaymentPhoto] = useState<string | null>(null);
   
   const [reportData, setReportData] = useState({ problema: '', ubicacion: '', descripcion: '' });
   const [reportPhoto, setReportPhoto] = useState<string | null>(null);
@@ -429,12 +543,13 @@ function AppCiudadana({ userData, onSubmitReport }: { userData: any, onSubmitRep
     <div className="space-y-6">
       {view === 'home' && (
         <>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 relative">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Sector Actual</p>
-            <h2 className="text-xl font-black text-gray-800 leading-tight">
+            <h2 className="text-xl font-black text-gray-800 leading-tight pr-10">
               {SECTORES.find(s => s.id === userData.sector)?.nombre || 'Sector no especificado'}
             </h2>
             <p className="text-sm text-gray-500 mt-1">{userData.documento} • {userData.nombre}</p>
+            <p className="text-xs text-gray-400 mt-0.5 font-medium">{userData.correo}</p>
             <div className="mt-4 inline-block bg-green-100 text-green-800 text-xs font-black px-3 py-1 rounded-full">Servicio Activo</div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -447,6 +562,63 @@ function AppCiudadana({ userData, onSubmitReport }: { userData: any, onSubmitRep
               <span className="font-bold leading-tight">Pagar<br/>Mensualidad</span>
             </button>
           </div>
+
+          <div className="mt-8">
+            <h3 className="font-black text-lg text-gray-800 mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-gray-500" /> Tu Historial
+            </h3>
+            
+            <div className="space-y-4">
+              {/* PAGOS ACTIVOS DEL USUARIO */}
+              {pagosActivos.map(p => (
+                <div key={p.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                   <div>
+                      <p className="font-bold text-gray-800 text-sm">Pago de Mensualidad</p>
+                      <p className="text-xs text-gray-500 mt-1 capitalize">
+                        {p.metodo === 'pago_movil' ? 'Pago Móvil' : p.metodo} 
+                        {p.ref && ` • Ref: ${p.ref}`}
+                        {p.foto && ` • (Foto enviada)`}
+                      </p>
+                   </div>
+                   <span className={`text-xs font-black px-2 py-1 rounded ${p.estado === 'aprobado' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                     {p.estado === 'aprobado' ? 'Aprobado' : 'Pendiente'}
+                   </span>
+                </div>
+              ))}
+
+              {/* REPORTES ACTIVOS DEL USUARIO */}
+              {reportesActivos.length > 0 ? reportesActivos.map(r => (
+                 <div key={r.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-2">
+                   <div className="flex justify-between items-start">
+                     <div>
+                        <p className="font-bold text-gray-800 text-sm">{r.problema}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{r.tiempo}</p>
+                     </div>
+                     <span className={`text-xs font-black px-2 py-1 rounded text-center whitespace-nowrap ${
+                        r.estado === 'resuelto' ? 'bg-green-100 text-green-800' :
+                        r.estado === 'foto_requerida' ? 'bg-orange-100 text-orange-800' :
+                        'bg-gray-100 text-gray-600'
+                     }`}>
+                        {r.estado === 'resuelto' ? 'Resuelto' : 
+                         r.estado === 'foto_requerida' ? 'En Proceso' : 
+                         'Pendiente de Revisión'}
+                     </span>
+                   </div>
+                   
+                   {r.fotoRespuesta && (
+                     <div className="mt-3 border-t pt-3 border-gray-100">
+                        <p className="text-xs font-bold text-gray-500 uppercase mb-2 text-center">Foto de Resolución (Supervisor)</p>
+                        <img src={r.fotoRespuesta} alt="Resolución" className="w-full h-auto object-cover rounded-lg border border-gray-200" />
+                     </div>
+                   )}
+                 </div>
+              )) : (
+                 <div className="bg-gray-50 p-4 rounded-xl border border-dashed border-gray-200 text-center text-sm text-gray-500 font-medium">
+                   Aún no has realizado reportes.
+                 </div>
+              )}
+            </div>
+          </div>
         </>
       )}
 
@@ -456,6 +628,10 @@ function AppCiudadana({ userData, onSubmitReport }: { userData: any, onSubmitRep
           
           <form onSubmit={(e) => { 
             e.preventDefault(); 
+            if (!reportPhoto) {
+              alert("Por favor, añade una evidencia fotográfica antes de enviar el reporte.");
+              return;
+            }
             onSubmitReport({ ...reportData, foto: reportPhoto, estado: 'asignado', tiempo: 'Hace 1 min' }); 
             setView('report-success'); 
           }} className="space-y-4">
@@ -484,18 +660,30 @@ function AppCiudadana({ userData, onSubmitReport }: { userData: any, onSubmitRep
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Evidencia Fotográfica</label>
-              <label className="w-full block border-2 border-dashed border-gray-300 rounded-xl overflow-hidden text-center text-gray-500 hover:bg-gray-50 hover:border-green-500 cursor-pointer transition relative">
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Evidencia Fotográfica <span className="text-red-500">*</span></label>
+              <div className="w-full border-2 border-dashed border-gray-300 rounded-xl overflow-hidden bg-white">
                 {reportPhoto ? (
-                  <img src={reportPhoto} alt="Evidencia" className="w-full h-48 object-cover" />
+                  <div className="relative">
+                    <img src={reportPhoto} alt="Evidencia" className="w-full h-48 object-cover" />
+                    <button type="button" onClick={() => setReportPhoto(null)} className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white font-bold text-xs px-3 py-1 rounded-full shadow-md transition">
+                      Quitar Foto
+                    </button>
+                  </div>
                 ) : (
-                  <div className="p-6">
-                    <Camera className="w-10 h-10 mx-auto mb-2 opacity-50 text-red-500" />
-                    <p className="font-bold text-gray-700">Añadir Foto <span className="text-red-500 uppercase text-xs ml-1">(Obligatoria)</span></p>
+                  <div className="flex divide-x-2 divide-dashed divide-gray-300">
+                    <label className="flex-1 p-4 hover:bg-green-50 cursor-pointer transition flex flex-col items-center group">
+                      <Camera className="w-8 h-8 mb-2 text-gray-400 group-hover:text-green-600 transition" />
+                      <p className="font-bold text-xs uppercase text-gray-600 group-hover:text-green-700">Cámara</p>
+                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
+                    </label>
+                    <label className="flex-1 p-4 hover:bg-blue-50 cursor-pointer transition flex flex-col items-center group">
+                      <ImagePlus className="w-8 h-8 mb-2 text-gray-400 group-hover:text-blue-600 transition" />
+                      <p className="font-bold text-xs uppercase text-gray-600 group-hover:text-blue-700">Galería</p>
+                      <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                    </label>
                   </div>
                 )}
-                <input required={!reportPhoto} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
-              </label>
+              </div>
             </div>
 
             <button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg mt-4 transition">
@@ -549,21 +737,56 @@ function AppCiudadana({ userData, onSubmitReport }: { userData: any, onSubmitRep
                   <span className="font-semibold text-sm">Efectivo en Taquilla</span>
                 </label>
               </div>
-              {(paymentMethod === 'pago_movil' || paymentMethod === 'zelle') && (
-                <div className="mt-4">
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Subir Comprobante</label>
-                  <label className="w-full block border-2 border-dashed border-gray-300 rounded-xl p-4 text-center text-gray-500 hover:bg-gray-50 hover:border-green-500 cursor-pointer transition">
-                    <Upload className="w-6 h-6 mx-auto mb-1 opacity-50" />
-                    <p className="font-bold text-sm">Seleccionar imagen</p>
-                    <input type="file" accept="image/*" className="hidden" />
-                  </label>
-                </div>
-              )}
-              <button className="w-full bg-green-600 text-white font-bold py-3 rounded-lg mt-4 flex items-center justify-center gap-2" onClick={() => setPaymentStatus('submitted')}>
-                <FileText className="w-5 h-5"/> Enviar
-              </button>
-            </div>
-          ) : (
+                {(paymentMethod === 'pago_movil' || paymentMethod === 'zelle') && (
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Número de Referencia (Opcional si sube foto)</label>
+                      <input type="text" placeholder="Ej: 0034912" className="w-full border p-3 rounded-lg bg-gray-50 text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-green-500" value={paymentRef} onChange={(e) => setPaymentRef(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Comprobante o Captura</label>
+                      <label className="w-full block border-2 border-dashed border-gray-300 rounded-xl overflow-hidden text-center text-gray-500 hover:bg-gray-50 hover:border-green-500 cursor-pointer transition">
+                        {paymentPhoto ? (
+                          <div className="relative">
+                            <img src={paymentPhoto} alt="Comprobante" className="w-full h-32 object-cover" />
+                            <button type="button" onClick={(e) => { e.preventDefault(); setPaymentPhoto(null); }} className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 px-3 text-xs font-bold shadow">Quitar</button>
+                          </div>
+                        ) : (
+                          <div className="p-4">
+                            <Upload className="w-6 h-6 mx-auto mb-1 opacity-50 text-blue-500" />
+                            <p className="font-bold text-sm text-gray-600">Seleccionar imagen</p>
+                          </div>
+                        )}
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) setPaymentPhoto(URL.createObjectURL(file));
+                        }} />
+                      </label>
+                    </div>
+                  </div>
+                )}
+                <button className="w-full bg-green-600 text-white font-bold py-3 rounded-lg mt-4 flex items-center justify-center gap-2" onClick={() => {
+                  if ((paymentMethod === 'pago_movil' || paymentMethod === 'zelle') && !paymentRef && !paymentPhoto) {
+                    alert("Debes escribir el número de referencia o subir una foto del comprobante.");
+                    return;
+                  }
+                  onSubmitPago({
+                    usuario: userData.nombre,
+                    cedula: userData.documento,
+                    sector: userData.sector,
+                    monto: `${TARIFA_BS.toFixed(2)} Bs`,
+                    metodo: paymentMethod,
+                    ref: paymentRef || 'Foto adjunta',
+                    foto: paymentPhoto,
+                    fecha: new Date().toLocaleDateString('es-VE'),
+                    estado: 'pendiente'
+                  });
+                  setPaymentStatus('submitted');
+                }}>
+                  <FileText className="w-5 h-5"/> Enviar Reporte de Pago
+                </button>
+              </div>
+            ) : (
             <div className="bg-green-50 border-2 border-green-200 text-green-800 p-6 rounded-xl text-center mt-4">
               <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-600" />
               <h3 className="font-bold text-lg leading-tight mb-2">Pago enviado</h3>
@@ -573,6 +796,7 @@ function AppCiudadana({ userData, onSubmitReport }: { userData: any, onSubmitRep
           <button className="w-full text-gray-500 font-semibold py-2 text-sm" onClick={() => setView('home')}>Volver</button>
         </div>
       )}
+
     </div>
   );
 }
@@ -617,21 +841,59 @@ const RUTAS_POR_DIA = {
   ]
 };
 
-function AppSupervisor({ reportesActivos, onResolveReport }: { reportesActivos: any[], onResolveReport: (id: string, step: string) => void }) {
+function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHistorialRutas }: { reportesActivos: any[], onResolveReport: (id: string, step: string, foto?: string) => void, historialRutas: any[], setHistorialRutas: (h: any[]) => void }) {
   const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-  const diaHoyString = DIAS_SEMANA[new Date().getDay()];
+  const todayStr = new Date().toISOString().split('T')[0];
   
-  const [diaSeleccionado, setDiaSeleccionado] = useState<string>(diaHoyString);
-  const [tramosCompletados, setTramosCompletados] = useState<string[]>([]);
+  const [fechaSeleccionada, setFechaSeleccionada] = useState<string>(todayStr);
 
-  const toggleTramo = (tramo: string) => {
-    if (tramosCompletados.includes(tramo)) {
-      setTramosCompletados(tramosCompletados.filter(t => t !== tramo));
+  const toggleTramo = (tramo: string, tipo: string) => {
+    const exists = historialRutas.find(h => h.tramo === tramo && h.fecha === fechaSeleccionada);
+    if (exists) {
+      setHistorialRutas(historialRutas.filter(h => h !== exists));
     } else {
-      setTramosCompletados([...tramosCompletados, tramo]);
+      setHistorialRutas([...historialRutas, { tramo, tipo, fecha: fechaSeleccionada }]);
     }
   };
 
+  const getTramoStatus = (tramo: string, tipo: string) => {
+    // Si fue completado hoy mismo
+    const doneToday = historialRutas.find(h => h.tramo === tramo && h.fecha === fechaSeleccionada);
+    if (doneToday) return { isCompleted: true, doneToday: true };
+    
+    // Validar frecuencia
+    let daysCooldown = 0;
+    const tLower = tipo.toLowerCase();
+    if (tLower.includes('catorcenal')) daysCooldown = 14;
+    else if (tLower.includes('quincenal')) daysCooldown = 15;
+    else if (tLower.includes('semanal')) daysCooldown = 7;
+    else if (tLower.includes('trimotos')) daysCooldown = 1;
+
+    if (daysCooldown === 0) return { isCompleted: false, doneToday: false };
+
+    // Buscar si se completó recientemente
+    const pastCompletions = historialRutas
+       .filter(h => h.tramo === tramo && new Date(h.fecha) <= new Date(fechaSeleccionada))
+       .sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+    if (pastCompletions.length > 0) {
+       const lastDate = new Date(pastCompletions[0].fecha + 'T00:00:00');
+       const selectedDate = new Date(fechaSeleccionada + 'T00:00:00');
+       const diffTime = Math.abs(selectedDate.getTime() - lastDate.getTime());
+       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+       
+       if (diffDays < daysCooldown) {
+         return { isCompleted: true, doneToday: false, diffDays };
+       }
+    }
+    return { isCompleted: false, doneToday: false };
+  };
+
+  const dateObj = new Date(fechaSeleccionada + 'T00:00:00');
+  const diaSemanaIndex = dateObj.getDay();
+  const diaSeleccionado = DIAS_SEMANA[diaSemanaIndex];
+  const isToday = fechaSeleccionada === todayStr;
+  
   const rutasDelDia = RUTAS_POR_DIA[diaSeleccionado as keyof typeof RUTAS_POR_DIA] || [];
 
   return (
@@ -651,30 +913,50 @@ function AppSupervisor({ reportesActivos, onResolveReport }: { reportesActivos: 
             <ListTodo className="w-6 h-6 text-green-600"/> Tramos Asignados
           </h2>
           <div className="relative w-full">
-            <select className="appearance-none w-full border-2 border-green-600 p-3 pr-8 rounded-lg bg-green-50 text-green-800 font-black focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer capitalize"
-              value={diaSeleccionado} onChange={(e) => setDiaSeleccionado(e.target.value)}>
-              {DIAS_SEMANA.map((dia) => (
-                <option key={dia} value={dia}>Rutas del día: {dia} {dia === diaHoyString ? '(Hoy)' : ''}</option>
-              ))}
-            </select>
+            <input 
+              type="date" 
+              className="appearance-none w-full border-2 border-green-600 p-3 rounded-lg bg-green-50 text-green-800 font-black focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer"
+              value={fechaSeleccionada} 
+              onChange={(e) => setFechaSeleccionada(e.target.value)}
+            />
           </div>
+          <p className="text-sm font-bold text-gray-500 capitalize">
+            Rutas del {diaSeleccionado} {isToday ? '(Hoy)' : ''}
+          </p>
         </div>
         
         <div className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-sm">
-          {rutasDelDia.map((grupoRuta) => (
+          {rutasDelDia.length === 0 ? (
+            <div className="p-4 text-center text-gray-500 font-bold">No hay rutas asignadas para este día.</div>
+          ) : rutasDelDia.map((grupoRuta) => (
             <div key={grupoRuta.tipo}>
               <div className="bg-gray-100 px-4 py-2 border-b border-t font-black text-xs text-gray-500 uppercase tracking-wider">{grupoRuta.tipo}</div>
               {grupoRuta.tramos.map((tramo, index) => {
-                const isCompleted = tramosCompletados.includes(tramo);
+                const status = getTramoStatus(tramo, grupoRuta.tipo);
                 return (
-                  <div key={tramo} className={`p-4 border-b flex items-center justify-between transition ${isCompleted ? 'bg-green-50' : 'bg-white'}`}>
+                  <div key={tramo} className={`p-4 border-b flex items-center justify-between transition ${status.isCompleted ? 'bg-green-50' : 'bg-white'}`}>
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-sm ${isCompleted ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'}`}>{index + 1}</div>
-                      <span className={`font-bold text-base sm:text-lg leading-tight ${isCompleted ? 'text-green-800 line-through opacity-70' : 'text-gray-800'}`}>{tramo}</span>
+                      <div className={`w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-sm ${status.isCompleted ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'}`}>{index + 1}</div>
+                      <div>
+                        <span className={`font-bold text-base sm:text-lg leading-tight ${status.isCompleted ? 'text-green-800 line-through opacity-70' : 'text-gray-800'}`}>{tramo}</span>
+                        {status.isCompleted && !status.doneToday && (
+                          <p className="text-[10px] text-green-600 font-bold uppercase mt-0.5">Completado recientemente</p>
+                        )}
+                      </div>
                     </div>
-                    <button onClick={() => toggleTramo(tramo)} className={`px-4 py-3 rounded-lg font-bold text-xs sm:text-sm uppercase transition flex-shrink-0 ml-2 ${isCompleted ? 'bg-gray-200 text-gray-600' : 'bg-green-600 text-white shadow-md'}`}>
-                      {isCompleted ? 'Deshacer' : 'Completar'}
-                    </button>
+                    {status.doneToday ? (
+                      <button onClick={() => toggleTramo(tramo, grupoRuta.tipo)} className="px-4 py-3 rounded-lg font-bold text-xs sm:text-sm uppercase transition flex-shrink-0 ml-2 bg-gray-200 text-gray-600 hover:bg-gray-300">
+                        Deshacer
+                      </button>
+                    ) : !status.isCompleted ? (
+                      <button onClick={() => toggleTramo(tramo, grupoRuta.tipo)} className="px-4 py-3 rounded-lg font-bold text-xs sm:text-sm uppercase transition flex-shrink-0 ml-2 bg-green-600 hover:bg-green-700 text-white shadow-md">
+                        Completar
+                      </button>
+                    ) : (
+                      <div className="px-4 py-3 rounded-lg font-bold text-xs uppercase text-green-600 bg-green-100 flex-shrink-0 ml-2 border border-green-200">
+                        <CheckCircle className="w-5 h-5 inline-block" />
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -696,9 +978,9 @@ function AppSupervisor({ reportesActivos, onResolveReport }: { reportesActivos: 
         {reportesActivos.map((reporte) => (
           <div key={reporte.id} className="bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm mb-4">
             <div className="flex justify-between items-start mb-4">
-              <div>
+              <div className="flex-1">
                 <span className="inline-block px-2 py-1 bg-red-100 text-red-800 text-xs font-black rounded mb-2 uppercase">Alta Prioridad</span>
-                <h3 className="font-bold text-lg leading-tight">{reporte.problema}</h3>
+                <h3 className="font-bold text-lg leading-tight text-gray-900">{reporte.problema}</h3>
                 <p className="text-gray-500 text-sm mt-1 flex items-center gap-1">
                   <MapPin className="w-4 h-4"/> {reporte.ubicacion}
                 </p>
@@ -708,13 +990,13 @@ function AppSupervisor({ reportesActivos, onResolveReport }: { reportesActivos: 
                   </p>
                 )}
               </div>
-              <span className="text-xs font-bold text-gray-400">{reporte.tiempo}</span>
+              <span className="text-xs font-bold text-gray-400 ml-2 whitespace-nowrap">{reporte.tiempo}</span>
             </div>
 
             {reporte.foto && (
-              <div className="mb-4 rounded-lg overflow-hidden border border-gray-200">
-                <p className="text-xs font-bold text-gray-400 bg-gray-50 p-2 uppercase text-center border-b border-gray-200">Foto del Ciudadano</p>
-                <img src={reporte.foto} alt="Evidencia" className="w-full h-40 object-cover" />
+              <div className="mb-4 rounded-lg border border-gray-200">
+                <p className="text-xs font-bold text-gray-500 bg-gray-50 p-2 uppercase text-center border-b border-gray-200 rounded-t-lg">Foto del Ciudadano</p>
+                <img src={reporte.foto} alt="Evidencia" className="w-full h-auto rounded-b-lg" />
               </div>
             )}
 
@@ -729,10 +1011,22 @@ function AppSupervisor({ reportesActivos, onResolveReport }: { reportesActivos: 
                 <p className="text-orange-800 font-bold mb-3 flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5"/> ¡Evidencia requerida por el sistema!
                 </p>
-                <label className="w-full cursor-pointer bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl text-lg uppercase flex items-center justify-center gap-2 shadow-lg">
-                  <Camera className="w-6 h-6" /> Tomar Foto Evidencia
-                  <input type="file" accept="image/*" capture="environment" className="hidden" onChange={() => onResolveReport(reporte.id, 'resuelto')} />
-                </label>
+                <div className="flex gap-2">
+                  <label className="flex-1 cursor-pointer bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl text-sm uppercase flex flex-col items-center justify-center gap-1 shadow-md transition">
+                    <Camera className="w-6 h-6" /> Tomar Foto
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) onResolveReport(reporte.id, 'resuelto', URL.createObjectURL(file));
+                    }} />
+                  </label>
+                  <label className="flex-1 cursor-pointer bg-blue-500 hover:bg-blue-600 text-white font-black py-3 rounded-xl text-sm uppercase flex flex-col items-center justify-center gap-1 shadow-md transition">
+                    <ImagePlus className="w-6 h-6" /> De Galería
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) onResolveReport(reporte.id, 'resuelto', URL.createObjectURL(file));
+                    }} />
+                  </label>
+                </div>
               </div>
             )}
 
@@ -751,32 +1045,69 @@ function AppSupervisor({ reportesActivos, onResolveReport }: { reportesActivos: 
 // ==========================================
 // 3. PANEL ADMINISTRATIVO (OFICINA)
 // ==========================================
-function PanelAdmin() {
+function PanelAdmin({ pagosActivos, onApprovePago, onResetPagos }: { pagosActivos?: any[], onApprovePago?: (id: string) => void, onResetPagos?: () => void }) {
   const [adminTab, setAdminTab] = useState<'resumen' | 'pagos' | 'usuarios'>('resumen');
   const [tasaBcv, setTasaBcv] = useState<number | null>(null);
+  const [usuarios, setUsuarios] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('https://ve.dolarapi.com/v1/dolares/oficial')
       .then(res => res.json())
       .then(data => { if (data && data.promedio) setTasaBcv(data.promedio); })
       .catch(err => console.error("Error tasa:", err));
+
+    // Escuchar cambios en la colección de usuarios en tiempo real
+    const unsubscribeUsers = onSnapshot(collection(db, "usuarios"), (snapshot) => {
+      const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUsuarios(usersData);
+    }, (err) => {
+      console.error("Error escuchando usuarios:", err);
+    });
+
+    return () => unsubscribeUsers();
   }, []);
 
-  // Datos falsos para pagos pendientes
-  const [pagosPendientes, setPagosPendientes] = useState([
-    { id: '1', usuario: 'María Pérez', cedula: 'V-12345678', sector: '19', monto: '182.50 Bs', metodo: 'Pago Móvil', ref: '0034912', fecha: '25/08/2026', estado: 'pendiente' },
-    { id: '2', usuario: 'Carlos López', cedula: 'V-87654321', sector: '1', monto: '5.00 USD', metodo: 'Zelle', ref: 'carlos.lopez@email.com', fecha: '24/08/2026', estado: 'pendiente' }
-  ]);
-
-  // Datos falsos para usuarios
-  const [usuarios, setUsuarios] = useState([
-    { id: 'u1', nombre: 'María Pérez', cedula: 'V-12345678', sector: '19', telefono: '04141234567', correo: 'maria@email.com', estado: 'Solvente' },
-    { id: 'u2', nombre: 'Carlos López', cedula: 'V-87654321', sector: '1', telefono: '04121234567', correo: 'carlos@email.com', estado: 'Deudor (1 mes)' }
-  ]);
+  // Filter payments
+  const pendingPayments = (pagosActivos || []).filter(p => p.estado === 'pendiente');
+  const approvedPayments = (pagosActivos || []).filter(p => p.estado === 'aprobado');
+  
+  const TARIFA_USD = 5;
+  const totalUSD = approvedPayments.length * TARIFA_USD;
+  const totalBS = tasaBcv ? (totalUSD * tasaBcv).toFixed(2) : '0.00';
 
   const aprobarPago = (id: string) => {
-    setPagosPendientes(pagosPendientes.filter(p => p.id !== id));
+    if (onApprovePago) onApprovePago(id);
     alert('Pago #00' + id + ' aprobado con éxito. Folio generado.');
+  };
+
+  const handleReset = () => {
+    if (window.confirm('⚠️ ADVERTENCIA: ¿Estás seguro de que deseas restablecer la recaudación? Esto eliminará todos los pagos aprobados del cálculo actual.')) {
+      if (onResetPagos) onResetPagos();
+    }
+  };
+
+  const getPaymentStatus = (u: any) => {
+    // Buscar si el usuario tiene algún pago enviado
+    const userPayments = (pagosActivos || []).filter(p => p.cedula === u.documento || p.cedula === u.cedula || p.uid === u.id);
+    
+    if (userPayments.length > 0) {
+      const latestPayment = userPayments[0];
+      if (latestPayment.estado === 'aprobado') return { label: 'Pago Aprobado', color: 'bg-green-100 text-green-800' };
+      if (latestPayment.estado === 'pendiente') return { label: 'Pago en Revisión', color: 'bg-blue-100 text-blue-800' };
+    }
+    
+    // Si no tiene pagos activos, verificar fecha de registro
+    if (u.fechaRegistro) {
+      const creationDate = new Date(u.fechaRegistro);
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      
+      if (creationDate < oneMonthAgo) {
+        return { label: 'Deudor (Más de 1 mes)', color: 'bg-red-100 text-red-800' };
+      }
+    }
+    
+    return { label: 'No ha enviado pago', color: 'bg-orange-100 text-orange-800' };
   };
 
   return (
@@ -789,7 +1120,7 @@ function PanelAdmin() {
         </button>
         <button onClick={() => setAdminTab('pagos')} className={`flex-1 px-4 py-4 rounded-xl text-base font-black transition-colors flex items-center justify-center gap-2 ${adminTab === 'pagos' ? 'bg-green-700 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
           💰 Validar Pagos 
-          {pagosPendientes.length > 0 && <span className={`${adminTab === 'pagos' ? 'bg-white text-green-700' : 'bg-red-500 text-white'} text-sm px-2 py-0.5 rounded-full`}>{pagosPendientes.length}</span>}
+          {pendingPayments.length > 0 && <span className={`${adminTab === 'pagos' ? 'bg-white text-green-700' : 'bg-red-500 text-white'} text-sm px-2 py-0.5 rounded-full`}>{pendingPayments.length}</span>}
         </button>
         <button onClick={() => setAdminTab('usuarios')} className={`flex-1 px-4 py-4 rounded-xl text-base font-black transition-colors ${adminTab === 'usuarios' ? 'bg-green-700 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
           👥 Ciudadanos
@@ -797,7 +1128,7 @@ function PanelAdmin() {
       </div>
 
       {adminTab === 'resumen' && (
-        <>
+        <div className="space-y-4">
           {tasaBcv && (
             <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl flex justify-between items-center shadow-sm">
               <span className="font-bold text-sm uppercase">Tasa BCV del Día</span>
@@ -808,15 +1139,19 @@ function PanelAdmin() {
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
               <p className="text-xs text-gray-500 uppercase font-bold">Recaudación (Mes)</p>
-              <p className="text-2xl font-black text-gray-800 mt-1">45,600 Bs</p>
-              <p className="text-xs text-green-600 font-bold mt-1">~ $1,250 USD</p>
+              <p className="text-2xl font-black text-gray-800 mt-1">{totalBS} Bs</p>
+              <p className="text-xs text-green-600 font-bold mt-1">~ ${totalUSD} USD</p>
             </div>
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-              <p className="text-xs text-gray-500 uppercase font-bold">Auditoría / Folios</p>
-              <p className="text-2xl font-black text-gray-800 mt-1">#001026</p>
-              <p className="text-xs text-gray-400 mt-1">Último emitido</p>
+              <p className="text-xs text-gray-500 uppercase font-bold">Pagos Aprobados</p>
+              <p className="text-2xl font-black text-gray-800 mt-1">{approvedPayments.length}</p>
+              <p className="text-xs text-gray-400 mt-1">En esta sesión</p>
             </div>
           </div>
+
+          <button onClick={handleReset} className="w-full bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-bold py-3 rounded-xl transition shadow-sm">
+            Restablecer Recaudación
+          </button>
           
           <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center py-10 text-center">
              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
@@ -825,13 +1160,13 @@ function PanelAdmin() {
              <h3 className="font-bold text-gray-500">Módulo de Estadísticas</h3>
              <p className="text-sm text-gray-400">Las gráficas se generarán al conectar con la base de datos real.</p>
           </div>
-        </>
+        </div>
       )}
 
       {adminTab === 'pagos' && (
         <div className="space-y-4">
           <h3 className="font-bold text-gray-800 text-lg">Pagos por Validar</h3>
-          {pagosPendientes.length === 0 ? (
+          {pendingPayments.length === 0 ? (
             <div className="bg-white p-8 rounded-xl text-center shadow-sm border border-gray-100">
               <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3">
                 <CheckCircle className="w-8 h-8 text-green-500" />
@@ -839,7 +1174,7 @@ function PanelAdmin() {
               <p className="text-gray-500 font-bold">No hay pagos pendientes de revisión.</p>
             </div>
           ) : (
-            pagosPendientes.map(pago => (
+            pendingPayments.map(pago => (
               <div key={pago.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex justify-between items-start mb-3 border-b pb-3">
                   <div>
@@ -851,17 +1186,23 @@ function PanelAdmin() {
                     <p className="text-xs font-bold text-gray-400">{pago.fecha}</p>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-lg flex items-center justify-between mb-4">
-                  <div>
+                <div className="bg-gray-50 p-3 rounded-lg flex flex-col gap-2 mb-4">
+                  <div className="flex justify-between items-center">
                     <p className="text-xs text-gray-500 uppercase font-bold">Método</p>
-                    <p className="text-sm font-bold text-gray-800">{pago.metodo}</p>
+                    <p className="text-sm font-bold text-gray-800 capitalize">{pago.metodo === 'pago_movil' ? 'Pago Móvil' : pago.metodo}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500 uppercase font-bold">Referencia / Comprobante</p>
-                    <p className="text-sm font-mono font-bold text-gray-800 flex items-center gap-1 justify-end">
-                      <Camera className="w-3 h-3 text-blue-500" /> {pago.ref}
-                    </p>
-                  </div>
+                  {pago.ref && pago.ref !== 'Foto adjunta' && (
+                    <div className="flex justify-between items-center border-t border-gray-200 pt-2">
+                      <p className="text-xs text-gray-500 uppercase font-bold">Referencia</p>
+                      <p className="text-sm font-mono font-bold text-gray-800">{pago.ref}</p>
+                    </div>
+                  )}
+                  {pago.foto && (
+                    <div className="border-t border-gray-200 pt-2 mt-2">
+                      <p className="text-xs text-gray-500 uppercase font-bold mb-2">Comprobante / Captura</p>
+                      <img src={pago.foto} alt="Comprobante" className="w-full h-auto rounded-lg border border-gray-300 shadow-sm" />
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => aprobarPago(pago.id)} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold text-sm transition-colors">
@@ -884,21 +1225,63 @@ function PanelAdmin() {
             <span className="bg-gray-200 text-gray-700 text-xs font-bold px-2 py-1 rounded-full">{usuarios.length} Registros</span>
           </div>
           <div className="divide-y">
-            {usuarios.map(u => (
+            {usuarios.length > 0 ? usuarios.map(u => {
+              const status = getPaymentStatus(u);
+              return (
               <div key={u.id} className="p-4 hover:bg-gray-50 transition-colors">
                 <div className="flex justify-between items-start mb-1">
-                  <p className="font-bold text-gray-800">{u.nombre}</p>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${u.estado === 'Solvente' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
-                    {u.estado}
+                  <p className="font-bold text-gray-800 flex items-center gap-2">
+                    {u.nombre}
+                    {u.rol === 'admin' && <span className="bg-purple-100 text-purple-800 text-[10px] uppercase font-black px-1.5 py-0.5 rounded">Admin</span>}
+                  </p>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${status.color}`}>
+                    {status.label}
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 mb-2">{u.cedula} • Sector {u.sector}</p>
-                <div className="flex gap-4 text-xs font-medium text-gray-500">
-                  <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {u.telefono}</span>
-                  <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {u.correo}</span>
+                <p className="text-xs text-gray-500 mb-1">{u.documento || u.cedula} • {SECTORES.find(s => s.id === u.sector)?.nombre || 'Sector ' + u.sector}</p>
+                <p className="text-xs font-medium text-gray-600 mb-1 leading-tight line-clamp-2"><span className="font-bold">Dirección:</span> {u.direccionExtra || 'No especificada'}</p>
+                {u.fechaRegistro && (
+                  <p className="text-xs text-gray-400 mb-3 font-medium">Registrado el: {new Date(u.fechaRegistro).toLocaleDateString('es-VE')}</p>
+                )}
+                {!u.fechaRegistro && <div className="mb-3"></div>}
+                
+                <div className="flex flex-wrap gap-2">
+                  <div 
+                    title={u.telefono || 'Sin teléfono'} 
+                    className="p-2 bg-gray-100 hover:bg-green-50 text-gray-500 hover:text-green-700 rounded-full cursor-pointer transition-all flex items-center gap-2 group"
+                    onClick={() => {
+                      if (u.telefono) {
+                        navigator.clipboard.writeText(u.telefono);
+                        alert("Teléfono copiado: " + u.telefono);
+                      }
+                    }}
+                  >
+                    <Phone className="w-4 h-4 shrink-0" />
+                    <span className="inline-block text-xs font-bold max-w-0 overflow-hidden group-hover:max-w-[150px] transition-all duration-300 ease-in-out whitespace-nowrap">
+                      {u.telefono || 'Sin teléfono'}
+                    </span>
+                  </div>
+                  <div 
+                    title={u.correo || 'Sin correo'} 
+                    className="p-2 bg-gray-100 hover:bg-green-50 text-gray-500 hover:text-green-700 rounded-full cursor-pointer transition-all flex items-center gap-2 group"
+                    onClick={() => {
+                      if (u.correo) {
+                        navigator.clipboard.writeText(u.correo);
+                        alert("Correo copiado: " + u.correo);
+                      }
+                    }}
+                  >
+                    <Mail className="w-4 h-4 shrink-0" />
+                    <span className="inline-block text-xs font-bold max-w-0 overflow-hidden group-hover:max-w-[250px] transition-all duration-300 ease-in-out whitespace-nowrap">
+                      {u.correo || 'Sin correo'}
+                    </span>
+                  </div>
                 </div>
               </div>
-            ))}
+            );
+            }) : (
+              <div className="p-8 text-center text-gray-400 font-bold">Cargando base de datos...</div>
+            )}
           </div>
         </div>
       )}
