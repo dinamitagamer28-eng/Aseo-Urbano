@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Camera, CheckCircle, MapPin, CreditCard, Shield, AlertTriangle, ListTodo, LogIn, FileText, Loader2 } from 'lucide-react';
+import { Camera, CheckCircle, MapPin, CreditCard, Shield, AlertTriangle, ListTodo, LogIn, FileText, Loader2, BarChart3, Phone, Mail } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { 
   createUserWithEmailAndPassword, 
@@ -400,12 +400,13 @@ function AuthScreen({ onLogin }: { onLogin: (data: any) => void }) {
 // ==========================================
 
 function AppCiudadana({ userData, onSubmitReport }: { userData: any, onSubmitReport: (r: any) => void }) {
-  const [view, setView] = useState<'home' | 'report' | 'pay'>('home');
+  const [view, setView] = useState<'home' | 'report' | 'report-success' | 'pay'>('home');
   const [tasaBcv, setTasaBcv] = useState<number>(36.5);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'submitted'>('pending');
   const [paymentMethod, setPaymentMethod] = useState<'pago_movil' | 'zelle' | 'efectivo'>('efectivo');
   
-  const [reportData, setReportData] = useState({ problema: '', ubicacion: '' });
+  const [reportData, setReportData] = useState({ problema: '', ubicacion: '', descripcion: '' });
+  const [reportPhoto, setReportPhoto] = useState<string | null>(null);
 
   const TARIFA_USD = 5;
   const TARIFA_BS = TARIFA_USD * tasaBcv;
@@ -416,6 +417,13 @@ function AppCiudadana({ userData, onSubmitReport }: { userData: any, onSubmitRep
       .then(data => { if (data && data.promedio) setTasaBcv(data.promedio); })
       .catch(err => console.error("Error tasa:", err));
   }, []);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setReportPhoto(URL.createObjectURL(file));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -430,7 +438,7 @@ function AppCiudadana({ userData, onSubmitReport }: { userData: any, onSubmitRep
             <div className="mt-4 inline-block bg-green-100 text-green-800 text-xs font-black px-3 py-1 rounded-full">Servicio Activo</div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <button onClick={() => setView('report')} className="bg-white border-2 border-green-600 p-6 rounded-2xl shadow-sm hover:bg-green-50 transition flex flex-col items-center justify-center gap-3">
+            <button onClick={() => { setView('report'); setReportPhoto(null); setReportData({ problema: '', ubicacion: '', descripcion: '' }); }} className="bg-white border-2 border-green-600 p-6 rounded-2xl shadow-sm hover:bg-green-50 transition flex flex-col items-center justify-center gap-3">
               <AlertTriangle className="w-10 h-10 text-green-600" />
               <span className="font-bold text-green-900 leading-tight">Reportar<br/>Falla</span>
             </button>
@@ -448,9 +456,8 @@ function AppCiudadana({ userData, onSubmitReport }: { userData: any, onSubmitRep
           
           <form onSubmit={(e) => { 
             e.preventDefault(); 
-            onSubmitReport({ ...reportData, estado: 'asignado', tiempo: 'Hace 1 min' }); 
-            setView('home'); 
-            setReportData({ problema: '', ubicacion: '' });
+            onSubmitReport({ ...reportData, foto: reportPhoto, estado: 'asignado', tiempo: 'Hace 1 min' }); 
+            setView('report-success'); 
           }} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tipo de Problema</label>
@@ -460,22 +467,34 @@ function AppCiudadana({ userData, onSubmitReport }: { userData: any, onSubmitRep
                 <option value="Basura no recolectada">Basura no recolectada</option>
                 <option value="Contenedor desbordado o dañado">Contenedor desbordado o dañado</option>
                 <option value="Escombros o poda pesada">Escombros o poda pesada</option>
-                <option value="Otro">Otro (Especifique en la ubicación)</option>
+                <option value="Otro">Otro (Especifique en la descripción)</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Punto Exacto del Problema</label>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ubicación Específica</label>
               <input required type="text" className="w-full border p-3 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium" placeholder="Ej. Frente a la panadería..." 
                 value={reportData.ubicacion} onChange={e => setReportData({...reportData, ubicacion: e.target.value})} />
             </div>
 
             <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Descripción Extra</label>
+              <textarea className="w-full border p-3 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium min-h-[100px]" placeholder="Detalles adicionales del problema..." 
+                value={reportData.descripcion} onChange={e => setReportData({...reportData, descripcion: e.target.value})} />
+            </div>
+
+            <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Evidencia Fotográfica</label>
-              <label className="w-full block border-2 border-dashed border-gray-300 rounded-xl p-6 text-center text-gray-500 hover:bg-gray-50 hover:border-green-500 cursor-pointer transition">
-                <Camera className="w-10 h-10 mx-auto mb-2 opacity-50 text-red-500" />
-                <p className="font-bold text-gray-700">Añadir Foto <span className="text-red-500 uppercase text-xs ml-1">(Obligatoria)</span></p>
-                <input required type="file" accept="image/*" capture="environment" className="hidden" />
+              <label className="w-full block border-2 border-dashed border-gray-300 rounded-xl overflow-hidden text-center text-gray-500 hover:bg-gray-50 hover:border-green-500 cursor-pointer transition relative">
+                {reportPhoto ? (
+                  <img src={reportPhoto} alt="Evidencia" className="w-full h-48 object-cover" />
+                ) : (
+                  <div className="p-6">
+                    <Camera className="w-10 h-10 mx-auto mb-2 opacity-50 text-red-500" />
+                    <p className="font-bold text-gray-700">Añadir Foto <span className="text-red-500 uppercase text-xs ml-1">(Obligatoria)</span></p>
+                  </div>
+                )}
+                <input required={!reportPhoto} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
               </label>
             </div>
 
@@ -486,6 +505,21 @@ function AppCiudadana({ userData, onSubmitReport }: { userData: any, onSubmitRep
               Cancelar
             </button>
           </form>
+        </div>
+      )}
+
+      {view === 'report-success' && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center animate-in fade-in slide-in-from-bottom-4">
+          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <h2 className="text-xl font-black text-gray-800 mb-2">¡Ha sido enviado con éxito!</h2>
+          <p className="text-gray-500 mb-6 text-sm">Tu reporte ha sido asignado a la cuadrilla de limpieza más cercana.</p>
+          
+          <button onClick={() => { setView('report'); setReportPhoto(null); setReportData({ problema: '', ubicacion: '', descripcion: '' }); }} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg mb-3 transition">
+            ¿Quieres enviar otro reporte?
+          </button>
+          <button onClick={() => setView('home')} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-lg transition">
+            Volver al Inicio
+          </button>
         </div>
       )}
 
@@ -668,9 +702,21 @@ function AppSupervisor({ reportesActivos, onResolveReport }: { reportesActivos: 
                 <p className="text-gray-500 text-sm mt-1 flex items-center gap-1">
                   <MapPin className="w-4 h-4"/> {reporte.ubicacion}
                 </p>
+                {reporte.descripcion && (
+                  <p className="text-gray-600 text-sm mt-2 italic border-l-2 border-gray-300 pl-2">
+                    "{reporte.descripcion}"
+                  </p>
+                )}
               </div>
               <span className="text-xs font-bold text-gray-400">{reporte.tiempo}</span>
             </div>
+
+            {reporte.foto && (
+              <div className="mb-4 rounded-lg overflow-hidden border border-gray-200">
+                <p className="text-xs font-bold text-gray-400 bg-gray-50 p-2 uppercase text-center border-b border-gray-200">Foto del Ciudadano</p>
+                <img src={reporte.foto} alt="Evidencia" className="w-full h-40 object-cover" />
+              </div>
+            )}
 
             {reporte.estado === 'asignado' && (
               <button onClick={() => onResolveReport(reporte.id, 'foto_requerida')} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-xl text-lg uppercase flex items-center justify-center gap-2 transition">
@@ -703,59 +749,159 @@ function AppSupervisor({ reportesActivos, onResolveReport }: { reportesActivos: 
 }
 
 // ==========================================
-// 3. PANEL ADMIN
+// 3. PANEL ADMINISTRATIVO (OFICINA)
 // ==========================================
 function PanelAdmin() {
+  const [adminTab, setAdminTab] = useState<'resumen' | 'pagos' | 'usuarios'>('resumen');
+  const [tasaBcv, setTasaBcv] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch('https://ve.dolarapi.com/v1/dolares/oficial')
+      .then(res => res.json())
+      .then(data => { if (data && data.promedio) setTasaBcv(data.promedio); })
+      .catch(err => console.error("Error tasa:", err));
+  }, []);
+
+  // Datos falsos para pagos pendientes
+  const [pagosPendientes, setPagosPendientes] = useState([
+    { id: '1', usuario: 'María Pérez', cedula: 'V-12345678', sector: '19', monto: '182.50 Bs', metodo: 'Pago Móvil', ref: '0034912', fecha: '25/08/2026', estado: 'pendiente' },
+    { id: '2', usuario: 'Carlos López', cedula: 'V-87654321', sector: '1', monto: '5.00 USD', metodo: 'Zelle', ref: 'carlos.lopez@email.com', fecha: '24/08/2026', estado: 'pendiente' }
+  ]);
+
+  // Datos falsos para usuarios
+  const [usuarios, setUsuarios] = useState([
+    { id: 'u1', nombre: 'María Pérez', cedula: 'V-12345678', sector: '19', telefono: '04141234567', correo: 'maria@email.com', estado: 'Solvente' },
+    { id: 'u2', nombre: 'Carlos López', cedula: 'V-87654321', sector: '1', telefono: '04121234567', correo: 'carlos@email.com', estado: 'Deudor (1 mes)' }
+  ]);
+
+  const aprobarPago = (id: string) => {
+    setPagosPendientes(pagosPendientes.filter(p => p.id !== id));
+    alert('Pago #00' + id + ' aprobado con éxito. Folio generado.');
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-xs text-gray-500 uppercase font-bold">Recaudación (Mes)</p>
-          <p className="text-2xl font-black text-gray-800 mt-1">45,600 Bs</p>
-          <p className="text-xs text-green-600 font-bold mt-1">~ $1,250 USD</p>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-xs text-gray-500 uppercase font-bold">Reportes Resueltos</p>
-          <p className="text-2xl font-black text-gray-800 mt-1">89%</p>
-          <p className="text-xs text-gray-400 mt-1">De 142 recibidos</p>
-        </div>
+    <div className="space-y-6 animate-fade-in pb-10">
+      
+      {/* Navegación interna del Panel Admin (Botones más grandes) */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-2 flex flex-col md:flex-row gap-2">
+        <button onClick={() => setAdminTab('resumen')} className={`flex-1 px-4 py-4 rounded-xl text-base font-black transition-colors ${adminTab === 'resumen' ? 'bg-green-700 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
+          📊 Resumen
+        </button>
+        <button onClick={() => setAdminTab('pagos')} className={`flex-1 px-4 py-4 rounded-xl text-base font-black transition-colors flex items-center justify-center gap-2 ${adminTab === 'pagos' ? 'bg-green-700 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
+          💰 Validar Pagos 
+          {pagosPendientes.length > 0 && <span className={`${adminTab === 'pagos' ? 'bg-white text-green-700' : 'bg-red-500 text-white'} text-sm px-2 py-0.5 rounded-full`}>{pagosPendientes.length}</span>}
+        </button>
+        <button onClick={() => setAdminTab('usuarios')} className={`flex-1 px-4 py-4 rounded-xl text-base font-black transition-colors ${adminTab === 'usuarios' ? 'bg-green-700 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
+          👥 Ciudadanos
+        </button>
       </div>
 
-      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-        <h3 className="font-bold text-gray-800 mb-4 border-b pb-2">Auditoría de Folios (Contraloría)</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-gray-500 uppercase bg-gray-50">
-              <tr>
-                <th className="px-3 py-2 rounded-tl-lg">Folio</th>
-                <th className="px-3 py-2">Sector</th>
-                <th className="px-3 py-2">Monto</th>
-                <th className="px-3 py-2 rounded-tr-lg">Método</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b">
-                <td className="px-3 py-2 font-mono font-bold text-gray-700">#001024</td>
-                <td className="px-3 py-2">Las Colinas</td>
-                <td className="px-3 py-2">182.50 Bs</td>
-                <td className="px-3 py-2"><span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-bold">Pago Móvil</span></td>
-              </tr>
-              <tr className="border-b">
-                <td className="px-3 py-2 font-mono font-bold text-gray-700">#001025</td>
-                <td className="px-3 py-2">Las Colinas</td>
-                <td className="px-3 py-2">182.50 Bs</td>
-                <td className="px-3 py-2"><span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-bold">Efectivo</span></td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2 font-mono font-bold text-gray-700">#001026</td>
-                <td className="px-3 py-2">Las Colinas</td>
-                <td className="px-3 py-2">182.50 Bs</td>
-                <td className="px-3 py-2"><span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-xs font-bold">Zelle</span></td>
-              </tr>
-            </tbody>
-          </table>
+      {adminTab === 'resumen' && (
+        <>
+          {tasaBcv && (
+            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl flex justify-between items-center shadow-sm">
+              <span className="font-bold text-sm uppercase">Tasa BCV del Día</span>
+              <span className="font-black text-lg">{tasaBcv} Bs/USD</span>
+            </div>
+          )}
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+              <p className="text-xs text-gray-500 uppercase font-bold">Recaudación (Mes)</p>
+              <p className="text-2xl font-black text-gray-800 mt-1">45,600 Bs</p>
+              <p className="text-xs text-green-600 font-bold mt-1">~ $1,250 USD</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+              <p className="text-xs text-gray-500 uppercase font-bold">Auditoría / Folios</p>
+              <p className="text-2xl font-black text-gray-800 mt-1">#001026</p>
+              <p className="text-xs text-gray-400 mt-1">Último emitido</p>
+            </div>
+          </div>
+          
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center py-10 text-center">
+             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+               <Shield className="w-8 h-8 text-gray-300" />
+             </div>
+             <h3 className="font-bold text-gray-500">Módulo de Estadísticas</h3>
+             <p className="text-sm text-gray-400">Las gráficas se generarán al conectar con la base de datos real.</p>
+          </div>
+        </>
+      )}
+
+      {adminTab === 'pagos' && (
+        <div className="space-y-4">
+          <h3 className="font-bold text-gray-800 text-lg">Pagos por Validar</h3>
+          {pagosPendientes.length === 0 ? (
+            <div className="bg-white p-8 rounded-xl text-center shadow-sm border border-gray-100">
+              <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <CheckCircle className="w-8 h-8 text-green-500" />
+              </div>
+              <p className="text-gray-500 font-bold">No hay pagos pendientes de revisión.</p>
+            </div>
+          ) : (
+            pagosPendientes.map(pago => (
+              <div key={pago.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex justify-between items-start mb-3 border-b pb-3">
+                  <div>
+                    <p className="font-bold text-gray-800">{pago.usuario}</p>
+                    <p className="text-xs text-gray-500">{pago.cedula} • Sector {pago.sector}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-black text-green-700">{pago.monto}</p>
+                    <p className="text-xs font-bold text-gray-400">{pago.fecha}</p>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase font-bold">Método</p>
+                    <p className="text-sm font-bold text-gray-800">{pago.metodo}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 uppercase font-bold">Referencia / Comprobante</p>
+                    <p className="text-sm font-mono font-bold text-gray-800 flex items-center gap-1 justify-end">
+                      <Camera className="w-3 h-3 text-blue-500" /> {pago.ref}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => aprobarPago(pago.id)} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold text-sm transition-colors">
+                    Aprobar y Emitir Folio
+                  </button>
+                  <button className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 py-2 rounded-lg font-bold text-sm transition-colors">
+                    Rechazar
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
-      </div>
+      )}
+
+      {adminTab === 'usuarios' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+            <h3 className="font-bold text-gray-800">Directorio de Ciudadanos</h3>
+            <span className="bg-gray-200 text-gray-700 text-xs font-bold px-2 py-1 rounded-full">{usuarios.length} Registros</span>
+          </div>
+          <div className="divide-y">
+            {usuarios.map(u => (
+              <div key={u.id} className="p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex justify-between items-start mb-1">
+                  <p className="font-bold text-gray-800">{u.nombre}</p>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${u.estado === 'Solvente' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
+                    {u.estado}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mb-2">{u.cedula} • Sector {u.sector}</p>
+                <div className="flex gap-4 text-xs font-medium text-gray-500">
+                  <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {u.telefono}</span>
+                  <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {u.correo}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
