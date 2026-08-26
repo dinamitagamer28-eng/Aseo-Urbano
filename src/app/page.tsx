@@ -109,7 +109,13 @@ export default function AseoUrbanoApp() {
   const [historialRutas, setHistorialRutas] = useState<{ tramo: string, fecha: string, tipo: string }[]>([]);
 
   const handleSubmitReport = (nuevoReporte: any) => {
-    const r = { ...nuevoReporte, id: Date.now().toString() };
+    const r = { 
+      ...nuevoReporte, 
+      id: Date.now().toString(),
+      usuario: userData.nombre,
+      cedula: userData.documento,
+      sector: SECTORES.find(s => s.id === userData.sector)?.nombre || userData.sector
+    };
     setReportesActivos([r, ...reportesActivos]);
   };
 
@@ -124,6 +130,10 @@ export default function AseoUrbanoApp() {
 
   const handleApprovePago = (id: string) => {
     setPagosActivos(pagosActivos.map(p => p.id === id ? { ...p, estado: 'aprobado' } : p));
+  };
+
+  const handleRejectPago = (id: string) => {
+    setPagosActivos(pagosActivos.map(p => p.id === id ? { ...p, estado: 'rechazado' } : p));
   };
 
   // Escuchar el estado de autenticación en tiempo real
@@ -223,7 +233,7 @@ export default function AseoUrbanoApp() {
       <main className="max-w-md md:max-w-3xl lg:max-w-4xl mx-auto w-full p-4 relative z-0">
         {activeTab === 'ciudadano' && <AppCiudadana userData={userData} onSubmitReport={handleSubmitReport} reportesActivos={reportesActivos} pagosActivos={pagosActivos} onSubmitPago={handleSubmitPago} />}
         {activeTab === 'supervisor' && <AppSupervisor reportesActivos={reportesActivos} onResolveReport={handleResolveReport} historialRutas={historialRutas} setHistorialRutas={setHistorialRutas} />}
-        {activeTab === 'admin' && <PanelAdmin pagosActivos={pagosActivos} onApprovePago={handleApprovePago} onResetPagos={() => setPagosActivos(pagosActivos.filter(p => p.estado !== 'aprobado'))} />}
+        {activeTab === 'admin' && <PanelAdmin pagosActivos={pagosActivos} onApprovePago={handleApprovePago} onRejectPago={handleRejectPago} onResetPagos={() => setPagosActivos(pagosActivos.filter(p => p.estado !== 'aprobado'))} />}
         {activeTab === 'settings' && <SettingsScreen userData={userData} onBack={() => setActiveTab(userData.rol === 'admin' ? 'admin' : userData.rol === 'supervisor' ? 'supervisor' : 'ciudadano')} />}
       </main>
     </div>
@@ -430,6 +440,7 @@ function AuthScreen({ onLogin }: { onLogin: (data: any) => void }) {
           </div>
         </form>
       </div>
+
     </div>
   );
 }
@@ -521,6 +532,7 @@ function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos,
   
   const [reportData, setReportData] = useState({ problema: '', ubicacion: '', descripcion: '' });
   const [reportPhoto, setReportPhoto] = useState<string | null>(null);
+  const [imagenAmpliada, setImagenAmpliada] = useState<string | null>(null);
 
   const TARIFA_USD = 5;
   const TARIFA_BS = TARIFA_USD * tasaBcv;
@@ -987,7 +999,11 @@ function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHi
               >
                 <div className="flex-1 pr-4">
                   <span className="inline-block px-2 py-1 bg-red-100 text-red-800 text-[10px] font-black rounded mb-2 uppercase">Alta Prioridad</span>
-                  <h3 className="font-bold text-lg leading-tight text-gray-900">{reporte.problema}</h3>
+                  <h3 className="font-bold text-lg leading-tight text-gray-900 mb-1">{reporte.problema}</h3>
+                  <div className="bg-gray-50 p-2 rounded-lg border border-gray-100 mb-2">
+                    <p className="font-bold text-sm text-gray-800">{reporte.usuario || 'Ciudadano'}</p>
+                    <p className="text-xs text-gray-500">{reporte.cedula || ''} • Sector {reporte.sector || ''}</p>
+                  </div>
                   <p className="text-gray-500 text-sm mt-1 flex items-center gap-1">
                     <MapPin className="w-4 h-4 flex-shrink-0"/> <span className="truncate">{reporte.ubicacion}</span>
                   </p>
@@ -1059,6 +1075,8 @@ function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHi
         })}
         </div>
       </div>
+
+
     </div>
   );
 }
@@ -1066,11 +1084,12 @@ function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHi
 // ==========================================
 // 3. PANEL ADMINISTRATIVO (OFICINA)
 // ==========================================
-function PanelAdmin({ pagosActivos, onApprovePago, onResetPagos }: { pagosActivos?: any[], onApprovePago?: (id: string) => void, onResetPagos?: () => void }) {
+function PanelAdmin({ pagosActivos, onApprovePago, onRejectPago, onResetPagos }: { pagosActivos?: any[], onApprovePago?: (id: string) => void, onRejectPago?: (id: string) => void, onResetPagos?: () => void }) {
   const [adminTab, setAdminTab] = useState<'resumen' | 'pagos' | 'usuarios'>('resumen');
   const [tasaBcv, setTasaBcv] = useState<number | null>(null);
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [expandedPagos, setExpandedPagos] = useState<string[]>([]);
+  const [busquedaUsuario, setBusquedaUsuario] = useState('');
 
   useEffect(() => {
     fetch('https://ve.dolarapi.com/v1/dolares/oficial')
@@ -1256,7 +1275,7 @@ function PanelAdmin({ pagosActivos, onApprovePago, onResetPagos }: { pagosActivo
                         <button onClick={(e) => { e.stopPropagation(); aprobarPago(pago.id); }} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold text-sm transition-colors shadow-sm">
                           Aprobar
                         </button>
-                        <button onClick={(e) => e.stopPropagation()} className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 py-3 rounded-lg font-bold text-sm transition-colors">
+                        <button onClick={(e) => { e.stopPropagation(); onRejectPago && onRejectPago(pago.id); }} className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 py-3 rounded-lg font-bold text-sm transition-colors">
                           Rechazar
                         </button>
                       </div>
@@ -1339,6 +1358,15 @@ function PanelAdmin({ pagosActivos, onApprovePago, onResetPagos }: { pagosActivo
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
 
 
 
