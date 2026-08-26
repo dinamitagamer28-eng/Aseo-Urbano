@@ -613,6 +613,7 @@ function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos,
   const [reportData, setReportData] = useState({ problema: '', ubicacion: '', descripcion: '' });
   const [reportPhoto, setReportPhoto] = useState<string | null>(null);
   const [imagenAmpliada, setImagenAmpliada] = useState<string | null>(null);
+  const [expandedReportes, setExpandedReportes] = useState<string[]>([]);
 
   const TARIFA_USD = 5;
   const TARIFA_BS = TARIFA_USD * tasaBcv;
@@ -1438,6 +1439,9 @@ function PanelAdmin({ pagosActivos, onApprovePago, onRejectPago, onResetPagos }:
     </div>
   );
 }
+
+
+
 
 
 
