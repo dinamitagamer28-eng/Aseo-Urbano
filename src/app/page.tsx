@@ -216,7 +216,7 @@ export default function AseoUrbanoApp() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans pb-20">
       {/* HEADER GLOBAL */}
-      <header className="bg-green-700 text-white p-4 flex justify-between items-center shadow-md sticky top-0 z-20">
+      <header className="bg-green-700 text-white p-4 flex justify-between items-center sticky top-0 z-20">
         <div className="flex items-center gap-3">
           <div className="bg-white p-1.5 rounded-full shadow-sm">
             <Shield className="w-6 h-6 text-green-700" />
@@ -238,10 +238,10 @@ export default function AseoUrbanoApp() {
 
       {/* NAVBAR: MODO DE PRUEBA (Solo visible para Admin/Supervisor) */}
       {userData.rol !== 'ciudadano' && (
-        <div className="bg-white border-b shadow-sm p-3 flex justify-between items-center text-sm font-bold sticky top-[72px] z-10">
-          <span className="text-gray-500 uppercase">Modo Personal:</span>
+        <div className="bg-green-800 border-t border-green-600 shadow-md p-2 px-4 flex justify-between items-center text-sm font-bold sticky top-[72px] z-10 text-green-100">
+          <span className="uppercase text-xs tracking-wider">Modo Personal:</span>
           <select 
-            className="bg-transparent border-none focus:outline-none text-green-700 cursor-pointer text-right"
+            className="bg-green-900 border border-green-700 focus:outline-none focus:ring-1 focus:ring-green-400 text-white cursor-pointer text-right rounded px-2 py-1"
             value={activeTab === 'settings' ? (userData.rol === 'admin' ? 'admin' : 'supervisor') : activeTab} 
             onChange={(e) => setActiveTab(e.target.value as any)}
           >
@@ -680,36 +680,66 @@ function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos,
               ))}
 
               {/* REPORTES ACTIVOS DEL USUARIO */}
-              {reportesActivos.length > 0 ? reportesActivos.map(r => (
-                 <div key={r.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-2">
-                   <div className="flex justify-between items-start">
-                     <div>
-                        <p className="font-bold text-gray-800 text-sm">{r.problema}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{r.tiempo}</p>
-                     </div>
-                     <span className={`text-xs font-black px-2 py-1 rounded text-center whitespace-nowrap ${
-                        r.estado === 'resuelto' ? 'bg-green-100 text-green-800' :
-                        r.estado === 'foto_requerida' ? 'bg-orange-100 text-orange-800' :
-                        'bg-gray-100 text-gray-600'
-                     }`}>
-                        {r.estado === 'resuelto' ? 'Resuelto' : 
-                         r.estado === 'foto_requerida' ? 'En Proceso' : 
-                         'Pendiente de Revisión'}
-                     </span>
-                   </div>
-                   
-                   {r.fotoRespuesta && (
-                     <div className="mt-3 border-t pt-3 border-gray-100">
-                        <p className="text-xs font-bold text-gray-500 uppercase mb-2 text-center">Foto de Resolución (Supervisor)</p>
-                        <img src={r.fotoRespuesta} alt="Resolución" className="w-full h-auto object-cover rounded-lg border border-gray-200" />
-                     </div>
-                   )}
-                 </div>
-              )) : (
-                 <div className="bg-gray-50 p-4 rounded-xl border border-dashed border-gray-200 text-center text-sm text-gray-500 font-medium">
-                   Aún no has realizado reportes.
-                 </div>
-              )}
+              {(() => {
+                const misReportes = reportesActivos.filter(r => r.cedula === userData.documento);
+                if (misReportes.length === 0) {
+                  return (
+                    <div className="bg-gray-50 p-4 rounded-xl border border-dashed border-gray-200 text-center text-sm text-gray-500 font-medium">
+                      Aún no has realizado reportes.
+                    </div>
+                  );
+                }
+                return misReportes.map(r => {
+                  const isExpanded = expandedReportes.includes(r.id);
+                  return (
+                    <div key={r.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-2 transition-all">
+                      <div 
+                        className={`flex justify-between items-start ${r.fotoRespuesta ? 'cursor-pointer group' : ''}`}
+                        onClick={() => {
+                          if (r.fotoRespuesta) {
+                            setExpandedReportes(prev => prev.includes(r.id) ? prev.filter(id => id !== r.id) : [...prev, r.id]);
+                          }
+                        }}
+                      >
+                        <div>
+                          <p className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                            {r.problema}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">{r.tiempo}</p>
+                        </div>
+                        <div className="text-right flex flex-col items-end gap-2">
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded text-center whitespace-nowrap uppercase ${
+                              r.estado === 'resuelto' ? 'bg-green-100 text-green-800' :
+                              r.estado === 'foto_requerida' ? 'bg-orange-100 text-orange-800' :
+                              'bg-gray-100 text-gray-600'
+                          }`}>
+                              {r.estado === 'resuelto' ? 'Resuelto' : 
+                               r.estado === 'foto_requerida' ? 'En Proceso' : 
+                               'Pendiente Revisión'}
+                          </span>
+                          {r.fotoRespuesta && (
+                            <div className="text-gray-400 group-hover:text-green-600 transition-colors">
+                              {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {r.fotoRespuesta && isExpanded && (
+                        <div className="mt-2 border-t pt-3 border-gray-100 animate-fade-in">
+                          <p className="text-xs font-bold text-gray-500 uppercase mb-2 text-center">Foto de Resolución (Supervisor)</p>
+                          <img 
+                            src={r.fotoRespuesta} 
+                            alt="Resolución" 
+                            className="w-full h-auto max-h-64 object-contain bg-black rounded-lg border border-gray-200 cursor-pointer" 
+                            onClick={(e) => { e.stopPropagation(); setImagenAmpliada(r.fotoRespuesta); }} 
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         </>
@@ -1062,9 +1092,9 @@ function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHi
 
         {/* COLUMNA 2: REPORTES ASIGNADOS */}
         <div className="space-y-4 pt-4 md:pt-0 border-t-2 md:border-t-0 md:border-l-2 md:pl-8 border-dashed border-gray-300">
-        <h2 className="font-black text-xl text-gray-800">Reportes Asignados ({reportesActivos.length})</h2>
+        <h2 className="font-black text-xl text-gray-800">Reportes Asignados ({reportesActivos.filter(r => r.estado !== 'resuelto').length})</h2>
         
-        {reportesActivos.length === 0 && (
+        {reportesActivos.filter(r => r.estado !== 'resuelto').length === 0 && (
           <div className="p-6 text-center text-gray-500 font-bold bg-white rounded-xl border border-dashed">
             No hay reportes pendientes en tu ruta.
           </div>
@@ -1439,6 +1469,7 @@ function PanelAdmin({ pagosActivos, onApprovePago, onRejectPago, onResetPagos }:
     </div>
   );
 }
+
 
 
 
