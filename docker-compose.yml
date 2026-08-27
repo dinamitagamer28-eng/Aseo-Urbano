@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  # Base de Datos PostgreSQL 16 con PostGIS
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: aseo_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: aseo_admin
+      POSTGRES_PASSWORD: AseoPerija2026!
+      POSTGRES_DB: aseo_perija_db
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aseo_admin -d aseo_perija_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Aplicación Principal Next.js 16
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aseo_next_app
+    restart: always
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: "postgresql://aseo_admin:AseoPerija2026!@postgres:5432/aseo_perija_db?schema=public"
+      NEXT_PUBLIC_ALCALDIA_NOMBRE: "Alcaldía del Municipio Rosario de Perijá"
+      NEXT_PUBLIC_ALCALDIA_RIF: "G-2004984-7"
+      DEFAULT_BCV_RATE: "65.40"
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

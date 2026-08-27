@@ -1,0 +1,292 @@
+// Prisma Schema for Sistema de Aseo Urbano y Recaudación Digital
+// Municipio Rosario de Perijá, Estado Zulia, Venezuela
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// 1. MÓDULO GEOGRÁFICO, CATASTRAL Y ZONIFICACIÓN TARIFARIA
+// -------------------------------------------------------------
+
+model Parroquia {
+  id        String   @id @default(uuid())
+  codigo    String   @unique
+  nombre    String
+  createdAt DateTime @default(now())
+  sectores  Sector[]
+}
+
+model Sector {
+  id                   String            @id @default(uuid())
+  parroquiaId          String
+  codigo               String            @unique
+  nombre               String
+  estrato              String            @default("POPULAR") // POPULAR, MEDIO, COMERCIAL, INDUSTRIAL, RURAL
+  geocercaGeoJson      String?           // Polígono en formato GeoJSON string
+  centroLat            Float             @default(10.3167)
+  centroLng            Float             @default(-72.3167)
+  faseDespliegue       String            @default("PILOTO_ACTIVO") // PILOTO_ACTIVO, FASE_2, FASE_3, PLANIFICADO
+  activo               Boolean           @default(true)
+  createdAt            DateTime          @default(now())
+
+  parroquia            Parroquia         @relation(fields: [parroquiaId], references: [id])
+  callesTramos         CalleTramo[]
+  inmuebles            InmuebleCatastro[]
+  tarifasSectores      TarifaSector[]
+  cuadrillasTurnos     CuadrillaTurno[]
+  reportesIncidencias  ReporteIncidencia[]
+}
+
+model TarifaSector {
+  id                   String   @id @default(uuid())
+  sectorId             String
+  tipoInmueble         String   // RESIDENCIAL, COMERCIAL_PEQ, COMERCIAL_GDE, INDUSTRIAL, BALDIO
+  montoTarifaUsd       Float    // Tarifa base fijada en USD por ordenanza
+  descripcionOrdenanza String?
+  activo               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  sector               Sector   @relation(fields: [sectorId], references: [id])
+}
+
+model CalleTramo {
+  id               String   @id @default(uuid())
+  sectorId         String
+  nombreCalle      String
+  ordenRecoleccion Int      @default(1)
+  diaRecoleccion   String   @default("LUNES_JUEVES") // LUNES_JUEVES, MARTES_VIERNES, MIERCOLES_SABADO
+  horaEstimada     String?  @default("07:00 AM")
+  createdAt        DateTime @default(now())
+
+  sector           Sector   @relation(fields: [sectorId], references: [id])
+  inmuebles        InmuebleCatastro[]
+  avances          CuadrillaTramoAvance[]
+}
+
+model InmuebleCatastro {
+  id                String   @id @default(uuid())
+  codigoCatastral   String   @unique // ej: COL-C01-042
+  sectorId          String
+  calleId           String
+  numeroCasaLocal   String
+  referenciaUbic    String?
+  tipoInmueble      String   @default("RESIDENCIAL") // RESIDENCIAL, COMERCIAL_PEQ, COMERCIAL_GDE, INDUSTRIAL, BALDIO
+  tarifaBaseUsd     Float    @default(2.00)
+  estadoCuenta      String   @default("SOLVENTE") // SOLVENTE, PENDIENTE, MORA, EXONERADO
+  latitud           Float?
+  longitud          Float?
+  createdAt         DateTime @default(now())
+
+  sector            Sector   @relation(fields: [sectorId], references: [id])
+  calle             CalleTramo @relation(fields: [calleId], references: [id])
+  contribuyentes    InmuebleContribuyente[]
+  facturas          FacturaTasa[]
+  recibos           ReciboPago[]
+  reportes          ReporteIncidencia[]
+}
+
+// -------------------------------------------------------------
+// 2. MÓDULO DE USUARIOS Y ROLES
+// -------------------------------------------------------------
+
+model Usuario {
+  id               String   @id @default(uuid())
+  tipoDoc          String   @default("V") // V, E, J, G
+  cedulaRif        String   @unique
+  nombres          String
+  apellidos        String
+  telefonoMovil    String
+  telefonoWhatsapp String?
+  email            String?
+  passwordHash     String?
+  rol              String   @default("CIUDADANO") // CIUDADANO, SUPERVISOR_CAMPO, OPERARIO, CAJERO_TAQUILLA, ADMIN_FISCAL, AUDITOR_CONTRALORIA
+  activo           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  inmueblesRelacionados InmuebleContribuyente[]
+  recibosPagados        ReciboPago[]            @relation("UsuarioPagador")
+  recibosValidados      ReciboPago[]            @relation("UsuarioValidador")
+  turnosSupervisados    CuadrillaTurno[]        @relation("SupervisorTurno")
+  reportesCreados       ReporteIncidencia[]     @relation("UsuarioReporta")
+  trazabilidades        ReporteTrazabilidad[]
+}
+
+model InmuebleContribuyente {
+  id                 String   @id @default(uuid())
+  inmuebleId         String
+  usuarioId          String
+  tipoRelacion       String   @default("PROPIETARIO") // PROPIETARIO, ARRENDATARIO, REPRESENTANTE
+  esResponsablePago  Boolean  @default(true)
+  createdAt          DateTime @default(now())
+
+  inmueble           InmuebleCatastro @relation(fields: [inmuebleId], references: [id])
+  usuario            Usuario          @relation(fields: [usuarioId], references: [id])
+}
+
+// -------------------------------------------------------------
+// 3. MÓDULO FISCAL, TASAS BCV Y RECAUDACIÓN (CONTRALORÍA)
+// -------------------------------------------------------------
+
+model TasaBcv {
+  id                  String   @id @default(uuid())
+  fecha               String   @unique // YYYY-MM-DD
+  valorUsdBs          Float    // Tasa oficial BCV en Bolívares
+  valorEurBs          Float?
+  fuente              String   @default("BCV_OFICIAL")
+  capturadoAutomatico Boolean  @default(true)
+  createdAt           DateTime @default(now())
+}
+
+model PeriodoFacturacion {
+  id              String   @id @default(uuid())
+  anio            Int
+  mes             Int
+  codigoPeriodo   String   @unique // ej: 2026-03
+  fechaVencimiento String
+  cerrado         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  facturas        FacturaTasa[]
+}
+
+model FacturaTasa {
+  id            String   @id @default(uuid())
+  inmuebleId    String
+  periodoId     String
+  montoUsd      Float
+  estado        String   @default("PENDIENTE") // PENDIENTE, PAGADA, EXONERADA, ANULADA
+  createdAt     DateTime @default(now())
+
+  inmueble      InmuebleCatastro   @relation(fields: [inmuebleId], references: [id])
+  periodo       PeriodoFacturacion @relation(fields: [periodoId], references: [id])
+  recibos       ReciboPago[]
+}
+
+model ReciboPago {
+  id                    String   @id @default(uuid())
+  folioCorrelativo      Int      @unique // Secuencia incremental inmutable
+  numeroReciboFiscal    String   @unique // ej: ASEO-2026-000142
+  facturaId             String?
+  inmuebleId            String
+  usuarioId             String
+  montoTotalUsd         Float
+  tasaBcvAplicada       Float    // Tasa BCV congelada al momento del pago
+  montoTotalBs          Float
+  metodoPago            String   // PAGO_MOVIL, ZELLE, EFECTIVO_BS, EFECTIVO_USD, PUNTO_VENTA, TRANSFERENCIA
+  referenciaBancaria    String?
+  bancoOrigen           String?
+  bancoDestino          String?
+  capturaComprobanteUrl String?
+  estado                String   @default("PENDIENTE_VALIDACION") // PENDIENTE_VALIDACION, APROBADO, RECHAZADO, ANULADO
+  origenPago            String   @default("PORTAL_CIUDADANO") // PORTAL_CIUDADANO, TAQUILLA_MUNICIPAL, CUADRILLA_CAMPO
+  validadoPorId         String?
+  fechaValidacion       DateTime?
+  codigoQrHash          String   @unique
+  observacionesFiscales String?
+  createdAt             DateTime @default(now())
+
+  factura               FacturaTasa?     @relation(fields: [facturaId], references: [id])
+  inmueble              InmuebleCatastro @relation(fields: [inmuebleId], references: [id])
+  usuario               Usuario          @relation("UsuarioPagador", fields: [usuarioId], references: [id])
+  validadoPor           Usuario?         @relation("UsuarioValidador", fields: [validadoPorId], references: [id])
+}
+
+// -------------------------------------------------------------
+// 4. MÓDULO OPERATIVO DE CUADRILLAS Y ASISTENCIA (CAMPO)
+// -------------------------------------------------------------
+
+model Camion {
+  id                 String   @id @default(uuid())
+  codigoUnidad       String   @unique // ej: CAM-01
+  placa              String   @unique
+  capacidadToneladas Float    @default(6.5)
+  estado             String   @default("OPERATIVO") // OPERATIVO, MANTENIMIENTO, INACTIVO
+  createdAt          DateTime @default(now())
+
+  turnos             CuadrillaTurno[]
+}
+
+model CuadrillaTurno {
+  id                    String   @id @default(uuid())
+  supervisorId          String
+  camionId              String
+  sectorId              String
+  fechaTurno            String   // YYYY-MM-DD
+  horaInicio            DateTime @default(now())
+  horaFin               DateTime?
+  estadoTurno           String   @default("EN_CURSO") // EN_CURSO, FINALIZADO, CANCELADO
+  checkinLat            Float    @default(10.3167)
+  checkinLng            Float    @default(-72.3167)
+  asistenciaEnGeocerca  Boolean  @default(true)
+  toneladasEstimadas    Float?
+  novedadesCierre       String?
+  createdAt             DateTime @default(now())
+
+  supervisor            Usuario               @relation("SupervisorTurno", fields: [supervisorId], references: [id])
+  camion                Camion                @relation(fields: [camionId], references: [id])
+  sector                Sector                @relation(fields: [sectorId], references: [id])
+  avancesTramos         CuadrillaTramoAvance[]
+  reportesAtendidos     ReporteIncidencia[]
+}
+
+model CuadrillaTramoAvance {
+  id             String   @id @default(uuid())
+  turnoId        String
+  tramoId        String
+  completado     Boolean  @default(true)
+  horaCompletado DateTime @default(now())
+  latitudMarca   Float?
+  longitudMarca  Float?
+
+  turno          CuadrillaTurno @relation(fields: [turnoId], references: [id])
+  tramo          CalleTramo     @relation(fields: [tramoId], references: [id])
+}
+
+// -------------------------------------------------------------
+// 5. MÓDULO DE REPORTES E INCIDENCIAS CIUDADANAS CON EVIDENCIA
+// -------------------------------------------------------------
+
+model ReporteIncidencia {
+  id                  String   @id @default(uuid())
+  folioIncidencia     String   @unique // ej: INC-2026-00089
+  usuarioId           String
+  sectorId            String
+  inmuebleId          String?
+  tipoProblema        String   // BASURA_ACUMULADA, CAMION_NO_PASO, PODA_ESCOMBROS, ANIMAL_MUERTO, CONTENEDOR_LLENO, OTRO
+  descripcion         String?
+  latitud             Float
+  longitud            Float
+  fotoReporteUrl      String   // Foto obligatoria del vecino
+  estado              String   @default("RECIBIDO") // RECIBIDO, ASIGNADO, EN_PROCESO, RESUELTO, RECHAZADO
+  turnoId             String?
+  fotoResolucionUrl   String?  // OBLIGATORIA EN BACKEND PARA PASAR A RESUELTO
+  notasResolucion     String?
+  fechaAsignacion     DateTime?
+  fechaResolucion     DateTime?
+  createdAt           DateTime @default(now())
+
+  usuario             Usuario               @relation("UsuarioReporta", fields: [usuarioId], references: [id])
+  sector              Sector                @relation(fields: [sectorId], references: [id])
+  inmueble            InmuebleCatastro?     @relation(fields: [inmuebleId], references: [id])
+  turno               CuadrillaTurno?       @relation(fields: [turnoId], references: [id])
+  trazabilidades      ReporteTrazabilidad[]
+}
+
+model ReporteTrazabilidad {
+  id             String   @id @default(uuid())
+  reporteId      String
+  estadoAnterior String?
+  estadoNuevo    String
+  modificadoPorId String?
+  comentario     String?
+  createdAt      DateTime @default(now())
+
+  reporte        ReporteIncidencia @relation(fields: [reporteId], references: [id])
+  modificadoPor  Usuario?          @relation(fields: [modificadoPorId], references: [id])
+}
