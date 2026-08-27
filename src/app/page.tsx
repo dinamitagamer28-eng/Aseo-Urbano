@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, CheckCircle, MapPin, CreditCard, Shield, AlertTriangle, ListTodo, LogIn, FileText, Loader2, BarChart3, Phone, Mail, Upload, ImagePlus, Settings, ChevronDown, ChevronUp } from 'lucide-react';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, storage } from '@/lib/firebase';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -10,7 +10,8 @@ import {
   signOut,
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, getDocs, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, getDocs, onSnapshot, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // --- MOCK DATA ---
 const SECTORES = [
@@ -101,62 +102,116 @@ export default function AseoUrbanoApp() {
   const [userData, setUserData] = useState({ nombre: '', sector: '', documento: '', uid: '', correo: '', rol: 'ciudadano' });
   const [loadingSession, setLoadingSession] = useState(true);
 
-  // Estado global falso (mock) para los reportes de la sesión
+  // Estado global real (Firestore) para los reportes
   const [reportesActivos, setReportesActivos] = useState<any[]>([]);
-  // Estado global falso (mock) para los pagos de la sesión
+  // Estado global real (Firestore) para los pagos
   const [pagosActivos, setPagosActivos] = useState<any[]>([]);
 
-  // Persistir en LocalStorage (Solo para este prototipo mock)
-  const [isLoaded, setIsLoaded] = useState(false);
-
+  // Suscribirse a los datos reales
   useEffect(() => {
-    const r = localStorage.getItem('mockReportes');
-    const p = localStorage.getItem('mockPagos');
-    if (r) setReportesActivos(JSON.parse(r));
-    if (p) setPagosActivos(JSON.parse(p));
-    setIsLoaded(true);
-  }, []);
+    if (!userData) return;
+    
+    const unsubReportes = onSnapshot(collection(db, 'reportes'), (snap) => {
+      const reportes: any[] = [];
+      snap.forEach(doc => reportes.push({ id: doc.id, ...doc.data() }));
+      // Ordenar por más recientes (asumiendo que los ids son timestamps o por createdAt)
+      setReportesActivos(reportes.sort((a, b) => b.createdAt - a.createdAt));
+    });
 
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('mockReportes', JSON.stringify(reportesActivos));
-    }
-  }, [reportesActivos, isLoaded]);
+    const unsubPagos = onSnapshot(collection(db, 'pagos'), (snap) => {
+      const pagos: any[] = [];
+      snap.forEach(doc => pagos.push({ id: doc.id, ...doc.data() }));
+      setPagosActivos(pagos.sort((a, b) => b.createdAt - a.createdAt));
+    });
 
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('mockPagos', JSON.stringify(pagosActivos));
-    }
-  }, [pagosActivos, isLoaded]);
+    return () => {
+      unsubReportes();
+      unsubPagos();
+    };
+  }, [userData]);
   // Historial de rutas completadas por los camiones
   const [historialRutas, setHistorialRutas] = useState<{ tramo: string, fecha: string, tipo: string }[]>([]);
 
-  const handleSubmitReport = (nuevoReporte: any) => {
-    const r = { 
-      ...nuevoReporte, 
-      id: Date.now().toString(),
-      usuario: userData.nombre,
-      cedula: userData.documento,
-      sector: SECTORES.find(s => s.id === userData.sector)?.nombre || userData.sector
-    };
-    setReportesActivos([r, ...reportesActivos]);
+  const handleSubmitReport = async (nuevoReporte: any, file: File) => {
+    try {
+      const timestamp = Date.now();
+      const storageRef = ref(storage, `reportes/${timestamp}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const fotoUrl = await getDownloadURL(storageRef);
+
+      const r = { 
+        ...nuevoReporte,
+        foto: fotoUrl, 
+        usuario: userData.nombre,
+        cedula: userData.documento,
+        sector: SECTORES.find(s => s.id === userData.sector)?.nombre || userData.sector,
+        createdAt: timestamp
+      };
+      await addDoc(collection(db, 'reportes'), r);
+    } catch (e) {
+      console.error(e);
+      alert("Error al enviar reporte");
+    }
   };
 
-  const handleResolveReport = (id: string, nuevoEstado: string, fotoRespuesta?: string) => {
-    setReportesActivos(reportesActivos.map(r => r.id === id ? { ...r, estado: nuevoEstado, ...(fotoRespuesta && { fotoRespuesta }) } : r));
+  const handleResolveReport = async (id: string, nuevoEstado: string, file?: File | string) => {
+    try {
+      let fotoUrl = undefined;
+      if (file && typeof file !== 'string') {
+        const storageRef = ref(storage, `resoluciones/${Date.now()}_${file.name}`);
+        await uploadBytes(storageRef, file);
+        fotoUrl = await getDownloadURL(storageRef);
+      }
+      
+      const docRef = doc(db, 'reportes', id);
+      await updateDoc(docRef, { 
+        estado: nuevoEstado, 
+        ...(fotoUrl && { fotoRespuesta: fotoUrl }) 
+      });
+    } catch (e) {
+      console.error(e);
+      alert("Error al actualizar reporte");
+    }
   };
 
-  const handleSubmitPago = (nuevoPago: any) => {
-    const p = { ...nuevoPago, id: Date.now().toString() };
-    setPagosActivos([p, ...pagosActivos]);
+  const handleSubmitPago = async (nuevoPago: any, file?: File) => {
+    try {
+      let fotoUrl = undefined;
+      const timestamp = Date.now();
+      if (file) {
+        const storageRef = ref(storage, `pagos/${timestamp}_${file.name}`);
+        await uploadBytes(storageRef, file);
+        fotoUrl = await getDownloadURL(storageRef);
+      }
+
+      const p = { 
+        ...nuevoPago, 
+        ...(fotoUrl && { foto: fotoUrl }),
+        createdAt: timestamp 
+      };
+      await addDoc(collection(db, 'pagos'), p);
+    } catch (e) {
+      console.error(e);
+      alert("Error al procesar pago");
+    }
   };
 
-  const handleApprovePago = (id: string) => {
-    setPagosActivos(pagosActivos.map(p => p.id === id ? { ...p, estado: 'aprobado' } : p));
+  const handleApprovePago = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'pagos', id), { estado: 'aprobado' });
+    } catch (e) {
+      console.error(e);
+      alert("Error al aprobar pago");
+    }
   };
 
-  const handleRejectPago = (id: string) => {
-    setPagosActivos(pagosActivos.map(p => p.id === id ? { ...p, estado: 'rechazado' } : p));
+  const handleRejectPago = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'pagos', id), { estado: 'rechazado' });
+    } catch (e) {
+      console.error(e);
+      alert("Error al rechazar pago");
+    }
   };
 
   // Escuchar el estado de autenticación en tiempo real
@@ -602,16 +657,19 @@ function SettingsScreen({ userData, reportesActivos, pagosActivos, onBack }: { u
   );
 }
 
-function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos, onSubmitPago }: { userData: any, onSubmitReport: (r: any) => void, reportesActivos: any[], pagosActivos: any[], onSubmitPago: (p: any) => void }) {
+function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos, onSubmitPago }: { userData: any, onSubmitReport: (r: any, file: File) => Promise<void>, reportesActivos: any[], pagosActivos: any[], onSubmitPago: (p: any, file?: File) => Promise<void> }) {
   const [view, setView] = useState<'home' | 'report' | 'report-success' | 'pay' | 'settings'>('home');
   const [tasaBcv, setTasaBcv] = useState<number>(36.5);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'submitted'>('pending');
   const [paymentMethod, setPaymentMethod] = useState<'pago_movil' | 'zelle' | 'efectivo'>('efectivo');
   const [paymentRef, setPaymentRef] = useState('');
-  const [paymentPhoto, setPaymentPhoto] = useState<string | null>(null);
+  const [paymentPhotoPreview, setPaymentPhotoPreview] = useState<string | null>(null);
+  const [paymentFile, setPaymentFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [reportData, setReportData] = useState({ problema: '', ubicacion: '', descripcion: '' });
-  const [reportPhoto, setReportPhoto] = useState<string | null>(null);
+  const [reportPhotoPreview, setReportPhotoPreview] = useState<string | null>(null);
+  const [reportFile, setReportFile] = useState<File | null>(null);
   const [imagenAmpliada, setImagenAmpliada] = useState<string | null>(null);
   const [expandedReportes, setExpandedReportes] = useState<string[]>([]);
 
@@ -628,7 +686,7 @@ function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos,
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setReportPhoto(URL.createObjectURL(file));
+      setReportPhotoPreview(URL.createObjectURL(file)); setReportFile(file);
     }
   };
 
@@ -646,7 +704,7 @@ function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos,
             <div className="mt-4 inline-block bg-green-100 text-green-800 text-xs font-black px-3 py-1 rounded-full">Servicio Activo</div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <button onClick={() => { setView('report'); setReportPhoto(null); setReportData({ problema: '', ubicacion: '', descripcion: '' }); }} className="bg-white border-2 border-green-600 p-6 rounded-2xl shadow-sm hover:bg-green-50 transition flex flex-col items-center justify-center gap-3">
+            <button onClick={() => { setView('report'); setReportPhotoPreview(null); setReportFile(null); setReportData({ problema: '', ubicacion: '', descripcion: '' }); }} className="bg-white border-2 border-green-600 p-6 rounded-2xl shadow-sm hover:bg-green-50 transition flex flex-col items-center justify-center gap-3">
               <AlertTriangle className="w-10 h-10 text-green-600" />
               <span className="font-bold text-green-900 leading-tight">Reportar<br/>Falla</span>
             </button>
@@ -749,13 +807,15 @@ function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos,
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 animate-in fade-in slide-in-from-bottom-4">
           <h2 className="text-xl font-black text-gray-800 mb-4 border-b pb-3">Reportar Problema</h2>
           
-          <form onSubmit={(e) => { 
+          <form onSubmit={async (e) => { 
             e.preventDefault(); 
-            if (!reportPhoto) {
+            if (!reportFile) {
               alert("Por favor, añade una evidencia fotográfica antes de enviar el reporte.");
               return;
             }
-            onSubmitReport({ ...reportData, foto: reportPhoto, estado: 'asignado', tiempo: 'Hace 1 min' }); 
+            setIsSubmitting(true);
+            await onSubmitReport({ ...reportData, estado: 'asignado', tiempo: 'Hace 1 min' }, reportFile);
+            setIsSubmitting(false);
             setView('report-success'); 
           }} className="space-y-4">
             <div>
@@ -785,10 +845,10 @@ function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos,
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Evidencia Fotográfica <span className="text-red-500">*</span></label>
               <div className="w-full border-2 border-dashed border-gray-300 rounded-xl overflow-hidden bg-white">
-                {reportPhoto ? (
+                {reportPhotoPreview ? (
                   <div className="relative">
-                    <img src={reportPhoto} alt="Evidencia" className="w-full h-48 object-cover" />
-                    <button type="button" onClick={() => setReportPhoto(null)} className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white font-bold text-xs px-3 py-1 rounded-full shadow-md transition">
+                    <img src={reportPhotoPreview} alt="Evidencia" className="w-full h-48 object-cover" />
+                    <button type="button" onClick={() => { setReportPhotoPreview(null); setReportFile(null); }} className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white font-bold text-xs px-3 py-1 rounded-full shadow-md transition">
                       Quitar Foto
                     </button>
                   </div>
@@ -809,8 +869,8 @@ function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos,
               </div>
             </div>
 
-            <button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg mt-4 transition">
-              Enviar Reporte
+            <button type="submit" disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-3 rounded-lg mt-4 transition">
+              {isSubmitting ? "Enviando..." : "Enviar Reporte"}
             </button>
             <button type="button" className="w-full text-gray-500 font-bold text-sm py-2 hover:text-gray-800" onClick={() => setView('home')}>
               Cancelar
@@ -825,7 +885,7 @@ function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos,
           <h2 className="text-xl font-black text-gray-800 mb-2">¡Ha sido enviado con éxito!</h2>
           <p className="text-gray-500 mb-6 text-sm">Tu reporte ha sido asignado a la cuadrilla de limpieza más cercana.</p>
           
-          <button onClick={() => { setView('report'); setReportPhoto(null); setReportData({ problema: '', ubicacion: '', descripcion: '' }); }} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg mb-3 transition">
+          <button onClick={() => { setView('report'); setReportPhotoPreview(null); setReportFile(null); setReportData({ problema: '', ubicacion: '', descripcion: '' }); }} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg mb-3 transition">
             ¿Quieres enviar otro reporte?
           </button>
           <button onClick={() => setView('home')} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-lg transition">
@@ -869,10 +929,10 @@ function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos,
                     <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Comprobante o Captura</label>
                       <label className="w-full block border-2 border-dashed border-gray-300 rounded-xl overflow-hidden text-center text-gray-500 hover:bg-gray-50 hover:border-green-500 cursor-pointer transition">
-                        {paymentPhoto ? (
+                        {paymentPhotoPreview ? (
                           <div className="relative">
-                            <img src={paymentPhoto} alt="Comprobante" className="w-full h-32 object-cover" />
-                            <button type="button" onClick={(e) => { e.preventDefault(); setPaymentPhoto(null); }} className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 px-3 text-xs font-bold shadow">Quitar</button>
+                            <img src={paymentPhotoPreview} alt="Comprobante" className="w-full h-32 object-cover" />
+                            <button type="button" onClick={(e) => { e.preventDefault(); setPaymentPhotoPreview(null); setPaymentFile(null); }} className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 px-3 text-xs font-bold shadow">Quitar</button>
                           </div>
                         ) : (
                           <div className="p-4">
@@ -882,31 +942,35 @@ function AppCiudadana({ userData, onSubmitReport, reportesActivos, pagosActivos,
                         )}
                         <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) setPaymentPhoto(URL.createObjectURL(file));
+                          if (file) {
+                            setPaymentPhotoPreview(URL.createObjectURL(file));
+                            setPaymentFile(file);
+                          }
                         }} />
                       </label>
                     </div>
                   </div>
                 )}
-                <button className="w-full bg-green-600 text-white font-bold py-3 rounded-lg mt-4 flex items-center justify-center gap-2" onClick={() => {
-                  if ((paymentMethod === 'pago_movil' || paymentMethod === 'zelle') && !paymentRef && !paymentPhoto) {
+                <button disabled={isSubmitting} className="w-full bg-green-600 disabled:opacity-50 text-white font-bold py-3 rounded-lg mt-4 flex items-center justify-center gap-2" onClick={async () => {
+                  if ((paymentMethod === 'pago_movil' || paymentMethod === 'zelle') && !paymentRef && !paymentFile) {
                     alert("Debes escribir el número de referencia o subir una foto del comprobante.");
                     return;
                   }
-                  onSubmitPago({
+                  setIsSubmitting(true);
+                  await onSubmitPago({
                     usuario: userData.nombre,
                     cedula: userData.documento,
                     sector: userData.sector,
                     monto: `${TARIFA_BS.toFixed(2)} Bs`,
                     metodo: paymentMethod,
                     ref: paymentRef || 'Foto adjunta',
-                    foto: paymentPhoto,
                     fecha: new Date().toLocaleDateString('es-VE'),
                     estado: 'pendiente'
-                  });
+                  }, paymentFile || undefined);
+                  setIsSubmitting(false);
                   setPaymentStatus('submitted');
                 }}>
-                  <FileText className="w-5 h-5"/> Enviar Reporte de Pago
+                  <FileText className="w-5 h-5"/> {isSubmitting ? 'Enviando...' : 'Enviar Reporte de Pago'}
                 </button>
               </div>
             ) : (
@@ -964,7 +1028,7 @@ const RUTAS_POR_DIA = {
   ]
 };
 
-function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHistorialRutas }: { reportesActivos: any[], onResolveReport: (id: string, step: string, foto?: string) => void, historialRutas: any[], setHistorialRutas: (h: any[]) => void }) {
+function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHistorialRutas }: { reportesActivos: any[], onResolveReport: (id: string, step: string, foto?: File | string) => void, historialRutas: any[], setHistorialRutas: (h: any[]) => void }) {
   const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
   const todayStr = new Date().toISOString().split('T')[0];
   
@@ -1158,7 +1222,7 @@ function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHi
                           <Camera className="w-5 h-5"/> Tomar Foto
                           <input type="file" accept="image/*" capture="environment" className="hidden" onClick={(e) => e.stopPropagation()} onChange={(e) => {
                             if(e.target.files && e.target.files[0]) {
-                              onResolveReport(reporte.id, 'resuelto', URL.createObjectURL(e.target.files[0]));
+                              onResolveReport(reporte.id, 'resuelto', e.target.files[0]);
                             }
                           }}/>
                         </label>
@@ -1166,7 +1230,7 @@ function AppSupervisor({ reportesActivos, onResolveReport, historialRutas, setHi
                           <ImagePlus className="w-5 h-5"/> Subir Foto
                           <input type="file" accept="image/*" className="hidden" onClick={(e) => e.stopPropagation()} onChange={(e) => {
                             if(e.target.files && e.target.files[0]) {
-                              onResolveReport(reporte.id, 'resuelto', URL.createObjectURL(e.target.files[0]));
+                              onResolveReport(reporte.id, 'resuelto', e.target.files[0]);
                             }
                           }}/>
                         </label>
@@ -1469,6 +1533,20 @@ function PanelAdmin({ pagosActivos, onApprovePago, onRejectPago, onResetPagos }:
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
