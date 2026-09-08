@@ -15,6 +15,20 @@ export async function getTasaBcvActual(): Promise<BcvRateInfo> {
   const hoy = new Date().toISOString().split('T')[0];
 
   try {
+    const res = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { cache: 'no-store' });
+    const data = await res.json();
+    if (data && data.promedio) {
+      return {
+        fecha: data.fechaActualizacion || hoy,
+        valorUsdBs: data.promedio,
+        fuente: 'BCV_OFICIAL',
+      };
+    }
+  } catch (error) {
+    console.error('Error al consultar dolarapi:', error);
+  }
+
+  try {
     const tasaBd = await prisma.tasaBcv.findFirst({
       orderBy: { createdAt: 'desc' },
     });

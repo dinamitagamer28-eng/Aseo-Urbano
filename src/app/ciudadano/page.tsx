@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import ReceiptModal, { ReciboData } from '@/components/ReceiptModal';
 import LeafletMap from '@/components/LeafletMap';
+import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import {
   consultarContribuyentePorCedula,
   registrarPagoCiudadano,
@@ -25,21 +28,41 @@ import {
   ArrowRight,
   ShieldCheck,
   Sparkles,
+  Loader2,
+  Settings,
+  LogOut,
+  X,
+  XCircle,
+  Send,
+  History,
+  DollarSign,
+  ChevronRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export default function CiudadanoPage() {
-  const [cedulaInput, setCedulaInput] = useState('18456789');
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [cedulaInput, setCedulaInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [contribuyenteData, setContribuyenteData] = useState<any>(null);
   const [tasaBcv, setTasaBcv] = useState<number>(65.40);
   const [activeTab, setActiveTab] = useState<'estado' | 'pago' | 'reportar' | 'mis-reportes'>('estado');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Authentication guard
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
 
   // Payment Form States
   const [pagoSubmitting, setPagoSubmitting] = useState(false);
   const [metodoPago, setMetodoPago] = useState('PAGO_MOVIL');
   const [referencia, setReferencia] = useState('');
   const [bancoEmisor, setBancoEmisor] = useState('Banesco');
+  const [archivoComprobante, setArchivoComprobante] = useState<File | null>(null);
   const [reciboModalData, setReciboModalData] = useState<ReciboData | null>(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -48,20 +71,57 @@ export default function CiudadanoPage() {
   const [reporteSubmitting, setReporteSubmitting] = useState(false);
   const [tipoProblema, setTipoProblema] = useState('BASURA_ACUMULADA');
   const [descripcionReporte, setDescripcionReporte] = useState('');
-  const [fotoReporte, setFotoReporte] = useState('https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=600&auto=format&fit=crop&q=60');
+  const [archivoReporte, setArchivoReporte] = useState<File | null>(null);
   const [reporteCoords, setReporteCoords] = useState<{ lat: number; lng: number }>({
     lat: 10.3180,
     lng: -72.3150,
   });
   const [reporteSuccess, setReporteSuccess] = useState<string | null>(null);
+  const [obteniendoGps, setObteniendoGps] = useState(false);
+  const [gpsDetectado, setGpsDetectado] = useState(false);
+
+  const obtenerUbicacionGpsActual = () => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      alert("Tu dispositivo no soporta geolocalización GPS.");
+      return;
+    }
+    setObteniendoGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setReporteCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+        setGpsDetectado(true);
+        setObteniendoGps(false);
+      },
+      (err) => {
+        console.warn("GPS error:", err);
+        setObteniendoGps(false);
+        alert("No se pudo obtener la ubicación GPS automáticamente. Por favor concede permisos de ubicación en tu navegador.");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   const fetchContribuyente = async (cedula: string) => {
+    if (!cedula) return;
     setLoading(true);
     try {
       const res = await consultarContribuyentePorCedula(cedula);
       setContribuyenteData(res.usuario);
-      if (res.tasaBcv) {
-        setTasaBcv(res.tasaBcv.valorUsdBs);
+      
+      // Fetch dynamic BCV rate
+      try {
+        const bcvRes = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+        const bcvData = await bcvRes.json();
+        if (bcvData && bcvData.promedio) {
+          setTasaBcv(bcvData.promedio);
+        } else if (res.tasaBcv) {
+          setTasaBcv(res.tasaBcv.valorUsdBs);
+        }
+      } catch (e) {
+        if (res.tasaBcv) setTasaBcv(res.tasaBcv.valorUsdBs);
       }
     } catch (e) {
       console.error(e);
@@ -71,8 +131,14 @@ export default function CiudadanoPage() {
   };
 
   useEffect(() => {
-    fetchContribuyente(cedulaInput);
-  }, []);
+    if (status === 'authenticated') {
+      if ((session?.user as any)?.cedula) {
+        const c = (session!.user as any).cedula.replace(/^[VEJG]-?/, '');
+        setCedulaInput(c);
+        fetchContribuyente(c);
+      }
+    }
+  }, [session, status]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,12 +165,23 @@ export default function CiudadanoPage() {
 
     setPagoSubmitting(true);
     try {
+      let urlComprobante = '';
+      if (archivoComprobante) {
+        const formData = new FormData();
+        formData.append('file', archivoComprobante);
+        formData.append('type', 'pagos');
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+        const uploadData = await uploadRes.json();
+        urlComprobante = uploadData.url;
+      }
+
       const res = await registrarPagoCiudadano({
         inmuebleId: inmuebleVinculado.id,
         usuarioId: contribuyenteData.id,
         metodoPago,
         referenciaBancaria: referencia || 'PAGO-MOVIL-REF',
         bancoOrigen: bancoEmisor,
+        capturaComprobanteUrl: urlComprobante,
         montoUsd: tarifaUsd,
       });
 
@@ -136,6 +213,18 @@ export default function CiudadanoPage() {
 
     setReporteSubmitting(true);
     try {
+      if (!archivoReporte) {
+        throw new Error("Debes adjuntar una foto de la incidencia.");
+      }
+
+      let urlReporte = '';
+      const formData = new FormData();
+      formData.append('file', archivoReporte);
+      formData.append('type', 'reportes');
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+      const uploadData = await uploadRes.json();
+      urlReporte = uploadData.url;
+
       const res = await crearReporteCiudadano({
         usuarioId: contribuyenteData.id,
         sectorId: inmuebleVinculado.sectorId,
@@ -144,7 +233,7 @@ export default function CiudadanoPage() {
         descripcion: descripcionReporte,
         latitud: reporteCoords.lat,
         longitud: reporteCoords.lng,
-        fotoReporteUrl: fotoReporte,
+        fotoReporteUrl: urlReporte,
       });
 
       if (res.success) {
@@ -168,6 +257,9 @@ export default function CiudadanoPage() {
       <Navbar tasaBcv={tasaBcv} />
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 space-y-6">
+        {/* PWA Install Banner */}
+        <PWAInstallPrompt />
+
         {/* Search Header Bar */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -180,45 +272,13 @@ export default function CiudadanoPage() {
                 Consulta tu solvencia, paga en Bolívares a tasa oficial BCV y reporta incidencias en tu sector.
               </p>
             </div>
-
-            {/* Quick Demo Selector */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-400">
-              <span>Probar:</span>
-              <button
-                onClick={() => { setCedulaInput('18456789'); fetchContribuyente('18456789'); }}
-                className="px-2 py-1 bg-slate-800 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-700 text-sky-300 transition-colors"
-              >
-                Carlos (V-18456789)
+            {contribuyenteData && (
+              <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors border border-slate-700 text-sm font-semibold shadow-sm">
+                <Settings className="w-4 h-4 text-sky-400" />
+                Ajustes
               </button>
-              <button
-                onClick={() => { setCedulaInput('14234567'); fetchContribuyente('14234567'); }}
-                className="px-2 py-1 bg-slate-800 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-700 text-sky-300 transition-colors"
-              >
-                María (V-14234567)
-              </button>
-            </div>
+            )}
           </div>
-
-          <form onSubmit={handleSearch} className="flex gap-2">
-            <div className="relative flex-1">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">V-</span>
-              <input
-                type="text"
-                value={cedulaInput}
-                onChange={(e) => setCedulaInput(e.target.value)}
-                placeholder="Ingresa tu número de Cédula o RIF"
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 text-sm font-medium"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-5 py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg shadow-sky-600/30 transition-colors"
-            >
-              <Search className="w-4 h-4" />
-              <span>{loading ? 'Buscando...' : 'Consultar'}</span>
-            </button>
-          </form>
         </div>
 
         {contribuyenteData && inmuebleVinculado ? (
@@ -564,12 +624,28 @@ export default function CiudadanoPage() {
                               onChange={(e) => setBancoEmisor(e.target.value)}
                               className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-sky-500"
                             >
-                              <option value="Banesco">Banesco</option>
-                              <option value="Banco de Venezuela">Banco de Venezuela</option>
-                              <option value="Mercantil">Banco Mercantil</option>
-                              <option value="Provincial">BBVA Provincial</option>
-                              <option value="BOD / BNC">BNC Banco Nacional de Crédito</option>
-                              <option value="Bancaribe">Bancaribe</option>
+                              <option value="Banesco">0134 - Banesco</option>
+                              <option value="Banco de Venezuela">0102 - Banco de Venezuela</option>
+                              <option value="Venezolano de Credito">0104 - Banco Venezolano de Crédito</option>
+                              <option value="Mercantil">0105 - Banco Mercantil</option>
+                              <option value="Provincial">0108 - Banco Provincial</option>
+                              <option value="Bancaribe">0114 - Bancaribe</option>
+                              <option value="Exterior">0115 - Banco Exterior</option>
+                              <option value="Caroni">0128 - Banco Caroní</option>
+                              <option value="Plaza">0138 - Banco Plaza</option>
+                              <option value="Fondo Comun">0151 - Fondo Común</option>
+                              <option value="100% Banco">0156 - 100% Banco</option>
+                              <option value="Del Sur">0157 - Del Sur</option>
+                              <option value="Tesoro">0163 - Banco del Tesoro</option>
+                              <option value="Agricola">0166 - Banco Agrícola</option>
+                              <option value="Bancrecer">0168 - Bancrecer</option>
+                              <option value="Mi Banco">0169 - Mi Banco</option>
+                              <option value="Activo">0171 - Banco Activo</option>
+                              <option value="Bancamiga">0172 - Bancamiga</option>
+                              <option value="Banplus">0174 - Banplus</option>
+                              <option value="Bicentenario">0175 - Banco Bicentenario</option>
+                              <option value="Fuerza Armada">0177 - Banco de la Fuerza Armada</option>
+                              <option value="BNC">0191 - BNC Nacional de Crédito</option>
                               <option value="Otro">Otro Banco Nacional</option>
                             </select>
                           </div>
@@ -581,12 +657,32 @@ export default function CiudadanoPage() {
                             <input
                               type="text"
                               required
+                              minLength={6}
+                              maxLength={6}
+                              pattern="\d{6}"
+                              title="Debe tener exactamente 6 dígitos"
                               value={referencia}
-                              onChange={(e) => setReferencia(e.target.value)}
+                              onChange={(e) => setReferencia(e.target.value.replace(/\D/g, ''))}
                               placeholder="Ej: 894512"
                               className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-sky-500 font-mono"
                             />
                           </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1">
+                            Captura del Comprobante (Opcional):
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                setArchivoComprobante(e.target.files[0]);
+                              }
+                            }}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2 text-sm text-white focus:outline-none focus:border-sky-500 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-sky-600 file:text-white hover:file:bg-sky-500 cursor-pointer"
+                          />
                         </div>
 
                         <button
@@ -611,9 +707,52 @@ export default function CiudadanoPage() {
                         <div><strong>Correo:</strong> tesoreria@rosariodeperija.gob.ve</div>
                         <div><strong>Titular:</strong> Alcaldía Bolivariana Rosario de Perijá</div>
                       </div>
-                      <p className="text-slate-400">
-                        Al completar la transferencia, registra tu pago ingresando el correo emisor en la referencia.
+                      <p className="text-slate-400 mb-4">
+                        Al completar la transferencia, registra tu pago ingresando el correo emisor en la referencia y carga el comprobante.
                       </p>
+                      
+                      <form onSubmit={handlePagar} className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-300 mb-1">
+                              Correo de origen (Zelle):
+                            </label>
+                            <input
+                              type="email"
+                              required
+                              value={referencia}
+                              onChange={(e) => setReferencia(e.target.value)}
+                              placeholder="ej: tu_correo@gmail.com"
+                              className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-300 mb-1">
+                              Captura del Comprobante (Requerida):
+                            </label>
+                            <input
+                              type="file"
+                              required
+                              accept="image/*"
+                              onChange={(e) => {
+                                if (e.target.files && e.target.files[0]) {
+                                  setArchivoComprobante(e.target.files[0]);
+                                }
+                              }}
+                              className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2 text-sm text-white focus:outline-none focus:border-purple-500 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-500 cursor-pointer"
+                            />
+                          </div>
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={pagoSubmitting}
+                          className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl font-extrabold text-sm shadow-xl shadow-purple-600/30 flex items-center justify-center gap-2 transition-all"
+                        >
+                          <Sparkles className="w-5 h-5 text-purple-200" />
+                          <span>{pagoSubmitting ? 'Procesando Recibo...' : 'Registrar Pago Zelle'}</span>
+                        </button>
+                      </form>
                     </div>
                   )}
 
@@ -689,63 +828,77 @@ export default function CiudadanoPage() {
                       <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Foto Obligatoria del Problema:
                       </label>
-                      <div className="flex items-center gap-4 bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                        <img
-                          src={fotoReporte}
-                          alt="Foto del problema"
-                          className="w-24 h-24 rounded-xl object-cover border border-slate-700"
-                        />
-                        <div className="space-y-2 text-xs">
+                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                        {archivoReporte ? (
+                          <div className="w-24 h-24 rounded-xl border border-sky-500 overflow-hidden shrink-0">
+                            <img src={URL.createObjectURL(archivoReporte)} alt="Preview" className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="w-24 h-24 rounded-xl border border-slate-700 bg-slate-900 flex items-center justify-center shrink-0">
+                            <Camera className="w-8 h-8 text-slate-500" />
+                          </div>
+                        )}
+                        <div className="space-y-2 text-xs w-full">
                           <p className="text-slate-400 text-xs">
                             Se requiere una foto clara para que la cuadrilla pueda ubicar y dimensionar la recolección.
                           </p>
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setFotoReporte('https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=600&auto=format&fit=crop&q=60')}
-                              className="px-3 py-1 bg-slate-800 text-slate-300 hover:text-white rounded-lg border border-slate-700"
-                            >
-                              Foto 1 (Basura)
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setFotoReporte('https://images.unsplash.com/photo-1605600659873-d808a13e4d2a?w=600&auto=format&fit=crop&q=60')}
-                              className="px-3 py-1 bg-slate-800 text-slate-300 hover:text-white rounded-lg border border-slate-700"
-                            >
-                              Foto 2 (Poda)
-                            </button>
-                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                setArchivoReporte(e.target.files[0]);
+                              }
+                            }}
+                            className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-sky-600 file:text-white hover:file:bg-sky-500 cursor-pointer"
+                          />
                         </div>
                       </div>
                     </div>
 
                     {/* Coordinates and Leaflet Map */}
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Ubicación en el Mapa (Sector Las Colinas):
-                      </label>
+                      <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
+                        <label className="block text-xs font-semibold text-slate-300">
+                          Ubicación de la Incidencia (Mapa GPS):
+                        </label>
+                        <button
+                          type="button"
+                          onClick={obtenerUbicacionGpsActual}
+                          disabled={obteniendoGps}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/40 rounded-xl text-xs font-bold transition shadow-sm"
+                        >
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span>{obteniendoGps ? 'Detectando señal GPS...' : gpsDetectado ? '✓ Ubicación GPS Fijada' : '📍 Usar Mi Ubicación GPS Actual'}</span>
+                        </button>
+                      </div>
+
                       <div className="rounded-2xl overflow-hidden border border-slate-800">
                         <LeafletMap
                           center={[reporteCoords.lat, reporteCoords.lng]}
                           zoom={16}
                           height="220px"
                           interactive={true}
-                          onMapClick={(lat, lng) => setReporteCoords({ lat, lng })}
+                          onMapClick={(lat, lng) => {
+                            setReporteCoords({ lat, lng });
+                            setGpsDetectado(true);
+                          }}
                           markers={[
                             {
                               id: 'pin-reporte',
                               lat: reporteCoords.lat,
                               lng: reporteCoords.lng,
                               title: 'Ubicación de tu Reporte',
-                              description: 'Haz clic en el mapa para ajustar la posición exacta',
+                              description: 'Posición georreferenciada enviada a la cuadrilla',
                               type: 'incident',
                             },
                           ]}
                         />
                       </div>
-                      <span className="text-[11px] text-slate-500 mt-1 block">
-                        Coordenadas fijadas: {reporteCoords.lat.toFixed(4)}, {reporteCoords.lng.toFixed(4)}
-                      </span>
+                      <div className="flex justify-between items-center text-[11px] text-slate-400 mt-1.5 flex-wrap gap-1">
+                        <span>Coordenadas fijadas: <strong className="text-sky-400 font-mono">{reporteCoords.lat.toFixed(5)}, {reporteCoords.lng.toFixed(5)}</strong></span>
+                        <span className="text-slate-500">Toca en el mapa si deseas ajustar la posición</span>
+                      </div>
                     </div>
 
                     {/* Description */}
@@ -863,8 +1016,9 @@ export default function CiudadanoPage() {
             )}
           </>
         ) : (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center text-slate-400 text-sm">
-            Ingresa tu número de Cédula o RIF en el buscador superior para consultar tu inmueble.
+          <div className="flex justify-center items-center py-20">
+            <Loader2 className="w-8 h-8 text-sky-500 animate-spin" />
+            <span className="ml-3 text-slate-400 font-semibold">Cargando tus datos...</span>
           </div>
         )}
       </main>
@@ -875,6 +1029,69 @@ export default function CiudadanoPage() {
         onClose={() => setIsReceiptOpen(false)}
         recibo={reciboModalData}
       />
+
+      {/* Settings Modal */}
+      {isSettingsOpen && contribuyenteData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-6 relative">
+            <button onClick={() => setIsSettingsOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <Settings className="w-5 h-5 text-sky-400" />
+              Ajustes de Cuenta
+            </h3>
+            
+            <div className="space-y-4 mb-6">
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                <div className="text-xs text-slate-500 uppercase font-bold">Datos Personales</div>
+                <div className="font-semibold text-slate-200">{contribuyenteData.nombres} {contribuyenteData.apellidos}</div>
+                <div className="text-slate-400 text-sm">C.I / RIF: {contribuyenteData.tipoDoc}-{contribuyenteData.cedulaRif}</div>
+                <div className="text-slate-400 text-sm">Correo: {contribuyenteData.email}</div>
+              </div>
+              
+              {inmuebleVinculado && (
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                  <div className="text-xs text-slate-500 uppercase font-bold">Inmueble Vinculado</div>
+                  <div className="text-slate-200 text-sm">{inmuebleVinculado.codigoCatastral}</div>
+                  <div className="text-slate-400 text-sm">Sector: {inmuebleVinculado.sector?.nombre}</div>
+                  <div className="text-slate-400 text-sm">Dirección: {inmuebleVinculado.direccionExacta || inmuebleVinculado.numeroCasaLocal}</div>
+                </div>
+              )}
+
+              {(session?.user as any)?.rol === 'ADMIN' && (
+                <div className="bg-slate-950 p-4 rounded-xl border border-emerald-500/30 space-y-2">
+                  <div className="text-xs text-emerald-400 uppercase font-bold flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4" /> Accesos de Administrador
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <a
+                      href="/cuadrilla"
+                      className="flex items-center justify-center gap-1.5 py-2 px-2 bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-slate-950 rounded-lg text-xs font-bold transition border border-amber-500/30 text-center"
+                    >
+                      <Truck className="w-3.5 h-3.5" /> App Cuadrilla
+                    </a>
+                    <a
+                      href="/admin"
+                      className="flex items-center justify-center gap-1.5 py-2 px-2 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950 rounded-lg text-xs font-bold transition border border-emerald-500/30 text-center"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" /> Panel Admin
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={() => signOut({ callbackUrl: '/login' })} 
+              className="w-full flex items-center justify-center gap-2 py-3 bg-red-600/10 text-red-500 hover:bg-red-600 hover:text-white font-bold rounded-xl transition-colors border border-red-500/20"
+            >
+              <LogOut className="w-5 h-5" />
+              Cerrar Sesión
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

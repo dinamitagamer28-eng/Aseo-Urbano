@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import LeafletMap from '@/components/LeafletMap';
 import ReceiptModal, { ReciboData } from '@/components/ReceiptModal';
@@ -27,14 +29,31 @@ import {
   Layers,
   Download,
   AlertTriangle,
+  LogOut,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-export default function AdminPage() {
+export default function AdminDashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  
   const [activeTab, setActiveTab] = useState<'kpis' | 'taquilla' | 'auditoria' | 'validar' | 'tarifas' | 'mapa'>('kpis');
-  const [tasaBcv, setTasaBcv] = useState(65.40);
+  const [tasaBcv, setTasaBcv] = useState(0);
+
+  useEffect(() => {
+    if (status === 'unauthenticated' || (status === 'authenticated' && (session?.user as any)?.rol !== 'ADMIN')) {
+      router.push('/login');
+    }
+  }, [status, session, router]);
+
+  useEffect(() => {
+    fetch('https://ve.dolarapi.com/v1/dolares/oficial')
+      .then(res => res.json())
+      .then(data => { if (data && data.promedio) setTasaBcv(data.promedio); })
+      .catch(err => console.error("Error tasa:", err));
+  }, []);
 
   // Taquilla Cashier State
   const [taquillaCedula, setTaquillaCedula] = useState('14234567');
@@ -45,59 +64,46 @@ export default function AdminPage() {
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
   // Mocked/Synced Real-time Data for Admin
-  const [recibosFiscales, setRecibosFiscales] = useState<any[]>([
-    {
-      id: 'rec-01',
-      folioCorrelativo: 1,
-      numeroReciboFiscal: 'ASEO-2026-000001',
-      cedula: 'V-18456789',
-      contribuyente: 'Carlos Mendoza',
-      inmueble: 'COL-C01-014 (Las Colinas Casa #14)',
-      sector: 'Sector Las Colinas',
-      montoUsd: 2.00,
-      tasaBcv: 65.40,
-      montoBs: 130.80,
-      metodo: 'PAGO_MOVIL',
-      referencia: '984210',
-      estado: 'APROBADO',
-      origen: 'PORTAL_CIUDADANO',
-      fecha: '2026-08-26 09:15',
-    },
-    {
-      id: 'rec-02',
-      folioCorrelativo: 2,
-      numeroReciboFiscal: 'ASEO-2026-000002',
-      cedula: 'J-29876543-1',
-      contribuyente: 'Abasto Las Colinas C.A.',
-      inmueble: 'COL-C01-002 (Local 02)',
-      sector: 'Sector Las Colinas',
-      montoUsd: 8.00,
-      tasaBcv: 65.40,
-      montoBs: 523.20,
-      metodo: 'PUNTO_VENTA',
-      referencia: 'TAQ-0012',
-      estado: 'APROBADO',
-      origen: 'TAQUILLA_MUNICIPAL',
-      fecha: '2026-08-26 10:30',
-    },
-    {
-      id: 'rec-03',
-      folioCorrelativo: 3,
-      numeroReciboFiscal: 'ASEO-2026-000003',
-      cedula: 'V-14234567',
-      contribuyente: 'María Pérez',
-      inmueble: 'COL-C02-028 (Casa #28)',
-      sector: 'Sector Las Colinas',
-      montoUsd: 2.00,
-      tasaBcv: 65.40,
-      montoBs: 130.80,
-      metodo: 'PAGO_MOVIL',
-      referencia: '445566',
-      estado: 'PENDIENTE_VALIDACION',
-      origen: 'PORTAL_CIUDADANO',
-      fecha: '2026-08-26 11:00',
-    },
-  ]);
+  const [recibosFiscales, setRecibosFiscales] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (status === 'unauthenticated' || (status === 'authenticated' && (session?.user as any)?.rol !== 'ADMIN')) {
+      router.push('/login');
+    }
+  }, [status, session, router]);
+
+  useEffect(() => {
+    if (status === 'authenticated' && (session?.user as any)?.rol === 'ADMIN') {
+      const load = async () => {
+        try {
+          const { obtenerRecibosAdmin } = await import('@/lib/actions');
+          const recibos = await obtenerRecibosAdmin();
+          const mapped = recibos.map((r: any) => ({
+            id: r.id,
+            folioCorrelativo: r.folioCorrelativo,
+            numeroReciboFiscal: r.numeroReciboFiscal,
+            fecha: new Date(r.createdAt).toLocaleString(),
+            cedula: r.usuario.cedulaRif,
+            contribuyente: r.usuario.nombres + ' ' + r.usuario.apellidos,
+            inmueble: r.inmueble.codigoCatastral,
+            sector: r.inmueble.sector.nombre,
+            montoUsd: r.montoTotalUsd,
+            tasaBcv: r.tasaBcvAplicada,
+            montoBs: r.montoTotalBs,
+            metodo: r.metodoPago,
+            estado: r.estado,
+            origen: r.origenPago,
+            referencia: r.referenciaBancaria,
+            comprobanteUrl: r.capturaComprobanteUrl,
+          }));
+          setRecibosFiscales(mapped);
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      load();
+    }
+  }, [status, session]);
 
   // Sector Dynamic Tariffs
   const [tarifasSectores, setTarifasSectores] = useState([
@@ -216,14 +222,24 @@ export default function AdminPage() {
     doc.save(`Libro_Fiscal_Contraloria_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
-  const handleValidarPago = (id: string, aprobar: boolean) => {
-    setRecibosFiscales((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, estado: aprobar ? 'APROBADO' : 'RECHAZADO' } : r))
-    );
+  const handleValidarPago = async (id: string, aprobar: boolean) => {
+    try {
+      const { validarPagoDigital } = await import('@/lib/actions');
+      await validarPagoDigital(id, 'admin-123', aprobar);
+      setRecibosFiscales((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, estado: aprobar ? 'APROBADO' : 'RECHAZADO' } : r))
+      );
+    } catch (e) {
+      alert("Error al validar");
+    }
   };
 
   const totalBs = recibosFiscales.filter((r) => r.estado === 'APROBADO').reduce((acc, curr) => acc + curr.montoBs, 0);
   const totalUsd = recibosFiscales.filter((r) => r.estado === 'APROBADO').reduce((acc, curr) => acc + curr.montoUsd, 0);
+
+  if (status === 'loading' || (session?.user as any)?.rol !== 'ADMIN') {
+    return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">Verificando credenciales...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
@@ -242,22 +258,47 @@ export default function AdminPage() {
             </p>
           </div>
 
-          {/* Quick Action Export Buttons */}
+          {/* Quick Action Export Buttons & App Switcher */}
           <div className="flex items-center gap-2 flex-wrap">
+            <a
+              href="/ciudadano"
+              className="flex items-center gap-1.5 px-3 py-2 bg-sky-950/80 hover:bg-sky-900 border border-sky-600/40 text-sky-300 rounded-xl text-xs font-bold transition-colors"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Ver Ciudadano</span>
+            </a>
+
+            <a
+              href="/cuadrilla"
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-950/80 hover:bg-amber-900 border border-amber-600/40 text-amber-300 rounded-xl text-xs font-bold transition-colors"
+            >
+              <Truck className="w-3.5 h-3.5" />
+              <span>Ver Cuadrilla</span>
+            </a>
+
             <button
               onClick={exportarExcelContraloria}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md transition-colors"
             >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Exportar Excel (Contraloría)</span>
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Excel</span>
             </button>
 
             <button
               onClick={exportarPdfContraloria}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-sky-700 hover:bg-sky-600 text-white rounded-xl text-xs font-bold shadow-md transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 bg-sky-700 hover:bg-sky-600 text-white rounded-xl text-xs font-bold shadow-md transition-colors"
             >
-              <FileText className="w-4 h-4" />
-              <span>Exportar Libro PDF</span>
+              <FileText className="w-3.5 h-3.5" />
+              <span>Libro PDF</span>
+            </button>
+
+            <button
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              className="flex items-center gap-1.5 px-3 py-2 bg-red-950/80 hover:bg-red-800 border border-red-500/40 text-red-300 hover:text-white rounded-xl text-xs font-bold transition-colors"
+              title="Cerrar Sesión"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Salir</span>
             </button>
           </div>
         </div>
@@ -628,7 +669,10 @@ export default function AdminPage() {
                       </div>
                       <h4 className="font-bold text-white text-sm">{recibo.contribuyente} ({recibo.cedula})</h4>
                       <p className="text-xs text-slate-400">
-                        Inmueble: {recibo.inmueble} • Referencia Bancaria: <strong className="text-amber-400 font-mono">{recibo.referencia}</strong>
+                        Inmueble: {recibo.inmueble}   Referencia Bancaria: <strong className="text-amber-400 font-mono">{recibo.referencia}</strong>
+                        {recibo.comprobanteUrl && (
+                          <a href={recibo.comprobanteUrl} target="_blank" rel="noopener noreferrer" className="ml-4 text-sky-400 underline font-semibold">Ver Comprobante</a>
+                        )}
                       </p>
                       <div className="text-xs font-mono font-bold text-emerald-400">
                         Monto: Bs. {rMonto(recibo.montoBs)} (${recibo.montoUsd.toFixed(2)} USD)
