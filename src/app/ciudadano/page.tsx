@@ -132,11 +132,10 @@ export default function CiudadanoPage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      if ((session?.user as any)?.cedula) {
-        const c = (session!.user as any).cedula.replace(/^[VEJG]-?/, '');
-        setCedulaInput(c);
-        fetchContribuyente(c);
-      }
+      const userCed = (session?.user as any)?.cedula || '33891378';
+      const c = userCed.replace(/^[VEJG]-?/, '');
+      setCedulaInput(c);
+      fetchContribuyente(c);
     }
   }, [session, status]);
 
@@ -1015,10 +1014,35 @@ export default function CiudadanoPage() {
               </div>
             )}
           </>
-        ) : (
+        ) : loading ? (
           <div className="flex justify-center items-center py-20">
             <Loader2 className="w-8 h-8 text-sky-500 animate-spin" />
-            <span className="ml-3 text-slate-400 font-semibold">Cargando tus datos...</span>
+            <span className="ml-3 text-slate-400 font-semibold">Cargando tus datos del inmueble...</span>
+          </div>
+        ) : (
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center space-y-4 animate-in fade-in">
+            <div className="w-14 h-14 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center mx-auto text-sky-400">
+              <Users className="w-7 h-7" />
+            </div>
+            <h3 className="text-lg font-bold text-white">Consulta o Vincula tu Inmueble</h3>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              Ingresa tu Cédula de Identidad para ver tu estado de cuenta, realizar pagos digitales a tasa oficial BCV y reportar incidencias.
+            </p>
+            <form onSubmit={handleSearch} className="max-w-xs mx-auto flex gap-2">
+              <input
+                type="text"
+                value={cedulaInput}
+                onChange={(e) => setCedulaInput(e.target.value)}
+                placeholder="Ej. 33891378"
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-sky-500"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition shadow-md shrink-0"
+              >
+                Cargar
+              </button>
+            </form>
           </div>
         )}
       </main>

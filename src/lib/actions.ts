@@ -49,6 +49,156 @@ export async function consultarContribuyentePorCedula(cedulaRif: string) {
     },
   });
 
+  // Si el usuario no existe (ej. tras limpieza de base de datos pero con sesión activa), auto-crearlo
+  if (!usuario) {
+    let sectorDefault = await prisma.sector.findFirst({
+      where: { nombre: { contains: 'Casco Central' } },
+      include: { callesTramos: true },
+    }) || await prisma.sector.findFirst({ include: { callesTramos: true } });
+
+    if (sectorDefault) {
+      let calleId = sectorDefault.callesTramos.length > 0 ? sectorDefault.callesTramos[0].id : null;
+      if (!calleId) {
+        const nuevaCalle = await prisma.calleTramo.create({
+          data: {
+            sectorId: sectorDefault.id,
+            nombreCalle: 'Avenida Principal',
+            diaRecoleccion: 'LUNES Y JUEVES',
+          },
+        });
+        calleId = nuevaCalle.id;
+      }
+
+      usuario = await prisma.usuario.create({
+        data: {
+          tipoDoc: 'V',
+          cedulaRif: `V-${cleanDoc}`,
+          nombres: 'Vecino Contribuyente',
+          apellidos: '',
+          telefonoMovil: '0414-0000000',
+          rol: 'CIUDADANO',
+          inmueblesRelacionados: {
+            create: {
+              tipoRelacion: 'PROPIETARIO',
+              inmueble: {
+                create: {
+                  codigoCatastral: `INM-${cleanDoc}`,
+                  sectorId: sectorDefault.id,
+                  calleId: calleId,
+                  numeroCasaLocal: 'Casa Principal',
+                  tarifaBaseUsd: 3.00,
+                  estadoCuenta: 'SOLVENTE',
+                },
+              },
+            },
+          },
+        },
+        include: {
+          inmueblesRelacionados: {
+            include: {
+              inmueble: {
+                include: {
+                  sector: {
+                    include: {
+                      parroquia: true,
+                      tarifasSectores: true,
+                    },
+                  },
+                  calle: true,
+                  facturas: {
+                    where: { estado: 'PENDIENTE' },
+                    include: { periodo: true },
+                  },
+                  recibos: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 5,
+                  },
+                },
+              },
+            },
+          },
+          reportesCreados: {
+            include: { sector: true },
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+      });
+    }
+  } else if (!usuario.inmueblesRelacionados || usuario.inmueblesRelacionados.length === 0) {
+    // Si existe el usuario pero no tiene inmueble asignado
+    let sectorDefault = await prisma.sector.findFirst({
+      where: { nombre: { contains: 'Casco Central' } },
+      include: { callesTramos: true },
+    }) || await prisma.sector.findFirst({ include: { callesTramos: true } });
+
+    if (sectorDefault) {
+      let calleId = sectorDefault.callesTramos.length > 0 ? sectorDefault.callesTramos[0].id : null;
+      if (!calleId) {
+        const nuevaCalle = await prisma.calleTramo.create({
+          data: {
+            sectorId: sectorDefault.id,
+            nombreCalle: 'Avenida Principal',
+            diaRecoleccion: 'LUNES Y JUEVES',
+          },
+        });
+        calleId = nuevaCalle.id;
+      }
+
+      const nuevoInmueble = await prisma.inmuebleCatastro.create({
+        data: {
+          codigoCatastral: `INM-${cleanDoc}`,
+          sectorId: sectorDefault.id,
+          calleId: calleId,
+          numeroCasaLocal: 'Casa Principal',
+          tarifaBaseUsd: 3.00,
+          estadoCuenta: 'SOLVENTE',
+        },
+      });
+
+      await prisma.inmuebleContribuyente.create({
+        data: {
+          usuarioId: usuario.id,
+          inmuebleId: nuevoInmueble.id,
+          tipoRelacion: 'PROPIETARIO',
+        },
+      });
+
+      // Recargar usuario con el nuevo inmueble
+      usuario = await prisma.usuario.findUnique({
+        where: { id: usuario.id },
+        include: {
+          inmueblesRelacionados: {
+            include: {
+              inmueble: {
+                include: {
+                  sector: {
+                    include: {
+                      parroquia: true,
+                      tarifasSectores: true,
+                    },
+                  },
+                  calle: true,
+                  facturas: {
+                    where: { estado: 'PENDIENTE' },
+                    include: { periodo: true },
+                  },
+                  recibos: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 5,
+                  },
+                },
+              },
+            },
+          },
+          reportesCreados: {
+            include: { sector: true },
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+      });
+    }
+  }
+
   const tasaBcv = await getTasaBcvActual();
 
   return {
@@ -663,6 +813,20 @@ export async function liquidarCobroTaquillaExpress(data: {
 
   const tasaBcv = await getTasaBcvActual();
   const montoTotalBs = calcularMontoBs(data.montoUsd, tasaBcv.valorUsdBs);
+  let validCajeroId: string | null = null;
+  if (data.cajeroId) {
+    try {
+      const cajeroExists = await prisma.usuario.findUnique({ where: { id: data.cajeroId } });
+      if (cajeroExists) validCajeroId = cajeroExists.id;
+    } catch (e) {}
+  }
+  if (!validCajeroId) {
+    try {
+      const adminUser = await prisma.usuario.findFirst({ where: { rol: 'ADMIN' } });
+      if (adminUser) validCajeroId = adminUser.id;
+    } catch (e) {}
+  }
+
   const { folioCorrelativo, numeroReciboFiscal, codigoQrHash } = await generarSiguienteFolioFiscal();
 
   const recibo = await prisma.reciboPago.create({
@@ -679,7 +843,7 @@ export async function liquidarCobroTaquillaExpress(data: {
       bancoDestino: 'Caja Recaudadora Municipal',
       estado: 'APROBADO',
       origenPago: 'TAQUILLA_MUNICIPAL',
-      validadoPorId: data.cajeroId,
+      validadoPorId: validCajeroId,
       fechaValidacion: new Date(),
       codigoQrHash,
       observacionesFiscales: data.observaciones || 'Cobro presencial en ventanilla de la Alcaldía de Rosario de Perijá.',

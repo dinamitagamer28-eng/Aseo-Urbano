@@ -77,10 +77,10 @@ export default function AdminDashboard() {
   const [reportesIncidencias, setReportesIncidencias] = useState<any[]>([]);
 
   // Taquilla Cashier State
-  const [taquillaCedula, setTaquillaCedula] = useState('');
-  const [taquillaNombre, setTaquillaNombre] = useState('');
+  const [taquillaCedula, setTaquillaCedula] = useState('14234567');
+  const [taquillaNombre, setTaquillaNombre] = useState('Contribuyente Taquilla');
   const [taquillaSectorId, setTaquillaSectorId] = useState('');
-  const [taquillaUbicacion, setTaquillaUbicacion] = useState('');
+  const [taquillaUbicacion, setTaquillaUbicacion] = useState('Sede Municipal / Taquilla');
   const [metodoTaquilla, setMetodoTaquilla] = useState('PUNTO_VENTA');
   const [montoTaquillaUsd, setMontoTaquillaUsd] = useState(3.0);
   const [taquillaProcessing, setTaquillaProcessing] = useState(false);
