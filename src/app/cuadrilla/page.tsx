@@ -40,11 +40,6 @@ export default function CuadrillaPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Pin & Lock states
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState('');
-
   // Operational states
   const [supervisorCode, setSupervisorCode] = useState('SUP-01 (Roberto González)');
   const [camionCode, setCamionCode] = useState('CAM-01 (Compactador 6.5 Tn)');
@@ -56,32 +51,12 @@ export default function CuadrillaPage() {
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string>(todayStr);
   const [historialRutas, setHistorialRutas] = useState<{ tramo: string; fecha: string; tipo: string }[]>([]);
 
-  // Check auth and PIN unlock status
+  // Check auth
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
     }
   }, [status, router]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedPin = sessionStorage.getItem('cuadrilla_unlocked');
-      if (savedPin === 'true') {
-        setIsUnlocked(true);
-      }
-    }
-  }, []);
-
-  const handleUnlockPin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pinInput.trim() === 'CUADRILLA2026' || pinInput.trim() === 'ROSARIO2026') {
-      setIsUnlocked(true);
-      sessionStorage.setItem('cuadrilla_unlocked', 'true');
-      setPinError('');
-    } else {
-      setPinError('Clave de acceso incorrecta. Intenta nuevamente.');
-    }
-  };
 
   useEffect(() => {
     const saved = localStorage.getItem('historialRutas');
@@ -343,63 +318,7 @@ export default function CuadrillaPage() {
     );
   }
 
-  // PIN Lock Screen
-  if (!isUnlocked) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="bg-slate-900 border-2 border-amber-500/40 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden p-8 text-center space-y-6 animate-in zoom-in-95">
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-500/20">
-            <KeyRound className="w-8 h-8" />
-          </div>
 
-          <div>
-            <h1 className="text-2xl font-black text-white">App Cuadrilla</h1>
-            <p className="text-xs text-amber-300/80 font-bold uppercase tracking-wider mt-1">
-              Acceso Operativo de Campo
-            </p>
-            <p className="text-xs text-slate-400 mt-2">
-              Ingresa la clave de acceso de cuadrilla para desbloquear la consola de recolección y rutas.
-            </p>
-          </div>
-
-          {pinError && (
-            <div className="bg-red-500/10 text-red-400 text-xs font-bold p-3 rounded-xl border border-red-500/30">
-              {pinError}
-            </div>
-          )}
-
-          <form onSubmit={handleUnlockPin} className="space-y-4">
-            <div>
-              <input
-                type="password"
-                required
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value)}
-                placeholder="Ingresa clave de cuadrilla"
-                className="w-full text-center text-lg tracking-widest font-mono uppercase bg-slate-950 border-2 border-slate-700 focus:border-amber-500 rounded-2xl p-4 text-white focus:outline-none placeholder:text-slate-600 placeholder:tracking-normal placeholder:text-sm"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-sm rounded-2xl shadow-lg transition-all transform active:scale-95"
-            >
-              Desbloquear App Cuadrilla
-            </button>
-          </form>
-
-          <div className="border-t border-slate-800 pt-4">
-            <button
-              onClick={() => router.push('/login')}
-              className="text-xs text-slate-400 hover:text-white transition font-medium"
-            >
-              Ir a Iniciar Sesión General
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-amber-500 selection:text-slate-950 font-sans">

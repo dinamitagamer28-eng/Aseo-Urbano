@@ -559,14 +559,221 @@ export async function actualizarTarifaSector(data: {
   return { success: true, tarifa };
 }
 
+export async function liquidarCobroTaquillaExpress(data: {
+  cedulaRif: string;
+  nombres?: string;
+  sectorId?: string;
+  ubicacion?: string;
+  montoUsd: number;
+  metodoPago: string;
+  cajeroId: string;
+  referenciaBancaria?: string;
+  observaciones?: string;
+}) {
+  const cleanDoc = data.cedulaRif.trim().toUpperCase();
+  const cedulaCompleta = cleanDoc.startsWith('V-') || cleanDoc.startsWith('E-') || cleanDoc.startsWith('J-') || cleanDoc.startsWith('G-')
+    ? cleanDoc
+    : `V-${cleanDoc}`;
+
+  // 1. Obtener sector y calle válidos
+  let sector = null;
+  if (data.sectorId) {
+    sector = await prisma.sector.findUnique({
+      where: { id: data.sectorId },
+      include: { callesTramos: true },
+    });
+  }
+  if (!sector) {
+    sector = await prisma.sector.findFirst({
+      where: { nombre: { contains: 'Casco Central' } },
+      include: { callesTramos: true },
+    }) || await prisma.sector.findFirst({ include: { callesTramos: true } });
+  }
+
+  if (!sector) throw new Error('No hay sectores configurados en el sistema.');
+
+  let calleId = sector.callesTramos.length > 0 ? sector.callesTramos[0].id : null;
+  if (!calleId) {
+    const nuevaCalle = await prisma.calleTramo.create({
+      data: {
+        sectorId: sector.id,
+        nombreCalle: 'Calle Principal',
+        diaRecoleccion: 'LUNES Y JUEVES',
+      },
+    });
+    calleId = nuevaCalle.id;
+  }
+
+  // 2. Buscar o crear usuario
+  let usuario = await prisma.usuario.findFirst({
+    where: { cedulaRif: cedulaCompleta },
+    include: { inmueblesRelacionados: { include: { inmueble: true } } },
+  });
+
+  if (!usuario) {
+    usuario = await prisma.usuario.create({
+      data: {
+        tipoDoc: cedulaCompleta.substring(0, 1),
+        cedulaRif: cedulaCompleta,
+        nombres: data.nombres || 'Contribuyente en Taquilla',
+        apellidos: '',
+        telefonoMovil: '0414-0000000',
+        rol: 'CIUDADANO',
+        inmueblesRelacionados: {
+          create: {
+            tipoRelacion: 'PROPIETARIO',
+            inmueble: {
+              create: {
+                codigoCatastral: `TAQ-C-${cedulaCompleta.replace(/[^0-9]/g, '')}`,
+                sectorId: sector.id,
+                calleId: calleId,
+                numeroCasaLocal: data.ubicacion || 'Sede Municipal / Taquilla',
+                tarifaBaseUsd: data.montoUsd,
+                estadoCuenta: 'SOLVENTE',
+              },
+            },
+          },
+        },
+      },
+      include: { inmueblesRelacionados: { include: { inmueble: true } } },
+    });
+  }
+
+  let inmuebleId = usuario.inmueblesRelacionados?.[0]?.inmuebleId;
+  if (!inmuebleId) {
+    const nuevoInmueble = await prisma.inmuebleCatastro.create({
+      data: {
+        codigoCatastral: `TAQ-C-${cedulaCompleta.replace(/[^0-9]/g, '')}`,
+        sectorId: sector.id,
+        calleId: calleId,
+        numeroCasaLocal: data.ubicacion || 'Sede Municipal / Taquilla',
+        tarifaBaseUsd: data.montoUsd,
+        estadoCuenta: 'SOLVENTE',
+      },
+    });
+    await prisma.inmuebleContribuyente.create({
+      data: {
+        usuarioId: usuario.id,
+        inmuebleId: nuevoInmueble.id,
+        tipoRelacion: 'PROPIETARIO',
+      },
+    });
+    inmuebleId = nuevoInmueble.id;
+  }
+
+  const tasaBcv = await getTasaBcvActual();
+  const montoTotalBs = calcularMontoBs(data.montoUsd, tasaBcv.valorUsdBs);
+  const { folioCorrelativo, numeroReciboFiscal, codigoQrHash } = await generarSiguienteFolioFiscal();
+
+  const recibo = await prisma.reciboPago.create({
+    data: {
+      folioCorrelativo,
+      numeroReciboFiscal,
+      inmuebleId: inmuebleId,
+      usuarioId: usuario.id,
+      montoTotalUsd: data.montoUsd,
+      tasaBcvAplicada: tasaBcv.valorUsdBs,
+      montoTotalBs,
+      metodoPago: data.metodoPago,
+      referenciaBancaria: data.referenciaBancaria || 'TAQ-VENTANILLA-01',
+      bancoDestino: 'Caja Recaudadora Municipal',
+      estado: 'APROBADO',
+      origenPago: 'TAQUILLA_MUNICIPAL',
+      validadoPorId: data.cajeroId,
+      fechaValidacion: new Date(),
+      codigoQrHash,
+      observacionesFiscales: data.observaciones || 'Cobro presencial en ventanilla de la Alcaldía de Rosario de Perijá.',
+    },
+    include: {
+      inmueble: { include: { sector: true, calle: true } },
+      usuario: true,
+      validadoPor: true,
+    },
+  });
+
+  revalidatePath('/admin');
+  revalidatePath('/ciudadano');
+
+  return {
+    success: true,
+    recibo,
+  };
+}
+
+export async function obtenerTodosSectoresConTarifas() {
+  const sectores = await prisma.sector.findMany({
+    orderBy: { nombre: 'asc' },
+    include: {
+      tarifasSectores: true,
+      parroquia: true,
+      _count: { select: { inmuebles: true } },
+    },
+  });
+
+  return sectores.map((s) => ({
+    id: s.id,
+    nombre: s.nombre,
+    codigo: s.codigo,
+    parroquia: s.parroquia?.nombre || 'El Rosario',
+    estrato: s.estrato || 'RESIDENCIAL',
+    inmueblesCount: s._count.inmuebles,
+    tarifaUsd: s.tarifasSectores?.[0]?.montoTarifaUsd || 3.00,
+    tarifaId: s.tarifasSectores?.[0]?.id || null,
+    descripcion: s.tarifasSectores?.[0]?.descripcionOrdenanza || 'Ordenanza Municipal de Aseo Urbano 2026',
+  }));
+}
+
+export async function actualizarTarifaDeSector(sectorId: string, nuevoMontoUsd: number, descripcion?: string) {
+  const sector = await prisma.sector.findUnique({
+    where: { id: sectorId },
+    include: { tarifasSectores: true },
+  });
+
+  if (!sector) throw new Error('Sector no encontrado');
+
+  if (sector.tarifasSectores && sector.tarifasSectores.length > 0) {
+    await prisma.tarifaSector.update({
+      where: { id: sector.tarifasSectores[0].id },
+      data: {
+        montoTarifaUsd: nuevoMontoUsd,
+        descripcionOrdenanza: descripcion || 'Actualización de tarifa por Alcaldía',
+      },
+    });
+  } else {
+    await prisma.tarifaSector.create({
+      data: {
+        sectorId: sector.id,
+        tipoInmueble: 'RESIDENCIAL',
+        montoTarifaUsd: nuevoMontoUsd,
+        descripcionOrdenanza: descripcion || 'Ordenanza Municipal de Aseo Urbano 2026',
+      },
+    });
+  }
+
+  revalidatePath('/admin');
+  revalidatePath('/ciudadano');
+
+  return { success: true };
+}
+
 export async function obtenerRecibosAdmin() {
-  return await prisma.reciboPago.findMany({ orderBy: { createdAt: 'desc' }, include: { inmueble: { include: { sector: true } }, usuario: true } });
+  return await prisma.reciboPago.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: {
+      inmueble: { include: { sector: true, calle: true } },
+      usuario: true,
+    },
+  });
 }
 
 export async function obtenerReportesCuadrilla() {
-  return await prisma.reporteIncidencia.findMany({ orderBy: { createdAt: 'desc' }, include: { sector: true, usuario: true } });
+  return await prisma.reporteIncidencia.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: { sector: true, usuario: true },
+  });
 }
 
 export async function obtenerSectoresRegistro() {
   return await prisma.sector.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } });
 }
+
