@@ -8,6 +8,7 @@
     "start": "next start -H 0.0.0.0 -p 5000",
     "lint": "eslint",
     "db:seed": "tsx prisma/seed.ts",
+    "db:clean": "tsx prisma/clean_reset.ts",
     "db:push": "prisma db push"
   },
   "prisma": {

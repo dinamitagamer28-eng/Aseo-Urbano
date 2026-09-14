@@ -18,6 +18,21 @@ export async function getTasaBcvActual(): Promise<BcvRateInfo> {
     const res = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { cache: 'no-store' });
     const data = await res.json();
     if (data && data.promedio) {
+      try {
+        await prisma.tasaBcv.upsert({
+          where: { fecha: hoy },
+          update: { valorUsdBs: data.promedio, capturadoAutomatico: true },
+          create: {
+            fecha: hoy,
+            valorUsdBs: data.promedio,
+            fuente: 'BCV_OFICIAL',
+            capturadoAutomatico: true,
+          },
+        });
+      } catch (dbErr) {
+        // Non-blocking DB save
+      }
+
       return {
         fecha: data.fechaActualizacion || hoy,
         valorUsdBs: data.promedio,
@@ -46,7 +61,7 @@ export async function getTasaBcvActual(): Promise<BcvRateInfo> {
   }
 
   // Tasa fallback segura
-  const fallbackRate = parseFloat(process.env.DEFAULT_BCV_RATE || '65.40');
+  const fallbackRate = parseFloat(process.env.DEFAULT_BCV_RATE || '832.49');
   return {
     fecha: hoy,
     valorUsdBs: fallbackRate,

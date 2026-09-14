@@ -46,9 +46,21 @@ export default function CiudadanoPage() {
   const [cedulaInput, setCedulaInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [contribuyenteData, setContribuyenteData] = useState<any>(null);
-  const [tasaBcv, setTasaBcv] = useState<number>(65.40);
+  const [tasaBcv, setTasaBcv] = useState<number>(832.49);
   const [activeTab, setActiveTab] = useState<'estado' | 'pago' | 'reportar' | 'mis-reportes'>('estado');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Dynamic BCV fetch on mount
+  useEffect(() => {
+    fetch('/api/bcv')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.valorUsdBs) {
+          setTasaBcv(data.valorUsdBs);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Authentication guard
   useEffect(() => {

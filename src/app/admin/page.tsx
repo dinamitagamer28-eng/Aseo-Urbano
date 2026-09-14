@@ -51,7 +51,7 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<'kpis' | 'taquilla' | 'auditoria' | 'validar' | 'tarifas' | 'mapa'>('kpis');
-  const [tasaBcv, setTasaBcv] = useState(0);
+  const [tasaBcv, setTasaBcv] = useState(832.49);
   const [loadingData, setLoadingData] = useState(false);
 
   // Security guard
@@ -63,10 +63,10 @@ export default function AdminDashboard() {
 
   // Load BCV Rate
   useEffect(() => {
-    fetch('https://ve.dolarapi.com/v1/dolares/oficial')
+    fetch('/api/bcv')
       .then((res) => res.json())
       .then((data) => {
-        if (data && data.promedio) setTasaBcv(data.promedio);
+        if (data && data.valorUsdBs) setTasaBcv(data.valorUsdBs);
       })
       .catch((err) => console.error('Error tasa:', err));
   }, []);

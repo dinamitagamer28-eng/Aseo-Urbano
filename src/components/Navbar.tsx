@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Truck, ShieldCheck, Users, DollarSign, Shield } from 'lucide-react';
@@ -9,8 +9,24 @@ interface NavbarProps {
   tasaBcv?: number;
 }
 
-export default function Navbar({ tasaBcv = 65.40 }: NavbarProps) {
+export default function Navbar({ tasaBcv }: NavbarProps) {
   const pathname = usePathname();
+  const [tasaState, setTasaState] = useState<number>(tasaBcv && tasaBcv > 0 ? tasaBcv : 832.49);
+
+  useEffect(() => {
+    if (tasaBcv && tasaBcv > 0) {
+      setTasaState(tasaBcv);
+    } else {
+      fetch('/api/bcv')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.valorUsdBs) {
+            setTasaState(data.valorUsdBs);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [tasaBcv]);
 
   const isCuadrilla = pathname.startsWith('/cuadrilla');
   const isCiudadano = pathname.startsWith('/ciudadano');
@@ -39,7 +55,7 @@ export default function Navbar({ tasaBcv = 65.40 }: NavbarProps) {
           <div className="flex items-center gap-2 bg-sky-900/60 px-2.5 py-0.5 rounded-full border border-sky-600/40 text-sky-200 font-semibold shadow-sm">
             <DollarSign className="w-3.5 h-3.5 text-amber-400" />
             <span>
-              Tasa Oficial BCV: <strong className="text-white">Bs. {tasaBcv.toFixed(2)}</strong> / USD
+              Tasa Oficial BCV: <strong className="text-white">Bs. {tasaState.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> / USD
             </span>
           </div>
         </div>
