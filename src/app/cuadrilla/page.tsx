@@ -575,6 +575,73 @@ export default function CuadrillaPage() {
           </div>
         </div>
 
+        {/* Live Satellite Route & Field Map (Sierra de Perijá Relinquishment & Incidents) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <h2 className="text-lg font-black text-white flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-amber-400" />
+                Mapa GPS Satelital de Ruta & Incidencias (Sierra de Perijá)
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Topografía en alta definición de la Sierra de Perijá, geocerca del sector asignado y reclamos ciudadanos georreferenciados.
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-full text-xs font-bold">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+              <span>Seguimiento GPS Satelital</span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl overflow-hidden border border-slate-800">
+            <LeafletMap
+              center={[10.3180, -72.3150]}
+              zoom={15}
+              height="380px"
+              autoFollowTruck={true}
+              interactive={true}
+              polygons={[
+                {
+                  id: 'poly-cuadrilla-colinas',
+                  name: 'Sector Las Colinas (Área de Recolección Asignada)',
+                  color: '#f59e0b',
+                  coordinates: [
+                    [10.3150, -72.3190],
+                    [10.3150, -72.3110],
+                    [10.3210, -72.3110],
+                    [10.3210, -72.3190],
+                    [10.3150, -72.3190],
+                  ],
+                },
+              ]}
+              markers={[
+                {
+                  id: 'truck-unit-01',
+                  lat: 10.3184,
+                  lng: -72.3149,
+                  title: 'Unidad CAM-01 (Roberto González)',
+                  description: 'Compactador en operación activa • Sector Las Colinas',
+                  type: 'truck',
+                },
+                ...reportes.map((r, idx) => ({
+                  id: r.id || `rep-${idx}`,
+                  lat: r.latitud || 10.3188 + (idx * 0.0008 - 0.0016),
+                  lng: r.longitud || -72.3159 + (idx * 0.001 - 0.0015),
+                  title: `${r.folio || `INC-${idx + 1}`} (${r.tipo?.replace(/_/g, ' ') || 'Reclamo'})`,
+                  description: `${r.descripcion || 'Sin nota'} • Vecino: ${r.usuario}`,
+                  type: 'incident' as const,
+                  status: r.estado,
+                  photoUrl: r.fotoVecino || r.fotoResolucion,
+                })),
+              ]}
+            />
+          </div>
+          <div className="flex justify-between items-center text-[11px] text-slate-400 pt-1 flex-wrap gap-2">
+            <span>🟢 Verde: Resuelto • 🟡 Ámbar: Pendiente • 🔴 Rojo: Rechazado • 🚛 Naranja: Tu Camión</span>
+            <span className="text-sky-400 font-bold">Relieves de la Sierra de Rosario de Perijá</span>
+          </div>
+        </div>
+
         {/* Real Incidents from Citizens */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
           <div className="flex justify-between items-center flex-wrap gap-2 border-b border-slate-800 pb-3">

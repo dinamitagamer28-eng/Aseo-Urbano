@@ -123,25 +123,44 @@ export default function CiudadanoPage() {
 
   const obtenerUbicacionGpsActual = () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
-      alert("Tu dispositivo no soporta geolocalización GPS.");
+      alert('Tu dispositivo o navegador no soporta geolocalización GPS.');
       return;
     }
     setObteniendoGps(true);
+
+    // Tier 1: Try High Accuracy GPS
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setReporteCoords({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        });
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setReporteCoords({ lat, lng });
         setGpsDetectado(true);
         setObteniendoGps(false);
       },
       (err) => {
-        console.warn("GPS error:", err);
-        setObteniendoGps(false);
-        alert("No se pudo obtener la ubicación GPS automáticamente. Por favor concede permisos de ubicación en tu navegador.");
+        console.warn('GPS High Accuracy fallo/timeout, intentando red móvil/WiFi:', err);
+        // Tier 2: Fallback to standard/network geolocation
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            setReporteCoords({ lat, lng });
+            setGpsDetectado(true);
+            setObteniendoGps(false);
+          },
+          (fallbackErr) => {
+            console.error('GPS Fallback failed:', fallbackErr);
+            setObteniendoGps(false);
+            if (fallbackErr.code === 1) {
+              alert('Permiso de GPS no concedido. Por favor autoriza el acceso a la ubicación en tu navegador o selecciona tu punto directamente en el mapa satelital.');
+            } else {
+              alert('No se pudo obtener la posición GPS automáticamente. Puedes pulsar directamente sobre el mapa satelital para fijar el lugar del reporte.');
+            }
+          },
+          { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+        );
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
   };
 
@@ -580,7 +599,7 @@ export default function CiudadanoPage() {
                       <div className="text-xs text-sky-400 font-bold uppercase tracking-wider">Unidad en Ruta Hoy</div>
                       <h3 className="text-lg font-bold text-white">Camión 01 (Compactador) en Las Colinas</h3>
                       <p className="text-xs text-slate-300 mt-0.5">
-                        Próximo paso estimado por tu calle ({inmuebleVinculado.calle?.nombreCalle}): <strong>Hoy 08:30 AM</strong>
+                        Próximo paso estimado por tu calle ({inmuebleVinculado.calle?.nombreCalle || 'Calle Principal'}): <strong>Hoy 08:30 AM</strong>
                       </p>
                     </div>
                   </div>
@@ -590,6 +609,71 @@ export default function CiudadanoPage() {
                   >
                     Ver Cuenta & Pagar
                   </button>
+                </div>
+
+                {/* Live Satellite Tracking Map (Sierra de Perijá & Truck Radar) */}
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-800 pb-3">
+                    <div>
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <MapPin className="w-5 h-5 text-amber-400" />
+                        Monitoreo Satelital GPS en Vivo • Rosario de Perijá
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Relieves de la Sierra de Perijá, geocerca de tu sector y seguimiento en tiempo real del camión de aseo.
+                      </p>
+                    </div>
+                    <span className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                      Radar Activo
+                    </span>
+                  </div>
+
+                  <div className="rounded-2xl overflow-hidden border border-slate-800">
+                    <LeafletMap
+                      center={[10.3180, -72.3150]}
+                      zoom={16}
+                      height="360px"
+                      autoFollowTruck={true}
+                      interactive={true}
+                      polygons={[
+                        {
+                          id: 'poly-colinas',
+                          name: 'Sector Las Colinas (Geocerca de Ruta Activa)',
+                          color: '#0284c7',
+                          coordinates: [
+                            [10.3150, -72.3190],
+                            [10.3150, -72.3110],
+                            [10.3210, -72.3110],
+                            [10.3210, -72.3190],
+                            [10.3150, -72.3190],
+                          ],
+                        },
+                      ]}
+                      markers={[
+                        {
+                          id: 'truck-01',
+                          lat: 10.3184,
+                          lng: -72.3149,
+                          title: 'Camión 01 Compactador',
+                          description: 'Recolectando en Sector Las Colinas • En Servicio',
+                          type: 'truck',
+                        },
+                        {
+                          id: 'user-property',
+                          lat: 10.3175,
+                          lng: -72.3155,
+                          title: `Tu Vivienda (${inmuebleVinculado?.numeroCasaLocal || 'Nº 12'})`,
+                          description: `Sector ${inmuebleVinculado?.sector?.nombre || 'Las Colinas'} • Estado: ${estadoCuenta}`,
+                          type: 'property',
+                        },
+                      ]}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-[11px] text-slate-400 pt-1 flex-wrap gap-2">
+                    <span>💡 Usa el botón <strong>[ 🛰️ Seguir Camión ]</strong> para bloquear la cámara en el vehículo de aseo.</span>
+                    <span className="text-amber-400 font-bold">Frecuencia: Lunes, Miércoles y Viernes</span>
+                  </div>
                 </div>
 
                 {/* Recent Receipts List */}
