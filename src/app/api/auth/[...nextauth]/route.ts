@@ -13,27 +13,44 @@ const handler = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.correo || !credentials?.password) {
-          throw new Error("Faltan datos");
+          throw new Error("Por favor ingresa tu correo/cédula y contraseña");
         }
 
+        const inputRaw = credentials.correo.trim();
+        const inputLower = inputRaw.toLowerCase();
+        const cleanDigits = inputRaw.replace(/[^0-9]/g, '');
+
+        // Buscar por email (exacto o lowercase) o por cédula
         const usuario = await prisma.usuario.findFirst({
-          where: { email: credentials.correo },
+          where: {
+            OR: [
+              { email: inputLower },
+              { email: inputRaw },
+              { cedulaRif: inputRaw },
+              { cedulaRif: inputRaw.toUpperCase() },
+              { cedulaRif: `V-${cleanDigits}` },
+              { cedulaRif: `E-${cleanDigits}` },
+              { cedulaRif: `J-${cleanDigits}` },
+              { cedulaRif: `G-${cleanDigits}` },
+              ...(cleanDigits.length >= 5 ? [{ cedulaRif: { contains: cleanDigits } }] : [])
+            ]
+          },
           orderBy: { createdAt: 'desc' }
         });
 
         if (!usuario || !usuario.passwordHash) {
-          throw new Error("Usuario no encontrado");
+          throw new Error("No existe una cuenta con estos datos. Regístrate primero.");
         }
 
-        const isValid = await bcrypt.compare(credentials.password, usuario.passwordHash);
+        const isValid = await bcrypt.compare(credentials.password.trim(), usuario.passwordHash);
 
         if (!isValid) {
-          throw new Error("Contraseña incorrecta");
+          throw new Error("Contraseña incorrecta. Verifica e intenta de nuevo.");
         }
 
         return {
           id: usuario.id,
-          name: `${usuario.nombres} ${usuario.apellidos}`,
+          name: `${usuario.nombres} ${usuario.apellidos || ''}`.trim(),
           email: usuario.email,
           rol: usuario.rol,
           cedula: usuario.cedulaRif
