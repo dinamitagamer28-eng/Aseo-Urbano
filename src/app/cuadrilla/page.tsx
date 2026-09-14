@@ -8,6 +8,7 @@ import {
   iniciarTurnoCuadrilla,
   marcarTramoCompletado,
   resolverReporteCuadrilla,
+  rechazarReporteCuadrilla,
   finalizarTurnoCuadrilla,
   obtenerReportesCuadrilla,
   eliminarReporteCuadrilla,
@@ -33,7 +34,10 @@ import {
   FileText,
   Trash2,
   RotateCcw,
-  X
+  X,
+  Sliders,
+  XCircle,
+  Scale
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -155,6 +159,7 @@ export default function CuadrillaPage() {
         tipo: r.tipoProblema,
         descripcion: r.descripcion,
         estado: r.estado,
+        notasResolucion: r.notasResolucion,
         sector: r.sector?.nombre || 'Sector Rosario',
         usuario: r.usuario ? `${r.usuario.nombres} ${r.usuario.apellidos}` : 'Ciudadano',
         latitud: r.latitud,
@@ -178,11 +183,25 @@ export default function CuadrillaPage() {
   const [cameraActive, setCameraActive] = useState(false);
   const [resolviendo, setResolviendo] = useState(false);
 
-  // Shift Close Form
-  const [toneladas, setToneladas] = useState('4.5');
+  // Selected Report for Rejection Modal
+  const [rechazarModalReporte, setRechazarModalReporte] = useState<any | null>(null);
+  const [motivoRechazoReporte, setMotivoRechazoReporte] = useState<string>('Desechos no corresponden a aseo domiciliario ordinario.');
+  const [procesandoRechazoReporte, setProcesandoRechazoReporte] = useState(false);
+
+  // Shift Close Form & Tonnage Slider
+  const [toneladas, setToneladas] = useState('6.5');
+  const [modoSliderToneladas, setModoSliderToneladas] = useState(false);
   const [novedades, setNovedades] = useState('');
   const [turnoFinalizado, setTurnoFinalizado] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
+
+  const getCategoriaToneladas = (tn: number) => {
+    if (tn <= 2.5) return 'Carga Ligera / Trimoto o Camión Chico';
+    if (tn <= 6.5) return 'Compactador Estándar (1 Viaje Lleno - Óptimo)';
+    if (tn <= 13.0) return 'Doble Viaje / Alta Densidad de Ruta';
+    if (tn <= 25.0) return 'Macro-Jornada Operativa Municipal';
+    return 'Mega-Operativo Extraordinario Relleno';
+  };
 
   const totalTramosHoy = rutasDelDia.reduce((acc, g) => acc + g.tramos.length, 0);
   const completadosCount = rutasDelDia.reduce((acc, g) => acc + g.tramos.filter((t) => getTramoStatus(t, g.tipo).isCompleted).length, 0);
@@ -226,7 +245,7 @@ export default function CuadrillaPage() {
         setReportes((prev) =>
           prev.map((r) =>
             r.id === selectedReporte.id
-              ? { ...r, estado: 'RESUELTO', fotoResolucion: fotoEvidenciaCapturada }
+              ? { ...r, estado: 'RESUELTO', fotoResolucion: fotoEvidenciaCapturada, notasResolucion: `Atendido en campo por ${supervisorCode}. Foto adjunta.` }
               : r
           )
         );
@@ -239,6 +258,41 @@ export default function CuadrillaPage() {
       alert(e.message || 'Error al resolver reclamo');
     } finally {
       setResolviendo(false);
+    }
+  };
+
+  const handleAbrirRechazoReporte = (rep: any) => {
+    setRechazarModalReporte(rep);
+    setMotivoRechazoReporte('Desechos no corresponden a aseo domiciliario ordinario (escombros o poda excesiva).');
+  };
+
+  const handleConfirmarRechazoReporte = async () => {
+    if (!rechazarModalReporte) return;
+    setProcesandoRechazoReporte(true);
+    try {
+      const motivoLimpio = motivoRechazoReporte.trim() || 'Incidencia no procede según las normas operativas de recolección.';
+      const res = await rechazarReporteCuadrilla({
+        reporteId: rechazarModalReporte.id,
+        supervisorId: (session?.user as any)?.id || undefined,
+        motivoRechazo: motivoLimpio,
+      });
+
+      if (res && res.success) {
+        setReportes((prev) =>
+          prev.map((r) =>
+            r.id === rechazarModalReporte.id
+              ? { ...r, estado: 'RECHAZADO', notasResolucion: `Rechazado por Cuadrilla: ${motivoLimpio}` }
+              : r
+          )
+        );
+        setRechazarModalReporte(null);
+        alert(`❌ Reporte ${rechazarModalReporte.folio} marcado como RECHAZADO. El ciudadano verá el motivo en su portal.`);
+        fetchReportes();
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error al rechazar reporte');
+    } finally {
+      setProcesandoRechazoReporte(false);
     }
   };
 
@@ -265,11 +319,15 @@ export default function CuadrillaPage() {
   };
 
   const handleFinalizarTurno = async () => {
+    const numTn = parseFloat(toneladas) || 6.5;
+    const numKg = Math.round(numTn * 1000);
+    const categoriaCarga = getCategoriaToneladas(numTn);
+
     setFinalizando(true);
     try {
       await finalizarTurnoCuadrilla({
-        toneladasEstimadas: parseFloat(toneladas) || 4.5,
-        novedadesCierre: novedades || 'Turno concluido en Relleno Sanitario Municipal conforme a ordenanza.',
+        toneladasEstimadas: numTn,
+        novedadesCierre: novedades || `Turno concluido en Relleno Sanitario Municipal conforme a ordenanza. Descarga de ${numTn} Tn (${categoriaCarga}).`,
       });
 
       // Generate Downloadable PDF
@@ -280,37 +338,39 @@ export default function CuadrillaPage() {
       doc.setFontSize(16);
       doc.text('ALCALDÍA DEL MUNICIPIO ROSARIO DE PERIJÁ', 105, 12, { align: 'center' });
       doc.setFontSize(10);
-      doc.text('COMPROBANTE OPERATIVO DE DESCARGA - ASEO URBANO', 105, 20, { align: 'center' });
-      doc.text('RIF: G-2004984-7 • Perijá Digital', 105, 27, { align: 'center' });
+      doc.text('INFORME OPERATIVO DE DESCARGA & PESAJE DE ASEO URBANO', 105, 20, { align: 'center' });
+      doc.text('RIF: G-2004984-7 • Perijá Digital • Relleno Sanitario', 105, 27, { align: 'center' });
 
       doc.setTextColor(30, 41, 59);
       doc.setFontSize(11);
-      doc.text(`Fecha de Turno: ${fechaSeleccionada}`, 14, 42);
-      doc.text(`Hora de Cierre: ${new Date().toLocaleTimeString('es-VE')}`, 14, 50);
-      doc.text(`Supervisor: ${supervisorCode}`, 14, 58);
+      doc.text(`Fecha de Jornada: ${fechaSeleccionada}`, 14, 42);
+      doc.text(`Hora de Cierre y Pesaje: ${new Date().toLocaleTimeString('es-VE')}`, 14, 50);
+      doc.text(`Supervisor Responsable: ${supervisorCode}`, 14, 58);
       doc.text(`Unidad de Recolección: ${camionCode}`, 14, 66);
       doc.text(`Sector Asignado: ${sectorName}`, 14, 74);
 
       doc.setDrawColor(217, 119, 6);
       doc.setLineWidth(1);
-      doc.rect(14, 82, 182, 38);
+      doc.rect(14, 82, 182, 45);
       doc.setFontSize(13);
       doc.setTextColor(217, 119, 6);
-      doc.text('RESUMEN DE DESCARGA EN RELLENO SANITARIO', 20, 92);
+      doc.text('RESUMEN DE PESAJE EN RELLENO SANITARIO MUNICIPAL', 20, 92);
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
-      doc.text(`Toneladas Estimadas Descargadas: ${toneladas} Tn`, 20, 102);
-      doc.text(`Novedades: ${novedades || 'Ruta completada sin novedades mecánicas.'}`, 20, 110);
+      doc.text(`Toneladas Recolectadas: ${numTn.toFixed(1)} Tn (${numKg.toLocaleString('es-VE')} Kilogramos)`, 20, 102);
+      doc.text(`Categoría Operativa: ${categoriaCarga}`, 20, 110);
+      doc.text(`Novedades de Descarga: ${novedades || 'Ruta completada conforme a cronograma sin averías.'}`, 20, 118);
 
       doc.setFontSize(11);
-      doc.text(`Tramos y Calles Cubiertas: ${completadosCount} de ${totalTramosHoy} (${porcentaje}%)`, 14, 132);
-      doc.text(`Reclamos de Incidencias Resueltos: ${reportes.filter((r) => r.estado === 'RESUELTO').length}`, 14, 140);
+      doc.text(`Tramos y Calles Cubiertas: ${completadosCount} de ${totalTramosHoy} (${porcentaje}%)`, 14, 138);
+      doc.text(`Reclamos Vecinales Resueltos: ${reportes.filter((r) => r.estado === 'RESUELTO').length}`, 14, 146);
+      doc.text(`Reclamos Desestimados/Rechazados: ${reportes.filter((r) => r.estado === 'RECHAZADO').length}`, 14, 154);
 
       doc.setFontSize(9);
       doc.setTextColor(100, 116, 139);
-      doc.text('Comprobante oficial emitido por el Sistema de Cuadrillas de Rosario de Perijá.', 105, 280, { align: 'center' });
+      doc.text('Informe oficial de pesaje emitido por el Sistema de Cuadrillas de Rosario de Perijá.', 105, 280, { align: 'center' });
 
-      doc.save(`Comprobante_Descarga_${fechaSeleccionada}_${camionCode.split(' ')[0]}.pdf`);
+      doc.save(`Informe_Descarga_${fechaSeleccionada}_${numTn}Tn_${camionCode.split(' ')[0]}.pdf`);
 
       confetti({
         particleCount: 100,
@@ -320,7 +380,7 @@ export default function CuadrillaPage() {
 
       setTurnoFinalizado(true);
       setTurnoActivo(false);
-      alert(`¡Turno finalizado con éxito! Descarga de ${toneladas} Tn registrada y comprobante PDF descargado.`);
+      alert(`¡Turno finalizado con éxito! Descarga de ${numTn} Tn (${numKg.toLocaleString('es-VE')} kg) registrada en informe PDF.`);
     } catch (e: any) {
       alert(e.message || 'Error al finalizar turno');
     } finally {
@@ -596,24 +656,57 @@ export default function CuadrillaPage() {
                         />
                       ) : (
                         <div className="w-full h-40 bg-slate-900 border border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center p-3 text-center">
-                          <Lock className="w-6 h-6 text-amber-500/60 mb-1" />
-                          <span className="text-[11px] text-slate-400 font-bold">Pendiente por Atender</span>
+                          {rep.estado === 'RECHAZADO' ? (
+                            <>
+                              <XCircle className="w-6 h-6 text-red-400 mb-1" />
+                              <span className="text-[11px] text-red-400 font-bold">Reporte Desestimado</span>
+                              <span className="text-[10px] text-slate-500">Sin foto de resolución</span>
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-6 h-6 text-amber-500/60 mb-1" />
+                              <span className="text-[11px] text-slate-400 font-bold">Pendiente por Atender</span>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {rep.estado !== 'RESUELTO' && (
-                    <button
-                      onClick={() => {
-                        setSelectedReporte(rep);
-                        setFotoEvidenciaCapturada(null);
-                      }}
-                      className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition"
-                    >
-                      <Camera className="w-4 h-4" />
-                      <span>ATENDER REPORTE & TOMAR FOTO DE EVIDENCIA</span>
-                    </button>
+                  {/* Rejection Note Display */}
+                  {rep.estado === 'RECHAZADO' && (
+                    <div className="bg-red-950/40 p-3.5 rounded-xl border border-red-500/30 text-xs space-y-1">
+                      <span className="font-bold text-red-400 block uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                        <XCircle className="w-3.5 h-3.5" /> Motivo del Rechazo Notificado al Ciudadano:
+                      </span>
+                      <p className="text-red-200 font-medium italic">
+                        "{rep.notasResolucion || 'Incidencia no procede según normativa de aseo municipal.'}"
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Actions for Pending Incidents */}
+                  {rep.estado !== 'RESUELTO' && rep.estado !== 'RECHAZADO' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          setSelectedReporte(rep);
+                          setFotoEvidenciaCapturada(null);
+                        }}
+                        className="py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition"
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>ATENDER & TOMAR FOTO</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleAbrirRechazoReporte(rep)}
+                        className="py-3 bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-300 hover:text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 transition"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        <span>RECHAZAR REPORTE</span>
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -692,42 +785,241 @@ export default function CuadrillaPage() {
           </div>
         )}
 
-        {/* SHIFT CLOSE SECTION */}
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-          <h2 className="text-lg font-black text-white flex items-center gap-2">
-            <Clock className="w-5 h-5 text-amber-400" />
-            Cierre de Turno y Resumen de Carga
-          </h2>
+        {/* Report Rejection Modal */}
+        {rechazarModalReporte && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+            <div className="bg-slate-900 border-2 border-red-500/40 w-full max-w-lg rounded-3xl shadow-2xl p-6 relative space-y-4">
+              <button
+                onClick={() => setRechazarModalReporte(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="border-b border-slate-800 pb-3">
+                <div className="text-xs font-mono font-bold text-red-400">{rechazarModalReporte.folio}</div>
+                <h3 className="text-lg font-black text-white flex items-center gap-2 mt-0.5">
+                  <XCircle className="w-5 h-5 text-red-400" />
+                  Rechazar Reporte de Incidencia
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {rechazarModalReporte.tipo.replace(/_/g, ' ')} • Vecino: {rechazarModalReporte.usuario}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-slate-300">
+                  Selecciona un motivo rápido de rechazo:
+                </label>
+                <div className="grid grid-cols-1 gap-1.5 text-xs">
+                  {[
+                    'Desechos no corresponden a aseo domiciliario ordinario (escombros o poda pesada).',
+                    'Ubicación o punto de referencia no localizado en el sector.',
+                    'La basura ya fue recolectada previamente en la ruta de hoy.',
+                    'Acceso bloqueado / Portón de propiedad privada cerrado.',
+                    'Falsa alarma / No se encontraron desechos en el lugar indicado.',
+                  ].map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setMotivoRechazoReporte(preset)}
+                      className={`text-left p-2.5 rounded-xl border transition-all text-xs font-semibold ${
+                        motivoRechazoReporte === preset
+                          ? 'bg-red-950/80 border-red-500 text-white shadow-sm'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      • {preset}
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    Mensaje o justificación para el ciudadano:
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={motivoRechazoReporte}
+                    onChange={(e) => setMotivoRechazoReporte(e.target.value)}
+                    placeholder="Escribe la razón detallada del rechazo..."
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-red-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Este mensaje aparecerá en tiempo real en la aplicación del ciudadano.
+                  </p>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setRechazarModalReporte(null)}
+                    className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={procesandoRechazoReporte || !motivoRechazoReporte.trim()}
+                    onClick={handleConfirmarRechazoReporte}
+                    className="flex-1 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-lg shadow-red-600/30 transition flex items-center justify-center gap-1.5"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>{procesandoRechazoReporte ? 'Procesando...' : 'Confirmar Rechazo'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SHIFT CLOSE SECTION & INTERACTIVE TONNAGE SLIDER */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
+          <div className="flex justify-between items-center flex-wrap gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <h2 className="text-lg font-black text-white flex items-center gap-2">
+                <Scale className="w-5 h-5 text-amber-400" />
+                Cierre de Turno y Pesaje de Carga (Toneladas)
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Selecciona o desliza la barra con las toneladas exactas descargadas en el Relleno Sanitario Municipal.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setModoSliderToneladas(!modoSliderToneladas)}
+              className={`text-xs px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition border ${
+                modoSliderToneladas
+                  ? 'bg-amber-500 text-slate-950 border-amber-400'
+                  : 'bg-slate-950 text-amber-400 border-amber-500/30 hover:bg-slate-800'
+              }`}
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>{modoSliderToneladas ? 'Ocultar Barra' : 'Desplegar Barra Deslizante'}</span>
+            </button>
+          </div>
 
           {turnoFinalizado ? (
             <div className="bg-emerald-500/10 border border-emerald-500/40 text-emerald-400 p-6 rounded-2xl text-center space-y-2">
               <CheckCircle2 className="w-10 h-10 mx-auto" />
               <h3 className="text-lg font-bold">¡Jornada de Campo Finalizada con Éxito!</h3>
               <p className="text-xs text-slate-300">
-                Se registraron <strong>{toneladas} Toneladas</strong> recolectadas y el comprobante PDF fue generado.
+                Se registraron <strong>{toneladas} Toneladas</strong> ({(parseFloat(toneladas) * 1000).toLocaleString('es-VE')} kg) recolectadas y el informe PDF fue generado.
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-5">
+              {/* Presets and Weight Display */}
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
-                  Toneladas Estimadas Recolectadas en este Turno:
+                <label className="block text-xs font-bold text-slate-300 mb-2">
+                  Selecciona la Carga Estimada o Ajusta con la Barra:
                 </label>
-                <div className="flex gap-2">
-                  {['3.5', '4.5', '6.0', '8.0'].map((ton) => (
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {[
+                    { val: '3.5', label: '3.5 Tn', desc: 'Camión Ligero' },
+                    { val: '4.5', label: '4.5 Tn', desc: 'Carga Media' },
+                    { val: '6.5', label: '6.5 Tn', desc: 'Compactador Lleno' },
+                    { val: '8.5', label: '8.5 Tn', desc: 'Sobrecarga Ruta' },
+                    { val: '12.0', label: '12.0 Tn', desc: 'Doble Viaje' },
+                  ].map((item) => (
                     <button
-                      key={ton}
+                      key={item.val}
                       type="button"
-                      onClick={() => setToneladas(ton)}
-                      className={`flex-1 py-3 rounded-xl font-black text-sm border-2 transition-all ${
-                        toneladas === ton
-                          ? 'bg-amber-500 border-amber-400 text-slate-950'
-                          : 'bg-slate-950 border-slate-800 text-slate-300'
+                      onClick={() => setToneladas(item.val)}
+                      className={`p-3 rounded-xl font-bold text-center border-2 transition-all ${
+                        toneladas === item.val
+                          ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-lg'
+                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
                       }`}
                     >
-                      {ton} Tn
+                      <div className="text-sm font-black">{item.label}</div>
+                      <div className={`text-[10px] ${toneladas === item.val ? 'text-slate-900 font-semibold' : 'text-slate-500'}`}>
+                        {item.desc}
+                      </div>
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Prominent Interactive Weight Card & Slider */}
+              <div className="bg-slate-950 p-5 rounded-2xl border border-amber-500/30 space-y-4 shadow-inner">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                  <div>
+                    <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block">
+                      Pesaje Seleccionado para el Informe:
+                    </span>
+                    <div className="flex items-baseline gap-2 mt-0.5">
+                      <span className="text-3xl sm:text-4xl font-black text-white font-mono">{parseFloat(toneladas || '0').toFixed(1)}</span>
+                      <span className="text-lg font-black text-amber-400">Toneladas (Tn)</span>
+                      <span className="text-xs text-slate-400 font-mono">
+                        ≈ {Math.round(parseFloat(toneladas || '0') * 1000).toLocaleString('es-VE')} kg
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = Math.max(0.5, parseFloat(toneladas || '6.5') - 0.5);
+                        setToneladas(cur.toFixed(1));
+                      }}
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold text-slate-200 transition"
+                      title="Restar 0.5 Toneladas"
+                    >
+                      - 0.5 Tn
+                    </button>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.5"
+                      max="35.0"
+                      value={toneladas}
+                      onChange={(e) => setToneladas(e.target.value)}
+                      className="w-20 bg-slate-900 border border-amber-500/40 text-amber-400 font-mono font-bold text-center py-1.5 rounded-lg text-sm focus:outline-none focus:border-amber-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = Math.min(35.0, parseFloat(toneladas || '6.5') + 0.5);
+                        setToneladas(cur.toFixed(1));
+                      }}
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold text-slate-200 transition"
+                      title="Sumar 0.5 Toneladas"
+                    >
+                      + 0.5 Tn
+                    </button>
+                  </div>
+                </div>
+
+                {/* Range Slider Bar */}
+                <div className="space-y-2 pt-2">
+                  <div className="relative">
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="30.0"
+                      step="0.1"
+                      value={toneladas}
+                      onChange={(e) => setToneladas(e.target.value)}
+                      className="w-full h-3 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-amber-500 border border-slate-800"
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-slate-500 font-mono font-bold">
+                    <span>0.5 Tn (Ligero)</span>
+                    <span>6.5 Tn (Compactador)</span>
+                    <span>13.0 Tn (2 Viajes)</span>
+                    <span>20.0 Tn (Macro)</span>
+                    <span>30.0 Tn (Máximo)</span>
+                  </div>
+                </div>
+
+                {/* Operational Classification Badge */}
+                <div className="pt-2 border-t border-slate-900 flex justify-between items-center text-xs flex-wrap gap-2">
+                  <span className="text-slate-400">Tipo de Operación:</span>
+                  <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold rounded-full text-xs">
+                    🚚 {getCategoriaToneladas(parseFloat(toneladas) || 6.5)}
+                  </span>
                 </div>
               </div>
 
@@ -739,7 +1031,7 @@ export default function CuadrillaPage() {
                   type="text"
                   value={novedades}
                   onChange={(e) => setNovedades(e.target.value)}
-                  placeholder="Ej: Calle 3 despejada, sin fallas mecánicas."
+                  placeholder="Ej: Calle 3 despejada, ruta completada sin fallas mecánicas."
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -751,7 +1043,7 @@ export default function CuadrillaPage() {
                 className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black rounded-2xl text-sm transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 disabled:opacity-50"
               >
                 <Download className="w-5 h-5" />
-                <span>{finalizando ? 'Procesando descarga...' : 'FINALIZAR TURNO Y DESCARGAR EN RELLENO SANITARIO'}</span>
+                <span>{finalizando ? 'Procesando descarga...' : `FINALIZAR TURNO Y GENERAR INFORME DE PESAJE (${parseFloat(toneladas || '0').toFixed(1)} Tn)`}</span>
               </button>
             </div>
           )}

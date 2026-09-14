@@ -972,6 +972,54 @@ export async function eliminarReporteCuadrilla(reporteId: string) {
   }
 }
 
+export async function rechazarReporteCuadrilla(data: {
+  reporteId: string;
+  supervisorId?: string;
+  motivoRechazo: string;
+}) {
+  const motivoLimpio = data.motivoRechazo?.trim() || 'Incidencia no procede o fuera de geocerca del servicio ordinario.';
+
+  let validSupervisorId: string | null = null;
+  if (data.supervisorId) {
+    try {
+      const user = await prisma.usuario.findUnique({ where: { id: data.supervisorId } });
+      if (user) validSupervisorId = user.id;
+    } catch (e) {}
+  }
+
+  const reporte = await prisma.reporteIncidencia.update({
+    where: { id: data.reporteId },
+    data: {
+      estado: 'RECHAZADO',
+      notasResolucion: `Rechazado por Cuadrilla: ${motivoLimpio}`,
+      fechaResolucion: new Date(),
+    },
+  });
+
+  try {
+    await prisma.reporteTrazabilidad.create({
+      data: {
+        reporteId: reporte.id,
+        estadoAnterior: 'RECIBIDO',
+        estadoNuevo: 'RECHAZADO',
+        modificadoPorId: validSupervisorId,
+        comentario: `Rechazado en campo por cuadrilla operativa. Motivo: ${motivoLimpio}`,
+      },
+    });
+  } catch (e) {
+    console.warn('Trazabilidad warning:', e);
+  }
+
+  revalidatePath('/ciudadano');
+  revalidatePath('/cuadrilla');
+  revalidatePath('/admin');
+
+  return {
+    success: true,
+    reporte,
+  };
+}
+
 export async function resetearTodosLosReportesCuadrilla() {
   try {
     await prisma.reporteTrazabilidad.deleteMany();
