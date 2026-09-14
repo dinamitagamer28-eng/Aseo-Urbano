@@ -814,7 +814,7 @@ export default function CuadrillaPage() {
 
         {/* Resolution Modal */}
         {selectedReporte && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
             <div className="bg-slate-900 border-2 border-amber-500/40 w-full max-w-lg rounded-3xl shadow-2xl p-6 relative space-y-4">
               <button
                 onClick={() => setSelectedReporte(null)}
@@ -885,7 +885,7 @@ export default function CuadrillaPage() {
 
         {/* Report Rejection Modal */}
         {rechazarModalReporte && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
             <div className="bg-slate-900 border-2 border-red-500/40 w-full max-w-lg rounded-3xl shadow-2xl p-6 relative space-y-4">
               <button
                 onClick={() => setRechazarModalReporte(null)}

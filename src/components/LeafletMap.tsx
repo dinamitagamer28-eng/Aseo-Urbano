@@ -593,13 +593,13 @@ function MapInternal({
   };
 
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden border border-slate-700/60 shadow-2xl bg-slate-950 font-sans">
+    <div className="relative w-full rounded-2xl overflow-hidden border border-slate-700/60 shadow-2xl bg-slate-950 font-sans isolate z-0">
       {/* Map Container */}
       <div id={mapContainerId} style={{ height, width: '100%' }} className="z-0" />
 
       {/* Floating Controls Overlay (Top Right) */}
       {showControls && (
-        <div className="absolute top-3 right-3 z-[400] flex flex-col gap-2 pointer-events-auto">
+        <div className="absolute top-3 right-3 z-10 flex flex-col gap-2 pointer-events-auto">
           {/* Layer Selector */}
           <div className="bg-slate-950/90 backdrop-blur-md p-1 rounded-xl border border-slate-700/80 shadow-xl flex text-[11px] font-bold">
             <button
@@ -659,7 +659,7 @@ function MapInternal({
       )}
 
       {/* Floating Real-Time Truck Telemetry HUD (Bottom Bar) */}
-      <div className="absolute bottom-2 left-2 right-2 sm:left-3 sm:right-auto z-[400] bg-slate-950/90 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-amber-500/40 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center gap-2.5 max-w-xl">
+      <div className="absolute bottom-2 left-2 right-2 sm:left-3 sm:right-auto z-10 bg-slate-950/90 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-amber-500/40 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center gap-2.5 max-w-xl">
         <div className="flex items-center gap-2 shrink-0">
           <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
             <Truck className="w-4 h-4 animate-pulse" />
