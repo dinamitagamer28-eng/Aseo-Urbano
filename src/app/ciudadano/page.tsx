@@ -688,12 +688,12 @@ export default function CiudadanoPage() {
                       {inmuebleVinculado.recibos.map((recibo: any) => (
                         <div
                           key={recibo.id}
-                          className={`bg-slate-950 p-4 rounded-2xl border transition-colors ${
+                          className={`bg-slate-950 p-4 rounded-2xl border transition-all ${
                             recibo.estado === 'RECHAZADO'
-                              ? 'border-red-500/50 bg-red-950/10'
+                              ? 'border-2 border-red-500/80 bg-red-950/15 shadow-lg shadow-red-950/20'
                               : recibo.estado === 'APROBADO'
-                              ? 'border-emerald-500/40'
-                              : 'border-amber-500/40'
+                              ? 'border-emerald-500/40 bg-slate-950'
+                              : 'border-2 border-amber-500/80 bg-amber-950/15 shadow-lg shadow-amber-950/20'
                           }`}
                         >
                           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
@@ -703,15 +703,30 @@ export default function CiudadanoPage() {
                                   {recibo.numeroReciboFiscal}
                                 </span>
                                 <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase flex items-center gap-1 ${
                                     recibo.estado === 'APROBADO'
-                                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
                                       : recibo.estado === 'RECHAZADO'
-                                      ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                      ? 'bg-red-500/20 text-red-400 border-2 border-red-500 font-extrabold shadow-sm'
+                                      : 'bg-amber-500/20 text-amber-300 border-2 border-amber-500 font-extrabold shadow-sm'
                                   }`}
                                 >
-                                  {recibo.estado === 'APROBADO' ? 'Aprobado' : recibo.estado === 'RECHAZADO' ? 'Rechazado' : 'Por Conciliar'}
+                                  {recibo.estado === 'APROBADO' ? (
+                                    <>
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                      <span>Aprobado</span>
+                                    </>
+                                  ) : recibo.estado === 'RECHAZADO' ? (
+                                    <>
+                                      <XCircle className="w-3.5 h-3.5 text-red-400" />
+                                      <span>Rechazado</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                                      <span>Pendiente por Validación</span>
+                                    </>
+                                  )}
                                 </span>
                               </div>
                               <div className="text-xs text-slate-400 mt-1">
@@ -737,7 +752,13 @@ export default function CiudadanoPage() {
                                   });
                                   setIsReceiptOpen(true);
                                 }}
-                                className="px-3 py-1.5 bg-slate-800 hover:bg-sky-600 text-white rounded-lg text-xs font-semibold border border-slate-700 transition-colors"
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                                  recibo.estado === 'RECHAZADO'
+                                    ? 'bg-red-950/80 hover:bg-red-800 border-red-500/60 text-red-200'
+                                    : recibo.estado === 'APROBADO'
+                                    ? 'bg-slate-800 hover:bg-sky-600 border-slate-700 text-white'
+                                    : 'bg-amber-950/80 hover:bg-amber-800 border-amber-500/60 text-amber-200'
+                                }`}
                               >
                                 Ver Recibo
                               </button>

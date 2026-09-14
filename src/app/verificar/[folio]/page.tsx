@@ -2,7 +2,7 @@ import React from 'react';
 import Navbar from '@/components/Navbar';
 import prisma from '@/lib/prisma';
 import { getTasaBcvActual } from '@/lib/bcv';
-import { ShieldCheck, CheckCircle2, AlertTriangle, FileText, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, AlertTriangle, FileText, ArrowLeft, XCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 interface VerifyPageProps {
@@ -26,14 +26,31 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
     },
   });
 
+  const isRechazado = recibo?.estado === 'RECHAZADO';
+  const isPendiente = recibo?.estado === 'PENDIENTE_VALIDACION' || recibo?.estado === 'PENDIENTE';
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       <Navbar tasaBcv={tasaBcv.valorUsdBs} />
 
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-10 space-y-6">
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/10">
-            <ShieldCheck className="w-9 h-9" />
+          <div
+            className={`w-16 h-16 rounded-3xl mx-auto flex items-center justify-center shadow-lg ${
+              isRechazado
+                ? 'bg-red-500/20 border border-red-500/40 text-red-400 shadow-red-500/10'
+                : isPendiente
+                ? 'bg-amber-500/20 border border-amber-500/40 text-amber-400 shadow-amber-500/10'
+                : 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 shadow-emerald-500/10'
+            }`}
+          >
+            {isRechazado ? (
+              <XCircle className="w-9 h-9" />
+            ) : isPendiente ? (
+              <Clock className="w-9 h-9" />
+            ) : (
+              <ShieldCheck className="w-9 h-9" />
+            )}
           </div>
           <h1 className="text-2xl font-extrabold text-white">Validación de Comprobante Fiscal</h1>
           <p className="text-xs text-slate-400">
@@ -44,15 +61,53 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
         {recibo ? (
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             {/* Status Header */}
-            <div className="bg-emerald-950/60 border border-emerald-500/40 p-4 rounded-2xl flex items-center justify-between gap-3">
+            <div
+              className={`p-4 rounded-2xl flex items-center justify-between gap-3 border ${
+                isRechazado
+                  ? 'bg-red-950/60 border-red-500/50'
+                  : isPendiente
+                  ? 'bg-amber-950/60 border-amber-500/50'
+                  : 'bg-emerald-950/60 border-emerald-500/40'
+              }`}
+            >
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-6 h-6 text-emerald-400 flex-shrink-0" />
+                {isRechazado ? (
+                  <XCircle className="w-6 h-6 text-red-400 flex-shrink-0" />
+                ) : isPendiente ? (
+                  <Clock className="w-6 h-6 text-amber-400 flex-shrink-0" />
+                ) : (
+                  <CheckCircle2 className="w-6 h-6 text-emerald-400 flex-shrink-0" />
+                )}
                 <div>
-                  <h3 className="font-bold text-white text-sm">Comprobante Fiscal Válido y Auténtico</h3>
-                  <p className="text-[11px] text-emerald-300">Asentado en los libros contables de la Alcaldía.</p>
+                  <h3 className="font-bold text-white text-sm">
+                    {isRechazado
+                      ? 'Comprobante Fiscal Rechazado (No Válido)'
+                      : isPendiente
+                      ? 'Comprobante Pendiente por Validación Fiscal'
+                      : 'Comprobante Fiscal Válido y Auténtico'}
+                  </h3>
+                  <p
+                    className={`text-[11px] ${
+                      isRechazado ? 'text-red-300' : isPendiente ? 'text-amber-300' : 'text-emerald-300'
+                    }`}
+                  >
+                    {isRechazado
+                      ? 'El pago reportado fue desestimado en la conciliación.'
+                      : isPendiente
+                      ? 'En cola de verificación bancaria con la Alcaldía.'
+                      : 'Asentado en los libros contables de la Alcaldía.'}
+                  </p>
                 </div>
               </div>
-              <span className="px-3 py-1 bg-emerald-500 text-slate-950 font-black rounded-lg text-xs tracking-wider">
+              <span
+                className={`px-3 py-1 font-black rounded-lg text-xs tracking-wider ${
+                  isRechazado
+                    ? 'bg-red-600 text-white'
+                    : isPendiente
+                    ? 'bg-amber-500 text-slate-950'
+                    : 'bg-emerald-500 text-slate-950'
+                }`}
+              >
                 {recibo.estado}
               </span>
             </div>
