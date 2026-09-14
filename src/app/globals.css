@@ -39,7 +39,7 @@ body {
   }
 }
 
-.custom-truck-pin, .custom-leaflet-pin, .user-gps-pulse {
+.custom-truck-pin, .custom-leaflet-pin, .user-gps-pulse, .route-stop-pin {
   background: transparent !important;
   border: none !important;
 }
