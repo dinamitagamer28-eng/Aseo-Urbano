@@ -10,6 +10,8 @@ import {
   resolverReporteCuadrilla,
   finalizarTurnoCuadrilla,
   obtenerReportesCuadrilla,
+  eliminarReporteCuadrilla,
+  resetearTodosLosReportesCuadrilla,
 } from '@/lib/actions';
 import {
   Truck,
@@ -29,6 +31,8 @@ import {
   Download,
   KeyRound,
   FileText,
+  Trash2,
+  RotateCcw,
   X
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
@@ -235,6 +239,28 @@ export default function CuadrillaPage() {
       alert(e.message || 'Error al resolver reclamo');
     } finally {
       setResolviendo(false);
+    }
+  };
+
+  const handleEliminarReporte = async (reporteId: string, folio: string) => {
+    if (!confirm(`¿Deseas quitar el reporte ${folio} de la lista?`)) return;
+    try {
+      await eliminarReporteCuadrilla(reporteId);
+      setReportes((prev) => prev.filter((r) => r.id !== reporteId));
+      alert(`Reporte ${folio} eliminado correctamente.`);
+    } catch (e: any) {
+      alert(e.message || 'Error al eliminar reporte');
+    }
+  };
+
+  const handleResetearReportes = async () => {
+    if (!confirm('⚠️ ¿Estás seguro de que deseas ELIMINAR Y RESETEAR TODOS los reportes de la lista? Esta acción limpiará todas las incidencias.')) return;
+    try {
+      await resetearTodosLosReportesCuadrilla();
+      setReportes([]);
+      alert('✅ Lista de reportes reseteada con éxito.');
+    } catch (e: any) {
+      alert(e.message || 'Error al resetear reportes');
     }
   };
 
@@ -460,17 +486,31 @@ export default function CuadrillaPage() {
 
         {/* Real Incidents from Citizens */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-          <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+          <div className="flex justify-between items-center flex-wrap gap-2 border-b border-slate-800 pb-3">
             <h2 className="text-lg font-black text-white flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-amber-400" />
-              Incidencias y Reclamos Ciudadanos
+              Incidencias y Reclamos Ciudadanos ({reportes.length})
             </h2>
-            <button
-              onClick={fetchReportes}
-              className="text-xs text-sky-400 hover:underline font-bold"
-            >
-              Actualizar
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {reportes.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleResetearReportes}
+                  className="text-xs bg-red-950/80 hover:bg-red-900 text-red-400 border border-red-600/40 px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 shadow-sm"
+                  title="Eliminar todos los reportes de la base de datos"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Resetear Toda la Lista</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={fetchReportes}
+                className="text-xs text-sky-400 hover:text-sky-300 font-bold bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 transition"
+              >
+                Actualizar
+              </button>
+            </div>
           </div>
 
           {reportes.length === 0 ? (
@@ -509,15 +549,25 @@ export default function CuadrillaPage() {
                         </div>
                       )}
                     </div>
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                        rep.estado === 'RESUELTO'
-                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/40'
-                          : 'bg-amber-950 text-amber-400 border border-amber-500/40'
-                      }`}
-                    >
-                      {rep.estado}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                          rep.estado === 'RESUELTO'
+                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/40'
+                            : 'bg-amber-950 text-amber-400 border border-amber-500/40'
+                        }`}
+                      >
+                        {rep.estado}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleEliminarReporte(rep.id, rep.folio)}
+                        className="p-1.5 bg-slate-900 hover:bg-red-950 text-slate-400 hover:text-red-400 rounded-lg transition border border-slate-800"
+                        title="Quitar / Eliminar este reporte de la lista"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

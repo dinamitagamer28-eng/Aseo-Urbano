@@ -350,6 +350,52 @@ export default function CiudadanoPage() {
               </div>
             </div>
 
+            {/* Rejected Payment Notification Banner */}
+            {inmuebleVinculado.recibos?.some((r: any) => r.estado === 'RECHAZADO') && (
+              <div className="bg-gradient-to-r from-red-950/80 via-slate-900 to-red-950/60 border-2 border-red-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-3 animate-in fade-in">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
+                    <XCircle className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1.5 flex-1">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold text-xs uppercase tracking-wide">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      Pago Rechazado por el Administrador
+                    </div>
+                    <h3 className="text-base font-bold text-white">
+                      Tu reporte de pago reciente no fue aprobado en la conciliación bancaria
+                    </h3>
+                    {inmuebleVinculado.recibos
+                      .filter((r: any) => r.estado === 'RECHAZADO')
+                      .slice(0, 1)
+                      .map((reciboRechazado: any) => (
+                        <div key={reciboRechazado.id} className="bg-slate-950/90 p-3.5 rounded-xl border border-red-500/30 text-xs text-red-200 mt-2 space-y-1">
+                          <div className="flex justify-between items-center text-[11px] text-slate-400 font-mono">
+                            <span>Ref: {reciboRechazado.referenciaBancaria || 'N/A'}</span>
+                            <span>Monto: Bs. {reciboRechazado.montoTotalBs.toFixed(2)}</span>
+                          </div>
+                          <span className="font-bold text-red-400 block uppercase tracking-wider text-[10px]">
+                            Motivo / Mensaje del Administrador:
+                          </span>
+                          <p className="font-semibold text-sm leading-relaxed text-red-100 bg-red-950/40 p-2 rounded-lg border border-red-500/20">
+                            {reciboRechazado.observacionesFiscales || 'Referencia bancaria no encontrada o monto incorrecto.'}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+                <div className="flex justify-end pt-1">
+                  <button
+                    onClick={() => setActiveTab('pago')}
+                    className="px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-600/30 transition flex items-center gap-2"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>Corregir y Enviar Nuevo Pago</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Navigation Tabs */}
             <div className="flex border-b border-slate-800 gap-2 overflow-x-auto pb-1">
               <button
@@ -430,48 +476,89 @@ export default function CiudadanoPage() {
                 <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
                     <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                    Tus Comprobantes Fiscales Emitidos
+                    Tus Comprobantes Fiscales y Pagos Reportados
                   </h3>
 
                   {inmuebleVinculado.recibos && inmuebleVinculado.recibos.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {inmuebleVinculado.recibos.map((recibo: any) => (
                         <div
                           key={recibo.id}
-                          className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:border-slate-700 transition-colors"
+                          className={`bg-slate-950 p-4 rounded-2xl border transition-colors ${
+                            recibo.estado === 'RECHAZADO'
+                              ? 'border-red-500/50 bg-red-950/10'
+                              : recibo.estado === 'APROBADO'
+                              ? 'border-emerald-500/40'
+                              : 'border-amber-500/40'
+                          }`}
                         >
-                          <div>
-                            <div className="font-mono font-bold text-sky-400 text-sm">
-                              {recibo.numeroReciboFiscal}
+                          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono font-bold text-sky-400 text-sm">
+                                  {recibo.numeroReciboFiscal}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                    recibo.estado === 'APROBADO'
+                                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                      : recibo.estado === 'RECHAZADO'
+                                      ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                  }`}
+                                >
+                                  {recibo.estado === 'APROBADO' ? 'Aprobado' : recibo.estado === 'RECHAZADO' ? 'Rechazado' : 'Por Conciliar'}
+                                </span>
+                              </div>
+                              <div className="text-xs text-slate-400 mt-1">
+                                {new Date(recibo.createdAt).toLocaleDateString('es-VE')} • Método: {recibo.metodoPago} • Ref: <strong className="text-slate-200 font-mono">{recibo.referenciaBancaria || 'Taquilla'}</strong>
+                              </div>
                             </div>
-                            <div className="text-xs text-slate-400 mt-0.5">
-                              {new Date(recibo.createdAt).toLocaleDateString('es-VE')} • Método: {recibo.metodoPago} • Ref: {recibo.referenciaBancaria || 'Taquilla'}
+                            <div className="flex items-center gap-3 justify-between sm:justify-end">
+                              <div className="text-right">
+                                <div className="font-bold text-emerald-400 font-mono text-sm">
+                                  Bs. {recibo.montoTotalBs.toFixed(2)}
+                                </div>
+                                <div className="text-[10px] text-slate-500">
+                                  (${recibo.montoTotalUsd.toFixed(2)} USD)
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setReciboModalData({
+                                    ...recibo,
+                                    usuario: contribuyenteData,
+                                    inmueble: inmuebleVinculado,
+                                    createdAt: recibo.createdAt.toString(),
+                                  });
+                                  setIsReceiptOpen(true);
+                                }}
+                                className="px-3 py-1.5 bg-slate-800 hover:bg-sky-600 text-white rounded-lg text-xs font-semibold border border-slate-700 transition-colors"
+                              >
+                                Ver Recibo
+                              </button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 justify-between sm:justify-end">
-                            <div className="text-right">
-                              <div className="font-bold text-emerald-400 font-mono text-sm">
-                                Bs. {recibo.montoTotalBs.toFixed(2)}
-                              </div>
-                              <div className="text-[10px] text-slate-500">
-                                (${recibo.montoTotalUsd.toFixed(2)} USD)
+
+                          {/* Admin rejection reason details */}
+                          {recibo.estado === 'RECHAZADO' && (
+                            <div className="mt-3 pt-2.5 border-t border-red-500/20 bg-red-950/30 p-3 rounded-xl">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 block mb-1">
+                                Motivo del Rechazo (Administrador):
+                              </span>
+                              <p className="text-xs text-red-200 font-medium italic">
+                                "{recibo.observacionesFiscales || 'Comprobante no coincide con la conciliación bancaria.'}"
+                              </p>
+                              <div className="mt-2 text-right">
+                                <button
+                                  onClick={() => setActiveTab('pago')}
+                                  className="text-xs text-red-300 hover:text-white underline font-bold"
+                                >
+                                  Corregir y reenviar pago →
+                                </button>
                               </div>
                             </div>
-                            <button
-                              onClick={() => {
-                                setReciboModalData({
-                                  ...recibo,
-                                  usuario: contribuyenteData,
-                                  inmueble: inmuebleVinculado,
-                                  createdAt: recibo.createdAt.toString(),
-                                });
-                                setIsReceiptOpen(true);
-                              }}
-                              className="px-3 py-1.5 bg-slate-800 hover:bg-sky-600 text-white rounded-lg text-xs font-semibold border border-slate-700 transition-colors"
-                            >
-                              Ver Recibo
-                            </button>
-                          </div>
+                          )}
                         </div>
                       ))}
                     </div>

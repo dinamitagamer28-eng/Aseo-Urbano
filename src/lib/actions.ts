@@ -659,28 +659,39 @@ export async function liquidarPagoEnTaquilla(data: {
 }
 
 export async function validarPagoDigital(reciboId: string, auditorId: string, aprobar: boolean, motivoRechazo?: string) {
+  const motivoLimpio = motivoRechazo?.trim() || 'Referencia bancaria no encontrada o monto incorrecto.';
+  const observaciones = aprobar
+    ? 'Pago verificado conforme en conciliación bancaria municipal.'
+    : `Rechazado por el Administrador: ${motivoLimpio}`;
+
   const recibo = await prisma.reciboPago.update({
     where: { id: reciboId },
     data: {
       estado: aprobar ? 'APROBADO' : 'RECHAZADO',
       validadoPorId: auditorId,
       fechaValidacion: new Date(),
-      observacionesFiscales: aprobar
-        ? 'Pago verificado conforme en conciliación bancaria municipal.'
-        : `Rechazado: ${motivoRechazo || 'Referencia no encontrada o monto incorrecto.'}`,
+      observacionesFiscales: observaciones,
     },
-    include: { inmueble: true },
+    include: { inmueble: true, usuario: true },
   });
 
-  if (aprobar && recibo.facturaId) {
-    await prisma.facturaTasa.update({
-      where: { id: recibo.facturaId },
-      data: { estado: 'PAGADA' },
-    });
+  if (aprobar) {
+    if (recibo.facturaId) {
+      await prisma.facturaTasa.update({
+        where: { id: recibo.facturaId },
+        data: { estado: 'PAGADA' },
+      });
+    }
 
     await prisma.inmuebleCatastro.update({
       where: { id: recibo.inmuebleId },
       data: { estadoCuenta: 'SOLVENTE' },
+    });
+  } else {
+    // Cuando se rechaza el pago, el inmueble se marca como PENDIENTE
+    await prisma.inmuebleCatastro.update({
+      where: { id: recibo.inmuebleId },
+      data: { estadoCuenta: 'PENDIENTE' },
     });
   }
 
@@ -940,4 +951,41 @@ export async function obtenerReportesCuadrilla() {
 export async function obtenerSectoresRegistro() {
   return await prisma.sector.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } });
 }
+
+export async function eliminarReporteCuadrilla(reporteId: string) {
+  try {
+    await prisma.reporteTrazabilidad.deleteMany({
+      where: { reporteId },
+    });
+    await prisma.reporteIncidencia.delete({
+      where: { id: reporteId },
+    });
+
+    revalidatePath('/cuadrilla');
+    revalidatePath('/admin');
+    revalidatePath('/ciudadano');
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error al eliminar reporte:', error);
+    throw new Error('No se pudo eliminar el reporte.');
+  }
+}
+
+export async function resetearTodosLosReportesCuadrilla() {
+  try {
+    await prisma.reporteTrazabilidad.deleteMany();
+    await prisma.reporteIncidencia.deleteMany();
+
+    revalidatePath('/cuadrilla');
+    revalidatePath('/admin');
+    revalidatePath('/ciudadano');
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error al resetear reportes:', error);
+    throw new Error('No se pudieron resetear los reportes.');
+  }
+}
+
 

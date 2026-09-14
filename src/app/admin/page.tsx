@@ -98,6 +98,11 @@ export default function AdminDashboard() {
   const [nuevaDescTarifa, setNuevaDescTarifa] = useState<string>('');
   const [guardandoTarifa, setGuardandoTarifa] = useState(false);
 
+  // Rejection Modal State
+  const [rechazarModalRecibo, setRechazarModalRecibo] = useState<any | null>(null);
+  const [motivoRechazoInput, setMotivoRechazoInput] = useState<string>('Referencia bancaria no encontrada en la conciliación de la Alcaldía.');
+  const [procesandoRechazo, setProcesandoRechazo] = useState(false);
+
   // Search & Filter States
   const [searchAuditoria, setSearchAuditoria] = useState('');
   const [filtroEstadoAuditoria, setFiltroEstadoAuditoria] = useState('TODOS');
@@ -264,23 +269,45 @@ export default function AdminDashboard() {
   };
 
   // Validate Digital Citizen Payments
-  const handleValidarPago = async (id: string, aprobar: boolean) => {
-    let motivo: string | undefined = undefined;
+  const handleValidarPago = async (recibo: any, aprobar: boolean) => {
     if (!aprobar) {
-      const resp = prompt('Ingrese el motivo del rechazo del pago (ej. Referencia no encontrada / Monto incorrecto):');
-      if (resp === null) return;
-      motivo = resp.trim() || 'Comprobante no coincide con la conciliación bancaria.';
+      setRechazarModalRecibo(recibo);
+      setMotivoRechazoInput('Referencia bancaria no encontrada en la conciliación de la Alcaldía.');
+      return;
     }
 
     try {
       const adminId = (session?.user as any)?.id || 'admin';
-      await validarPagoDigital(id, adminId, aprobar, motivo);
+      await validarPagoDigital(recibo.id, adminId, true);
       setRecibosFiscales((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, estado: aprobar ? 'APROBADO' : 'RECHAZADO' } : r))
+        prev.map((r) => (r.id === recibo.id ? { ...r, estado: 'APROBADO' } : r))
       );
-      alert(aprobar ? '✅ Pago digital aprobado con éxito.' : '❌ Pago digital rechazado.');
+      alert('✅ Pago digital aprobado con éxito.');
     } catch (e: any) {
       alert(`Error al validar: ${e?.message || 'Error desconocido'}`);
+    }
+  };
+
+  const handleConfirmarRechazo = async () => {
+    if (!rechazarModalRecibo) return;
+    setProcesandoRechazo(true);
+    try {
+      const adminId = (session?.user as any)?.id || 'admin';
+      const motivo = motivoRechazoInput.trim() || 'Comprobante no coincide con la conciliación bancaria.';
+      await validarPagoDigital(rechazarModalRecibo.id, adminId, false, motivo);
+      setRecibosFiscales((prev) =>
+        prev.map((r) =>
+          r.id === rechazarModalRecibo.id
+            ? { ...r, estado: 'RECHAZADO', observacionesFiscales: `Rechazado por el Administrador: ${motivo}` }
+            : r
+        )
+      );
+      setRechazarModalRecibo(null);
+      alert('❌ Pago rechazado. El mensaje fue guardado y el ciudadano lo verá en su portal.');
+    } catch (e: any) {
+      alert(`Error al rechazar: ${e?.message || 'Error desconocido'}`);
+    } finally {
+      setProcesandoRechazo(false);
     }
   };
 
@@ -1065,14 +1092,14 @@ export default function AdminDashboard() {
                         {recibo.estado === 'PENDIENTE_VALIDACION' ? (
                           <>
                             <button
-                              onClick={() => handleValidarPago(recibo.id, true)}
+                              onClick={() => handleValidarPago(recibo, true)}
                               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-colors"
                             >
                               <CheckCircle2 className="w-4 h-4" />
                               <span>Aprobar Pago</span>
                             </button>
                             <button
-                              onClick={() => handleValidarPago(recibo.id, false)}
+                              onClick={() => handleValidarPago(recibo, false)}
                               className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-colors"
                             >
                               <XCircle className="w-4 h-4" />
@@ -1316,72 +1343,90 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Tariff Edit Modal */}
-      {editingTarifaSector && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="font-bold text-white text-sm flex items-center gap-2">
-                <Edit3 className="w-4 h-4 text-sky-400" />
-                Editar Tarifa Oficial: {editingTarifaSector.nombre}
-              </h3>
+      {/* Rejection Note Modal */}
+      {rechazarModalRecibo && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-slate-900 border-2 border-red-500/40 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+              <div>
+                <div className="text-xs font-mono font-bold text-red-400">
+                  {rechazarModalRecibo.numeroReciboFiscal} • {rechazarModalRecibo.contribuyente}
+                </div>
+                <h3 className="font-bold text-white text-base mt-0.5 flex items-center gap-2">
+                  <XCircle className="w-5 h-5 text-red-400" />
+                  Rechazar Pago y Enviar Notificación al Ciudadano
+                </h3>
+              </div>
               <button
-                onClick={() => setEditingTarifaSector(null)}
+                onClick={() => setRechazarModalRecibo(null)}
                 className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleGuardarTarifaSector} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Monto de Tarifa Base Mensual ($ USD):
-                </label>
-                <input
-                  type="number"
-                  step="0.25"
-                  min="0.5"
-                  required
-                  value={nuevoMontoTarifa}
-                  onChange={(e) => setNuevoMontoTarifa(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white font-mono font-bold focus:outline-none focus:border-sky-500"
-                />
-                <p className="text-[11px] text-amber-400 mt-1 font-mono">
-                  Equivalente actual: Bs. {(nuevoMontoTarifa * tasaBcv).toFixed(2)} a Tasa BCV ({tasaBcv.toFixed(2)})
-                </p>
+            <div className="space-y-3">
+              <p className="text-xs text-slate-300">
+                Escribe el motivo del rechazo. Este mensaje <strong className="text-red-300">le aparecerá de inmediato al ciudadano</strong> en su portal web para que pueda corregirlo o reenviar su pago.
+              </p>
+
+              {/* Quick Preset Chips */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Motivos Frecuentes (Toca para autocompletar):
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    'Referencia no encontrada en la conciliación bancaria.',
+                    'El monto transferido no corresponde a la tasa oficial del día.',
+                    'Comprobante ilegible o captura incompleta.',
+                    'Pago transferido a una cuenta no autorizada de la Alcaldía.',
+                  ].map((preset, pIdx) => (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => setMotivoRechazoInput(preset)}
+                      className="text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition text-left"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Descripción u Ordenanza Municipal:
+                <label className="block text-xs font-bold text-slate-200 mb-1">
+                  Mensaje personalizado para el Contribuyente:
                 </label>
                 <textarea
-                  rows={2}
-                  value={nuevaDescTarifa}
-                  onChange={(e) => setNuevaDescTarifa(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-sky-500"
+                  rows={3}
+                  required
+                  value={motivoRechazoInput}
+                  onChange={(e) => setMotivoRechazoInput(e.target.value)}
+                  className="w-full bg-slate-950 border border-red-500/30 focus:border-red-500 rounded-xl p-3 text-xs text-white focus:outline-none placeholder:text-slate-500"
+                  placeholder="Escribe el motivo detallado..."
                 />
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setEditingTarifaSector(null)}
+                  onClick={() => setRechazarModalRecibo(null)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold"
                 >
                   Cancelar
                 </button>
                 <button
-                  type="submit"
-                  disabled={guardandoTarifa}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md"
+                  type="button"
+                  disabled={procesandoRechazo || !motivoRechazoInput.trim()}
+                  onClick={handleConfirmarRechazo}
+                  className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-red-600/30 disabled:opacity-50"
                 >
-                  <Check className="w-4 h-4" />
-                  <span>{guardandoTarifa ? 'Guardando...' : 'Guardar Tarifa'}</span>
+                  <XCircle className="w-4 h-4" />
+                  <span>{procesandoRechazo ? 'Rechazando...' : 'Confirmar Rechazo'}</span>
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
