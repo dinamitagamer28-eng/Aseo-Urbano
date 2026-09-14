@@ -37,7 +37,9 @@ import {
   X,
   Sliders,
   XCircle,
-  Scale
+  Scale,
+  Users,
+  ShieldCheck
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -410,7 +412,7 @@ export default function CuadrillaPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-amber-500 selection:text-slate-950 font-sans">
       <Navbar />
 
-      {/* Field Crew Top Status Banner with Logout */}
+      {/* Field Crew Top Status Banner with Switch & Logout */}
       <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-slate-950 py-3 px-4 shadow-lg sticky top-[57px] z-40">
         <div className="max-w-4xl mx-auto flex justify-between items-center flex-wrap gap-2">
           <div className="flex items-center gap-2 font-black text-sm tracking-tight">
@@ -418,10 +420,23 @@ export default function CuadrillaPage() {
             <span>OPERACIÓN DE CAMPO: CAMIÓN 01</span>
             <span className="bg-slate-950 text-amber-400 px-2 py-0.5 rounded text-xs">LAS COLINAS</span>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-xs font-bold hidden sm:block">
-              <span>Progreso: {completadosCount}/{totalTramosHoy} ({porcentaje}%)</span>
-            </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <a
+              href="/ciudadano"
+              className="flex items-center gap-1 px-2.5 py-1 bg-slate-950/80 hover:bg-slate-950 text-sky-300 hover:text-white text-xs font-bold rounded-lg transition border border-sky-400/40"
+              title="Cambiar a Vista Ciudadano"
+            >
+              <Users className="w-3.5 h-3.5 text-sky-400" />
+              <span>Ciudadano</span>
+            </a>
+            <a
+              href="/admin"
+              className="flex items-center gap-1 px-2.5 py-1 bg-slate-950/80 hover:bg-slate-950 text-emerald-300 hover:text-white text-xs font-bold rounded-lg transition border border-emerald-400/40"
+              title="Cambiar a Panel Admin"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Admin</span>
+            </a>
             <button
               onClick={handleCerrarSesion}
               className="flex items-center gap-1.5 px-3 py-1 bg-slate-950 text-amber-300 hover:text-white text-xs font-bold rounded-lg transition"
@@ -446,9 +461,25 @@ export default function CuadrillaPage() {
               <h1 className="text-2xl font-black text-white mt-0.5">{supervisorCode}</h1>
               <p className="text-xs text-slate-300">Unidad: {camionCode} • Sector: {sectorName}</p>
             </div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-xl text-xs font-bold">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>ASISTENCIA GPS VALIDADA</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-xl text-xs font-bold">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>GPS ACTIVO</span>
+              </div>
+              <a
+                href="/ciudadano"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 text-xs font-bold rounded-xl border border-slate-700 transition"
+              >
+                <Users className="w-3.5 h-3.5 text-sky-400" />
+                <span>Ciudadano</span>
+              </a>
+              <a
+                href="/admin"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-bold rounded-xl border border-slate-700 transition"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Admin</span>
+              </a>
             </div>
           </div>
 

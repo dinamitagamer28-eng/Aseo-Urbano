@@ -92,6 +92,35 @@ export default function CiudadanoPage() {
   const [obteniendoGps, setObteniendoGps] = useState(false);
   const [gpsDetectado, setGpsDetectado] = useState(false);
 
+  // Dismissed Alert States
+  const [reportesVistos, setReportesVistos] = useState<string[]>([]);
+  const [pagosRechazadosDescartados, setPagosRechazadosDescartados] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const vistos = localStorage.getItem('reportes_rechazados_vistos');
+      if (vistos) setReportesVistos(JSON.parse(vistos));
+      const pagosDesc = localStorage.getItem('pagos_rechazados_descartados');
+      if (pagosDesc) setPagosRechazadosDescartados(JSON.parse(pagosDesc));
+    } catch (e) {}
+  }, []);
+
+  const handleMarcarReporteVisto = (reporteId: string) => {
+    const updated = [...reportesVistos, reporteId];
+    setReportesVistos(updated);
+    try {
+      localStorage.setItem('reportes_rechazados_vistos', JSON.stringify(updated));
+    } catch (e) {}
+  };
+
+  const handleDescartarAlertaPago = (reciboId: string) => {
+    const updated = [...pagosRechazadosDescartados, reciboId];
+    setPagosRechazadosDescartados(updated);
+    try {
+      localStorage.setItem('pagos_rechazados_descartados', JSON.stringify(updated));
+    } catch (e) {}
+  };
+
   const obtenerUbicacionGpsActual = () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       alert("Tu dispositivo no soporta geolocalización GPS.");
@@ -350,97 +379,142 @@ export default function CiudadanoPage() {
               </div>
             </div>
 
-            {/* Rejected Payment Notification Banner */}
-            {inmuebleVinculado.recibos?.some((r: any) => r.estado === 'RECHAZADO') && (
-              <div className="bg-gradient-to-r from-red-950/80 via-slate-900 to-red-950/60 border-2 border-red-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-3 animate-in fade-in">
-                <div className="flex items-start gap-3.5">
-                  <div className="w-11 h-11 rounded-2xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
-                    <XCircle className="w-6 h-6" />
-                  </div>
-                  <div className="space-y-1.5 flex-1">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold text-xs uppercase tracking-wide">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      Pago Rechazado por el Administrador
-                    </div>
-                    <h3 className="text-base font-bold text-white">
-                      Tu reporte de pago reciente no fue aprobado en la conciliación bancaria
-                    </h3>
-                    {inmuebleVinculado.recibos
-                      .filter((r: any) => r.estado === 'RECHAZADO')
-                      .slice(0, 1)
-                      .map((reciboRechazado: any) => (
-                        <div key={reciboRechazado.id} className="bg-slate-950/90 p-3.5 rounded-xl border border-red-500/30 text-xs text-red-200 mt-2 space-y-1">
-                          <div className="flex justify-between items-center text-[11px] text-slate-400 font-mono">
-                            <span>Ref: {reciboRechazado.referenciaBancaria || 'N/A'}</span>
-                            <span>Monto: Bs. {reciboRechazado.montoTotalBs.toFixed(2)}</span>
-                          </div>
-                          <span className="font-bold text-red-400 block uppercase tracking-wider text-[10px]">
-                            Motivo / Mensaje del Administrador:
-                          </span>
-                          <p className="font-semibold text-sm leading-relaxed text-red-100 bg-red-950/40 p-2 rounded-lg border border-red-500/20">
-                            {reciboRechazado.observacionesFiscales || 'Referencia bancaria no encontrada o monto incorrecto.'}
-                          </p>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-                <div className="flex justify-end pt-1">
-                  <button
-                    onClick={() => setActiveTab('pago')}
-                    className="px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-600/30 transition flex items-center gap-2"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    <span>Corregir y Enviar Nuevo Pago</span>
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* Rejected Payment Notification Banner (Only if the latest receipt is still RECHAZADO and not yet corrected/dismissed) */}
+            {(() => {
+              const ultimoRecibo = inmuebleVinculado.recibos?.[0];
+              const mostrarAlertaPagoRechazado =
+                ultimoRecibo &&
+                ultimoRecibo.estado === 'RECHAZADO' &&
+                !pagosRechazadosDescartados.includes(ultimoRecibo.id);
 
-            {/* Rejected Incident Report Notification Banner */}
-            {contribuyenteData.reportesCreados?.some((r: any) => r.estado === 'RECHAZADO') && (
-              <div className="bg-gradient-to-r from-red-950/90 via-slate-900 to-amber-950/70 border-2 border-red-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-3 animate-in fade-in">
-                <div className="flex items-start gap-3.5">
-                  <div className="w-11 h-11 rounded-2xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
-                    <AlertTriangle className="w-6 h-6" />
-                  </div>
-                  <div className="space-y-1.5 flex-1">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold text-xs uppercase tracking-wide">
-                      <XCircle className="w-3.5 h-3.5" />
-                      Reporte de Incidencia Rechazado por la Cuadrilla
+              if (!mostrarAlertaPagoRechazado) return null;
+
+              return (
+                <div className="bg-gradient-to-r from-red-950/80 via-slate-900 to-red-950/60 border-2 border-red-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-3 animate-in fade-in">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-11 h-11 rounded-2xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
+                      <XCircle className="w-6 h-6" />
                     </div>
-                    <h3 className="text-base font-bold text-white">
-                      La cuadrilla de campo desestimó tu reporte de recolección
-                    </h3>
-                    {contribuyenteData.reportesCreados
-                      .filter((r: any) => r.estado === 'RECHAZADO')
-                      .slice(0, 1)
-                      .map((repRechazado: any) => (
-                        <div key={repRechazado.id} className="bg-slate-950/90 p-3.5 rounded-xl border border-red-500/30 text-xs text-red-200 mt-2 space-y-1">
-                          <div className="flex justify-between items-center text-[11px] text-slate-400 font-mono">
-                            <span>Folio: {repRechazado.folioIncidencia}</span>
-                            <span>Tipo: {repRechazado.tipoProblema?.replace(/_/g, ' ')}</span>
-                          </div>
-                          <span className="font-bold text-red-400 block uppercase tracking-wider text-[10px]">
-                            Motivo / Explicación de la Cuadrilla:
-                          </span>
-                          <p className="font-semibold text-sm leading-relaxed text-red-100 bg-red-950/40 p-2 rounded-lg border border-red-500/20">
-                            {repRechazado.notasResolucion || 'Incidencia no procede según normativa de aseo domiciliario ordinario.'}
-                          </p>
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex justify-between items-center flex-wrap gap-2">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold text-xs uppercase tracking-wide">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Pago Rechazado por el Administrador
                         </div>
-                      ))}
+                        <button
+                          onClick={() => handleDescartarAlertaPago(ultimoRecibo.id)}
+                          className="text-xs text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+                          title="Cerrar notificación"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <h3 className="text-base font-bold text-white">
+                        Tu reporte de pago reciente no fue aprobado en la conciliación bancaria
+                      </h3>
+                      <div className="bg-slate-950/90 p-3.5 rounded-xl border border-red-500/30 text-xs text-red-200 mt-2 space-y-1">
+                        <div className="flex justify-between items-center text-[11px] text-slate-400 font-mono">
+                          <span>Ref: {ultimoRecibo.referenciaBancaria || 'N/A'}</span>
+                          <span>Monto: Bs. {ultimoRecibo.montoTotalBs?.toFixed(2)}</span>
+                        </div>
+                        <span className="font-bold text-red-400 block uppercase tracking-wider text-[10px]">
+                          Motivo / Mensaje del Administrador:
+                        </span>
+                        <p className="font-semibold text-sm leading-relaxed text-red-100 bg-red-950/40 p-2 rounded-lg border border-red-500/20">
+                          {ultimoRecibo.observacionesFiscales || 'Referencia bancaria no encontrada o monto incorrecto.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end items-center gap-2 pt-1 flex-wrap">
+                    <button
+                      onClick={() => handleDescartarAlertaPago(ultimoRecibo.id)}
+                      className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition border border-slate-700"
+                    >
+                      <span>Entendido</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('pago')}
+                      className="px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-600/30 transition flex items-center gap-2"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      <span>Corregir y Enviar Nuevo Pago</span>
+                    </button>
                   </div>
                 </div>
-                <div className="flex justify-end pt-1">
-                  <button
-                    onClick={() => setActiveTab('mis-reportes')}
-                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-2 border border-slate-700"
-                  >
-                    <FileText className="w-4 h-4 text-sky-400" />
-                    <span>Ver Mis Reportes</span>
-                  </button>
+              );
+            })()}
+
+            {/* Rejected Incident Report Notification Banner with OK/Seen Option */}
+            {(() => {
+              const reportesRechazadosSinVer =
+                contribuyenteData.reportesCreados?.filter(
+                  (r: any) => r.estado === 'RECHAZADO' && !reportesVistos.includes(r.id)
+                ) || [];
+
+              if (reportesRechazadosSinVer.length === 0) return null;
+
+              const repRechazado = reportesRechazadosSinVer[0];
+
+              return (
+                <div className="bg-gradient-to-r from-red-950/90 via-slate-900 to-amber-950/70 border-2 border-red-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-3 animate-in fade-in">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-11 h-11 rounded-2xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
+                      <AlertTriangle className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex justify-between items-center flex-wrap gap-2">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold text-xs uppercase tracking-wide">
+                          <XCircle className="w-3.5 h-3.5" />
+                          Reporte de Incidencia Rechazado por la Cuadrilla
+                        </div>
+                        <button
+                          onClick={() => handleMarcarReporteVisto(repRechazado.id)}
+                          className="text-xs text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+                          title="Cerrar notificación"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <h3 className="text-base font-bold text-white">
+                        La cuadrilla de campo desestimó tu reporte de recolección
+                      </h3>
+                      <div className="bg-slate-950/90 p-3.5 rounded-xl border border-red-500/30 text-xs text-red-200 mt-2 space-y-1">
+                        <div className="flex justify-between items-center text-[11px] text-slate-400 font-mono">
+                          <span>Folio: {repRechazado.folioIncidencia}</span>
+                          <span>Tipo: {repRechazado.tipoProblema?.replace(/_/g, ' ')}</span>
+                        </div>
+                        <span className="font-bold text-red-400 block uppercase tracking-wider text-[10px]">
+                          Motivo / Explicación de la Cuadrilla:
+                        </span>
+                        <p className="font-semibold text-sm leading-relaxed text-red-100 bg-red-950/40 p-2 rounded-lg border border-red-500/20">
+                          {repRechazado.notasResolucion || 'Incidencia no procede según normativa de aseo domiciliario ordinario.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end items-center gap-2 pt-1 flex-wrap">
+                    <button
+                      onClick={() => handleMarcarReporteVisto(repRechazado.id)}
+                      className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 shadow-sm"
+                    >
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <span>OK, Entendido (Ya lo vi)</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleMarcarReporteVisto(repRechazado.id);
+                        setActiveTab('reportar');
+                      }}
+                      className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-sky-600/30 transition flex items-center gap-1.5"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>Corregir y Enviar Nuevo Reporte</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Navigation Tabs */}
             <div className="flex border-b border-slate-800 gap-2 overflow-x-auto pb-1">
