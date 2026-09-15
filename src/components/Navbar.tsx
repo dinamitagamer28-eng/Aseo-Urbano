@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Truck, ShieldCheck, Users, DollarSign, Shield } from 'lucide-react';
+import { Truck, ShieldCheck, Users, DollarSign, Shield, MapPin } from 'lucide-react';
 
 interface NavbarProps {
   tasaBcv?: number;
@@ -31,6 +31,7 @@ export default function Navbar({ tasaBcv }: NavbarProps) {
   const isCuadrilla = pathname.startsWith('/cuadrilla');
   const isCiudadano = pathname.startsWith('/ciudadano');
   const isAdmin = pathname.startsWith('/admin');
+  const isCenso = pathname.startsWith('/censo');
   const isHome = pathname === '/';
 
   return (
@@ -40,6 +41,8 @@ export default function Navbar({ tasaBcv }: NavbarProps) {
           ? 'bg-slate-950 border-amber-500/30'
           : isAdmin
           ? 'bg-slate-950 border-emerald-500/30'
+          : isCenso
+          ? 'bg-slate-950 border-indigo-500/30'
           : 'bg-slate-900 border-slate-800'
       } border-b text-white sticky top-0 z-50 transition-colors`}
     >
@@ -116,6 +119,23 @@ export default function Navbar({ tasaBcv }: NavbarProps) {
             </div>
           )}
 
+          {isCenso && (
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 p-0.5 shadow-lg shadow-indigo-500/20 flex items-center justify-center">
+                <MapPin className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="font-bold text-lg leading-tight tracking-tight text-white flex items-center gap-1.5">
+                  ASEO URBANO
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                    PWA Censo
+                  </span>
+                </div>
+                <p className="text-xs text-indigo-200/70">Empadronamiento Casa x Casa • GPS Campo</p>
+              </div>
+            </div>
+          )}
+
           {isHome && (
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-600 p-0.5 shadow-lg shadow-sky-500/20 flex items-center justify-center">
@@ -153,6 +173,13 @@ export default function Navbar({ tasaBcv }: NavbarProps) {
               <div className="flex items-center gap-2 bg-emerald-950/80 border border-emerald-600/40 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-300">
                 <Shield className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Acceso Seguro</span>
+              </div>
+            )}
+
+            {isCenso && (
+              <div className="flex items-center gap-2 bg-indigo-950/80 border border-indigo-600/40 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-300">
+                <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                <span>PWA Censo</span>
               </div>
             )}
 

@@ -739,6 +739,14 @@ export default function AdminDashboard() {
               <span>Ver Cuadrilla</span>
             </a>
 
+            <a
+              href="/censo"
+              className="flex items-center gap-1.5 px-3 py-2 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-600/40 text-indigo-300 rounded-xl text-xs font-bold transition-colors shadow-sm"
+            >
+              <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+              <span>PWA Censo</span>
+            </a>
+
             <button
               onClick={exportarExcelContraloria}
               className="flex items-center gap-1.5 px-3 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md transition-colors"

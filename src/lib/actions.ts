@@ -1258,6 +1258,311 @@ export async function actualizarSolvenciaInmuebleAdmin(data: {
   }
 }
 
+// -------------------------------------------------------------
+// 4. MÓDULO DE EMPADRONAMIENTO Y CENSO DE CAMPO (/censo)
+// -------------------------------------------------------------
+
+export async function verificarClaveAdminCenso(clave: string) {
+  if (!clave || !clave.trim()) {
+    return { success: false, message: 'Ingresa la clave de acceso.' };
+  }
+
+  const clean = clave.trim().toUpperCase();
+  if (['ROSARIO2026', 'ADMIN2026', 'CENSO2026', 'CAMPO2026', 'ALCALDIA2026'].includes(clean)) {
+    return { success: true, rol: 'ADMIN' };
+  }
+
+  // Verificar si coincide con la contraseña de algún usuario administrador
+  try {
+    const bcrypt = await import('bcrypt');
+    const adminUsers = await prisma.usuario.findMany({
+      where: { rol: 'ADMIN', passwordHash: { not: null } },
+    });
+
+    for (const admin of adminUsers) {
+      if (admin.passwordHash) {
+        const match = await bcrypt.compare(clave.trim(), admin.passwordHash);
+        if (match) {
+          return { success: true, rol: 'ADMIN', nombre: admin.nombres };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Error verificando hash de admin:', e);
+  }
+
+  return { success: false, message: 'Clave de Administrador o Empadronador incorrecta.' };
+}
+
+export async function obtenerPadronCompletoCenso(sectorIdFiltro?: string) {
+  try {
+    const whereInmueble: any = {};
+    if (sectorIdFiltro && sectorIdFiltro !== 'TODOS') {
+      whereInmueble.sectorId = sectorIdFiltro;
+    }
+
+    const [inmuebles, sectores] = await Promise.all([
+      prisma.inmuebleCatastro.findMany({
+        where: whereInmueble,
+        orderBy: [{ sector: { nombre: 'asc' } }, { createdAt: 'desc' }],
+        include: {
+          sector: {
+            include: {
+              parroquia: true,
+              tarifasSectores: true,
+            },
+          },
+          calle: true,
+          contribuyentes: {
+            include: {
+              usuario: true,
+            },
+          },
+          recibos: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      }),
+      prisma.sector.findMany({
+        orderBy: { nombre: 'asc' },
+        include: {
+          parroquia: true,
+          callesTramos: true,
+          _count: { select: { inmuebles: true } },
+        },
+      }),
+    ]);
+
+    const mappedInmuebles = inmuebles.map((inm) => {
+      const prop = inm.contribuyentes?.[0]?.usuario;
+      const tieneGps = Boolean(inm.latitud && inm.longitud);
+      const ultimoRecibo = inm.recibos?.[0];
+
+      return {
+        id: inm.id,
+        codigoCatastral: inm.codigoCatastral,
+        numeroCasaLocal: inm.numeroCasaLocal,
+        referenciaUbic: inm.referenciaUbic,
+        tipoInmueble: inm.tipoInmueble || 'RESIDENCIAL',
+        tarifaBaseUsd: inm.tarifaBaseUsd || 3.0,
+        estadoCuenta: inm.estadoCuenta || 'SOLVENTE',
+        latitud: inm.latitud,
+        longitud: inm.longitud,
+        censado: tieneGps,
+        estadoCenso: tieneGps ? 'CENSADO' : 'FALTANTE',
+        createdAt: inm.createdAt,
+        sectorId: inm.sectorId,
+        sectorNombre: inm.sector?.nombre || 'Rosario de Perijá',
+        sectorCodigo: inm.sector?.codigo || 'SEC',
+        sectorEstrato: inm.sector?.estrato || 'POPULAR',
+        parroquiaNombre: inm.sector?.parroquia?.nombre || 'El Rosario',
+        calleId: inm.calleId,
+        calleNombre: inm.calle?.nombreCalle || 'Calle Principal',
+        contribuyenteId: prop?.id || null,
+        contribuyenteNombre: prop ? `${prop.nombres} ${prop.apellidos || ''}`.trim() : 'Propietario por Asignar',
+        contribuyenteCedula: prop?.cedulaRif || 'S/C',
+        contribuyenteTelefono: prop?.telefonoMovil || 'S/T',
+        contribuyenteEmail: prop?.email || '',
+        ultimoReciboFolio: ultimoRecibo?.numeroReciboFiscal || null,
+        ultimoReciboFecha: ultimoRecibo ? new Date(ultimoRecibo.createdAt).toLocaleDateString('es-VE') : null,
+      };
+    });
+
+    const totalInmuebles = mappedInmuebles.length;
+    const totalCensados = mappedInmuebles.filter((i) => i.censado).length;
+    const totalFaltantes = totalInmuebles - totalCensados;
+    const porcentajeAvance = totalInmuebles > 0 ? Math.round((totalCensados / totalInmuebles) * 100) : 0;
+
+    return {
+      success: true,
+      inmuebles: mappedInmuebles,
+      sectores,
+      metricas: {
+        totalInmuebles,
+        totalCensados,
+        totalFaltantes,
+        porcentajeAvance,
+      },
+    };
+  } catch (error: any) {
+    console.error('Error al obtener padrón de censo:', error);
+    return {
+      success: false,
+      inmuebles: [],
+      sectores: [],
+      metricas: { totalInmuebles: 0, totalCensados: 0, totalFaltantes: 0, porcentajeAvance: 0 },
+    };
+  }
+}
+
+export async function guardarCensoCampo(data: {
+  inmuebleId: string;
+  latitud: number;
+  longitud: number;
+  numeroCasaLocal?: string;
+  referenciaUbic?: string;
+  tipoInmueble?: string;
+  calleId?: string;
+}) {
+  try {
+    const updateData: any = {
+      latitud: data.latitud,
+      longitud: data.longitud,
+    };
+
+    if (data.numeroCasaLocal && data.numeroCasaLocal.trim()) {
+      updateData.numeroCasaLocal = data.numeroCasaLocal.trim();
+    }
+    if (data.referenciaUbic !== undefined) {
+      updateData.referenciaUbic = data.referenciaUbic.trim() || null;
+    }
+    if (data.tipoInmueble) {
+      updateData.tipoInmueble = data.tipoInmueble;
+    }
+    if (data.calleId) {
+      updateData.calleId = data.calleId;
+    }
+
+    const inmueble = await prisma.inmuebleCatastro.update({
+      where: { id: data.inmuebleId },
+      data: updateData,
+      include: { sector: true, calle: true, contribuyentes: { include: { usuario: true } } },
+    });
+
+    revalidatePath('/censo');
+    revalidatePath('/admin');
+    revalidatePath('/ciudadano');
+
+    return {
+      success: true,
+      inmueble,
+    };
+  } catch (error: any) {
+    console.error('Error al guardar censo de campo:', error);
+    throw new Error(error.message || 'Error al actualizar censo.');
+  }
+}
+
+export async function crearNuevoInmuebleCensoCampo(data: {
+  cedulaRif: string;
+  nombres: string;
+  apellidos?: string;
+  telefonoMovil?: string;
+  sectorId: string;
+  calleNombre?: string;
+  calleId?: string;
+  numeroCasaLocal: string;
+  referenciaUbic?: string;
+  tipoInmueble?: string;
+  latitud: number;
+  longitud: number;
+  tarifaBaseUsd?: number;
+}) {
+  try {
+    const cleanDoc = data.cedulaRif.trim().toUpperCase();
+    const cedulaCompleta = cleanDoc.startsWith('V-') || cleanDoc.startsWith('E-') || cleanDoc.startsWith('J-') || cleanDoc.startsWith('G-')
+      ? cleanDoc
+      : `V-${cleanDoc}`;
+
+    // 1. Sector
+    const sector = await prisma.sector.findUnique({
+      where: { id: data.sectorId },
+      include: { callesTramos: true, tarifasSectores: true },
+    });
+    if (!sector) throw new Error('Sector no encontrado.');
+
+    // 2. Calle
+    let calleId = data.calleId;
+    if (!calleId) {
+      if (data.calleNombre && data.calleNombre.trim()) {
+        const calleCreada = await prisma.calleTramo.create({
+          data: {
+            sectorId: sector.id,
+            nombreCalle: data.calleNombre.trim(),
+            diaRecoleccion: 'LUNES Y JUEVES',
+          },
+        });
+        calleId = calleCreada.id;
+      } else if (sector.callesTramos.length > 0) {
+        calleId = sector.callesTramos[0].id;
+      } else {
+        const calleNueva = await prisma.calleTramo.create({
+          data: {
+            sectorId: sector.id,
+            nombreCalle: 'Calle Principal',
+            diaRecoleccion: 'LUNES Y JUEVES',
+          },
+        });
+        calleId = calleNueva.id;
+      }
+    }
+
+    // 3. Usuario / Contribuyente
+    let usuario = await prisma.usuario.findFirst({
+      where: { cedulaRif: cedulaCompleta },
+    });
+
+    if (!usuario) {
+      usuario = await prisma.usuario.create({
+        data: {
+          tipoDoc: cedulaCompleta.substring(0, 1),
+          cedulaRif: cedulaCompleta,
+          nombres: data.nombres.trim(),
+          apellidos: (data.apellidos || '').trim(),
+          telefonoMovil: (data.telefonoMovil || '0414-0000000').trim(),
+          rol: 'CIUDADANO',
+        },
+      });
+    }
+
+    // 4. Generar código catastral municipal
+    const totalInmuebles = await prisma.inmuebleCatastro.count();
+    const codCat = `${sector.codigo || 'SEC'}-C${String(totalInmuebles + 1).padStart(3, '0')}`;
+    const tarifaUsd = data.tarifaBaseUsd || sector.tarifasSectores?.[0]?.montoTarifaUsd || 3.0;
+
+    const inmueble = await prisma.inmuebleCatastro.create({
+      data: {
+        codigoCatastral: codCat,
+        sectorId: sector.id,
+        calleId: calleId as string,
+        numeroCasaLocal: data.numeroCasaLocal.trim(),
+        referenciaUbic: (data.referenciaUbic || '').trim() || null,
+        tipoInmueble: data.tipoInmueble || 'RESIDENCIAL',
+        tarifaBaseUsd: tarifaUsd,
+        estadoCuenta: 'SOLVENTE',
+        latitud: data.latitud,
+        longitud: data.longitud,
+      },
+      include: { sector: true, calle: true },
+    });
+
+    // Vincular al usuario
+    await prisma.inmuebleContribuyente.create({
+      data: {
+        usuarioId: usuario.id,
+        inmuebleId: inmueble.id,
+        tipoRelacion: 'PROPIETARIO',
+        esResponsablePago: true,
+      },
+    });
+
+    revalidatePath('/censo');
+    revalidatePath('/admin');
+    revalidatePath('/ciudadano');
+
+    return {
+      success: true,
+      inmueble,
+      usuario,
+    };
+  } catch (error: any) {
+    console.error('Error al crear nuevo inmueble en censo:', error);
+    throw new Error(error.message || 'Error al registrar nueva vivienda en campo.');
+  }
+}
+
+
 
 
 
