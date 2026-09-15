@@ -73,8 +73,23 @@ export default function AdminDashboard() {
 
   // Security guard
   useEffect(() => {
+    const scope = typeof window !== 'undefined' ? sessionStorage.getItem('role_scope') : null;
+    if (scope === 'CUADRILLA') {
+      alert('⚠️ Tu clave de acceso (CUADRILLA2026) es exclusiva para la App de Cuadrilla.');
+      router.push('/cuadrilla');
+      return;
+    }
+    if (scope === 'CENSO') {
+      alert('⚠️ Tu clave de acceso (CENSO2026) es exclusiva para la PWA de Censo.');
+      router.push('/censo');
+      return;
+    }
+
     if (status === 'unauthenticated' || (status === 'authenticated' && (session?.user as any)?.rol !== 'ADMIN')) {
-      router.push('/login');
+      const unlocked = typeof window !== 'undefined' ? localStorage.getItem('admin_unlocked') : null;
+      if (!unlocked) {
+        router.push('/login');
+      }
     }
   }, [status, session, router]);
 

@@ -1262,28 +1262,143 @@ export async function actualizarSolvenciaInmuebleAdmin(data: {
 // 4. MÓDULO DE EMPADRONAMIENTO Y CENSO DE CAMPO (/censo)
 // -------------------------------------------------------------
 
+export async function verificarClaveUniversal(clave: string) {
+  if (!clave || !clave.trim()) {
+    return { success: false, message: 'Ingresa una clave de acceso válida.' };
+  }
+
+  const clean = clave.trim().replace(/\.+$/, '').toUpperCase();
+
+  // 1. SuperAdmin: Acceso Total a los 4 apartados
+  if (clean === 'ROSARIO2026') {
+    return {
+      success: true,
+      rol: 'SUPERADMIN',
+      subRol: 'SUPERADMIN',
+      nombre: 'Alcaldía Rosario de Perijá (SuperAdmin)',
+      redirectUrl: '/admin',
+      puedeCambiar: true,
+      appPermitida: 'TODAS',
+      claveMaestra: 'ROSARIO2026',
+    };
+  }
+
+  // 2. Administrador Fiscal: Solo Admin y Censo
+  if (clean === 'ADMIN2026') {
+    return {
+      success: true,
+      rol: 'ADMIN',
+      subRol: 'ADMIN',
+      nombre: 'Administrador Fiscal',
+      redirectUrl: '/admin',
+      puedeCambiar: false,
+      appPermitida: 'ADMIN',
+      claveMaestra: 'ADMIN2026',
+    };
+  }
+
+  // 3. Cuadrilla: Solo Cuadrilla (sin opción a cambio)
+  if (clean === 'CUADRILLA2026' || clean === 'CAMPO2026') {
+    return {
+      success: true,
+      rol: 'SUPERVISOR_CAMPO',
+      subRol: 'CUADRILLA',
+      nombre: 'Supervisor de Cuadrilla',
+      redirectUrl: '/cuadrilla',
+      puedeCambiar: false,
+      appPermitida: 'CUADRILLA',
+      claveMaestra: 'CUADRILLA2026',
+    };
+  }
+
+  // 4. Censo: Solo Censo (sin opción a cambio a admin)
+  if (clean === 'CENSO2026' || clean === 'EMPADRONADOR2026') {
+    return {
+      success: true,
+      rol: 'CENSO',
+      subRol: 'CENSO',
+      nombre: 'Empadronador de Censo',
+      redirectUrl: '/censo',
+      puedeCambiar: false,
+      appPermitida: 'CENSO',
+      claveMaestra: 'CENSO2026',
+    };
+  }
+
+  // 5. Verificar contraseña en la base de datos de usuarios
+  try {
+    const bcrypt = await import('bcrypt');
+    const usuarios = await prisma.usuario.findMany({
+      where: { passwordHash: { not: null } },
+    });
+
+    for (const u of usuarios) {
+      if (u.passwordHash) {
+        const match = await bcrypt.compare(clave.trim(), u.passwordHash);
+        if (match) {
+          const dest = u.rol === 'ADMIN' ? '/admin' : u.rol === 'SUPERVISOR_CAMPO' ? '/cuadrilla' : u.rol === 'CENSO' ? '/censo' : '/ciudadano';
+          return {
+            success: true,
+            rol: u.rol,
+            subRol: u.rol,
+            nombre: `${u.nombres} ${u.apellidos || ''}`.trim(),
+            redirectUrl: dest,
+            puedeCambiar: u.rol === 'ADMIN',
+            appPermitida: u.rol,
+          };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Error verificando hash universal:', e);
+  }
+
+  return { success: false, message: 'Clave de acceso incorrecta. Verifica e intenta de nuevo.' };
+}
+
 export async function verificarClaveAdminCenso(clave: string) {
   if (!clave || !clave.trim()) {
     return { success: false, message: 'Ingresa la clave de acceso.' };
   }
 
-  const clean = clave.trim().toUpperCase();
-  if (['ROSARIO2026', 'ADMIN2026', 'CENSO2026', 'CAMPO2026', 'ALCALDIA2026'].includes(clean)) {
-    return { success: true, rol: 'ADMIN' };
+  const clean = clave.trim().replace(/\.+$/, '').toUpperCase();
+
+  // Si intentó meter la clave de Cuadrilla en Censo:
+  if (clean === 'CUADRILLA2026') {
+    return {
+      success: false,
+      message: 'La clave CUADRILLA2026 es exclusiva de la App de Cuadrilla. Serás redirigido.',
+      redirectUrl: '/cuadrilla',
+    };
+  }
+
+  if (clean === 'ROSARIO2026') {
+    return { success: true, rol: 'SUPERADMIN', puedeCambiar: true, claveMaestra: 'ROSARIO2026' };
+  }
+
+  if (clean === 'ADMIN2026') {
+    return { success: true, rol: 'ADMIN', puedeCambiar: false, claveMaestra: 'ADMIN2026' };
+  }
+
+  if (clean === 'CENSO2026' || clean === 'CAMPO2026') {
+    return { success: true, rol: 'CENSO', puedeCambiar: false, claveMaestra: 'CENSO2026' };
   }
 
   // Verificar si coincide con la contraseña de algún usuario administrador
   try {
     const bcrypt = await import('bcrypt');
     const adminUsers = await prisma.usuario.findMany({
-      where: { rol: 'ADMIN', passwordHash: { not: null } },
+      where: {
+        OR: [{ rol: 'ADMIN' }, { rol: 'CENSO' }],
+        passwordHash: { not: null },
+      },
     });
 
     for (const admin of adminUsers) {
       if (admin.passwordHash) {
         const match = await bcrypt.compare(clave.trim(), admin.passwordHash);
         if (match) {
-          return { success: true, rol: 'ADMIN', nombre: admin.nombres };
+          return { success: true, rol: admin.rol, nombre: admin.nombres };
         }
       }
     }
@@ -1291,7 +1406,7 @@ export async function verificarClaveAdminCenso(clave: string) {
     console.warn('Error verificando hash de admin:', e);
   }
 
-  return { success: false, message: 'Clave de Administrador o Empadronador incorrecta.' };
+  return { success: false, message: 'Clave de Acceso al Censo incorrecta.' };
 }
 
 export async function obtenerPadronCompletoCenso(sectorIdFiltro?: string) {

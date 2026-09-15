@@ -23,11 +23,13 @@ export async function POST(request: Request) {
 
     let rol = 'CIUDADANO';
     if (claveAcceso && claveAcceso.trim().length > 0) {
-      const cleanKey = claveAcceso.trim().toUpperCase();
+      const cleanKey = claveAcceso.trim().replace(/\.+$/, '').toUpperCase();
       if (cleanKey === 'ROSARIO2026' || cleanKey === 'ADMIN2026') {
         rol = 'ADMIN';
       } else if (cleanKey === 'CUADRILLA2026' || cleanKey === 'CAMPO2026' || cleanKey === 'SUPERVISOR2026') {
         rol = 'SUPERVISOR_CAMPO';
+      } else if (cleanKey === 'CENSO2026' || cleanKey === 'EMPADRONADOR2026') {
+        rol = 'CENSO';
       } else {
         return NextResponse.json({ 
           message: "La Clave de Empleado ingresada es incorrecta. Si eres ciudadano deja este campo vacío." 

@@ -587,14 +587,29 @@ export default function CuadrillaPage() {
               <Users className="w-3.5 h-3.5 text-sky-400" />
               <span>Ciudadano</span>
             </a>
-            <a
-              href="/admin"
-              className="flex items-center gap-1 px-2.5 py-1 bg-slate-950/80 hover:bg-slate-950 text-emerald-300 hover:text-white text-xs font-bold rounded-lg transition border border-emerald-400/40"
-              title="Cambiar a Panel Admin"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Admin</span>
-            </a>
+
+            {/* Admin y Censo solo visibles si es SuperAdmin (ROSARIO2026) o tiene rol administrativo */}
+            {((session?.user as any)?.subRol === 'SUPERADMIN' || (session?.user as any)?.rol === 'ADMIN' || (typeof window !== 'undefined' && sessionStorage.getItem('role_scope') === 'SUPERADMIN')) && (
+              <>
+                <a
+                  href="/admin"
+                  className="flex items-center gap-1 px-2.5 py-1 bg-slate-950/80 hover:bg-slate-950 text-emerald-300 hover:text-white text-xs font-bold rounded-lg transition border border-emerald-400/40"
+                  title="Cambiar a Panel Admin"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Admin</span>
+                </a>
+                <a
+                  href="/censo"
+                  className="flex items-center gap-1 px-2.5 py-1 bg-slate-950/80 hover:bg-slate-950 text-indigo-300 hover:text-white text-xs font-bold rounded-lg transition border border-indigo-400/40"
+                  title="Cambiar a PWA Censo"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Censo</span>
+                </a>
+              </>
+            )}
+
             <button
               onClick={handleCerrarSesion}
               className="flex items-center gap-1.5 px-3 py-1 bg-slate-950 text-amber-300 hover:text-white text-xs font-bold rounded-lg transition"

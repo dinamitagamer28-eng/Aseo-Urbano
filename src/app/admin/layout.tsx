@@ -1,4 +1,19 @@
 import type { Metadata, Viewport } from 'next';
+import React from 'react';
+
+export const metadata: Metadata = {
+  title: 'Panel Fiscal & Taquilla | Aseo Rosario',
+  description: 'Panel Administrativo, Taquilla Municipal y Auditoría de Contraloría - Municipio Rosario de Perijá',
+  applicationName: 'Aseo Admin PWA',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Aseo Admin',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
 
 export const viewport: Viewport = {
   themeColor: '#059669',
@@ -6,12 +21,6 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  viewportFit: 'cover',
-};
-
-export const metadata: Metadata = {
-  title: 'Aseo Rosario - Panel Fiscal & Taquilla',
-  description: 'Sistema Administrativo, Liquidación de Pagos y Auditoría Fiscal - Municipio Rosario de Perijá',
 };
 
 export default function AdminLayout({
@@ -19,5 +28,9 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+      {children}
+    </div>
+  );
 }

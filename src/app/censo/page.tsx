@@ -38,6 +38,8 @@ import {
   AlertTriangle,
   Award,
   Navigation,
+  ShieldCheck,
+  Truck,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as XLSX from 'xlsx';
@@ -149,9 +151,22 @@ export default function CensoCampoPage() {
         setIsUnlocked(true);
         if (typeof window !== 'undefined') {
           localStorage.setItem('censo_master_unlocked', 'true');
+          localStorage.setItem('censo_unlocked_pin', adminPinInput.trim().replace(/\.+$/, '').toUpperCase());
+          if (adminPinInput.trim().replace(/\.+$/, '').toUpperCase() === 'ROSARIO2026') {
+            sessionStorage.setItem('role_scope', 'SUPERADMIN');
+          } else if (adminPinInput.trim().replace(/\.+$/, '').toUpperCase() === 'ADMIN2026') {
+            sessionStorage.setItem('role_scope', 'ADMIN');
+          } else {
+            sessionStorage.setItem('role_scope', 'CENSO');
+          }
         }
         confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
       } else {
+        if (res.redirectUrl) {
+          alert(res.message);
+          window.location.href = res.redirectUrl;
+          return;
+        }
         setPinError(res.message || 'Clave de acceso incorrecta.');
       }
     } catch (e: any) {
@@ -164,6 +179,8 @@ export default function CensoCampoPage() {
   const handleCerrarCenso = () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('censo_master_unlocked');
+      localStorage.removeItem('censo_unlocked_pin');
+      sessionStorage.removeItem('role_scope');
     }
     setIsUnlocked(false);
     setAdminPinInput('');
@@ -520,6 +537,36 @@ export default function CensoCampoPage() {
               <Lock className="w-3.5 h-3.5" />
               <span>Bloquear</span>
             </button>
+
+            {/* Navigation links if SuperAdmin (ROSARIO2026) or Admin (ADMIN2026) */}
+            {((session?.user as any)?.subRol === 'SUPERADMIN' || (session?.user as any)?.rol === 'ADMIN' || (typeof window !== 'undefined' && ['SUPERADMIN', 'ADMIN'].includes(sessionStorage.getItem('role_scope') || ''))) && (
+              <div className="flex items-center gap-1.5 border-l border-slate-700 pl-2">
+                <a
+                  href="/admin"
+                  className="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                  title="Ir al Panel Admin"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline">Admin</span>
+                </a>
+                <a
+                  href="/cuadrilla"
+                  className="px-2.5 py-1.5 bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                  title="Ir a App Cuadrilla"
+                >
+                  <Truck className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="hidden sm:inline">Cuadrilla</span>
+                </a>
+                <a
+                  href="/ciudadano"
+                  className="px-2.5 py-1.5 bg-sky-950/80 hover:bg-sky-900 text-sky-300 border border-sky-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                  title="Ir a App Ciudadano"
+                >
+                  <Users className="w-3.5 h-3.5 text-sky-400" />
+                  <span className="hidden sm:inline">Ciudadano</span>
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </div>

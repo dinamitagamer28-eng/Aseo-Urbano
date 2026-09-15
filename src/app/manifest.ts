@@ -45,19 +45,24 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
+        name: 'Panel Admin & Fiscal',
+        url: '/admin',
+        description: 'Gestión de recaudación, taquilla express y contraloría'
+      },
+      {
         name: 'PWA Censo de Campo',
         url: '/censo',
         description: 'Empadronamiento casa por casa con GPS y QR'
       },
       {
-        name: 'Consultar Solvencia y Pagar',
-        url: '/ciudadano?tab=pago',
-        description: 'Paga tu tasa de aseo con Pago Móvil o Zelle'
-      },
-      {
         name: 'App de Cuadrilla',
         url: '/cuadrilla',
         description: 'Control de recolección en campo y rutas'
+      },
+      {
+        name: 'Consultar Solvencia y Pagar',
+        url: '/ciudadano?tab=pago',
+        description: 'Paga tu tasa de aseo con Pago Móvil o Zelle'
       },
       {
         name: 'Reportar Incidencia',

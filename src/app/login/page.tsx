@@ -62,6 +62,44 @@ export default function LoginScreen() {
     try {
       let registeredRole = 'CIUDADANO';
 
+      // Detectar si se ingresó clave maestra directa
+      const passClean = cleanPassword.replace(/\.+$/, '').toUpperCase();
+      const userClean = cleanIdentifier.replace(/\.+$/, '').toUpperCase();
+
+      if (passClean === 'CUADRILLA2026' || userClean === 'CUADRILLA2026') {
+        sessionStorage.setItem('role_scope', 'CUADRILLA');
+        localStorage.setItem('cuadrilla_unlocked', 'true');
+        await signIn('credentials', { redirect: false, correo: 'cuadrilla@rosariodeperija.gob.ve', password: 'CUADRILLA2026' });
+        window.location.href = '/cuadrilla';
+        return;
+      }
+
+      if (passClean === 'ADMIN2026' || userClean === 'ADMIN2026') {
+        sessionStorage.setItem('role_scope', 'ADMIN');
+        localStorage.setItem('admin_unlocked', 'true');
+        await signIn('credentials', { redirect: false, correo: 'admin@rosariodeperija.gob.ve', password: 'ADMIN2026' });
+        window.location.href = '/admin';
+        return;
+      }
+
+      if (passClean === 'CENSO2026' || userClean === 'CENSO2026') {
+        sessionStorage.setItem('role_scope', 'CENSO');
+        localStorage.setItem('censo_unlocked_pin', 'CENSO2026');
+        await signIn('credentials', { redirect: false, correo: 'censo@rosariodeperija.gob.ve', password: 'CENSO2026' });
+        window.location.href = '/censo';
+        return;
+      }
+
+      if (passClean === 'ROSARIO2026' || userClean === 'ROSARIO2026') {
+        sessionStorage.setItem('role_scope', 'SUPERADMIN');
+        localStorage.setItem('admin_unlocked', 'true');
+        localStorage.setItem('censo_unlocked_pin', 'ROSARIO2026');
+        localStorage.setItem('cuadrilla_unlocked', 'true');
+        await signIn('credentials', { redirect: false, correo: 'superadmin@rosariodeperija.gob.ve', password: 'ROSARIO2026' });
+        window.location.href = '/admin';
+        return;
+      }
+
       if (isRegistering) {
         if (!formData.nombre.trim()) {
           throw new Error("Ingresa tu Nombre y Apellido.");
@@ -106,26 +144,31 @@ export default function LoginScreen() {
         throw new Error(result.error);
       }
 
-      // Redirección inmediata según el rol
-      if (registeredRole === 'ADMIN') {
-        window.location.href = '/admin';
-      } else if (registeredRole === 'SUPERVISOR_CAMPO') {
-        window.location.href = '/cuadrilla';
-      } else {
-        // Consultar sesión para verificar rol
-        try {
-          const sessionRes = await fetch('/api/auth/session');
-          const sessionData = await sessionRes.json();
-          if (sessionData?.user?.rol === 'ADMIN') {
-            window.location.href = '/admin';
-          } else if (sessionData?.user?.rol === 'SUPERVISOR_CAMPO') {
-            window.location.href = '/cuadrilla';
-          } else {
-            window.location.href = '/ciudadano';
-          }
-        } catch {
+      // Consultar sesión para verificar rol exacto y redirigir
+      try {
+        const sessionRes = await fetch('/api/auth/session');
+        const sessionData = await sessionRes.json();
+        const userRol = sessionData?.user?.rol;
+        const subRol = sessionData?.user?.subRol;
+
+        if (subRol === 'SUPERADMIN' || userRol === 'ADMIN') {
+          sessionStorage.setItem('role_scope', subRol === 'SUPERADMIN' ? 'SUPERADMIN' : 'ADMIN');
+          localStorage.setItem('admin_unlocked', 'true');
+          window.location.href = '/admin';
+        } else if (subRol === 'CUADRILLA' || userRol === 'SUPERVISOR_CAMPO') {
+          sessionStorage.setItem('role_scope', 'CUADRILLA');
+          localStorage.setItem('cuadrilla_unlocked', 'true');
+          window.location.href = '/cuadrilla';
+        } else if (subRol === 'CENSO' || userRol === 'CENSO') {
+          sessionStorage.setItem('role_scope', 'CENSO');
+          localStorage.setItem('censo_unlocked_pin', 'CENSO2026');
+          window.location.href = '/censo';
+        } else {
+          sessionStorage.setItem('role_scope', 'CIUDADANO');
           window.location.href = '/ciudadano';
         }
+      } catch {
+        window.location.href = '/ciudadano';
       }
 
     } catch (err: any) {
