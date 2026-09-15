@@ -11,6 +11,7 @@ import {
   consultarContribuyentePorCedula,
   registrarPagoCiudadano,
   crearReporteCiudadano,
+  registrarCensoInmuebleCiudadano,
 } from '@/lib/actions';
 import {
   Users,
@@ -39,7 +40,12 @@ import {
   ChevronRight,
   Calendar,
   Award,
-  FileCheck
+  FileCheck,
+  Home,
+  QrCode,
+  Compass,
+  Crosshair,
+  Building,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import CronogramaRutas from '@/components/CronogramaRutas';
@@ -52,10 +58,13 @@ export default function CiudadanoPage() {
   const [loading, setLoading] = useState(false);
   const [contribuyenteData, setContribuyenteData] = useState<any>(null);
   const [tasaBcv, setTasaBcv] = useState<number>(832.49);
-  const [activeTab, setActiveTab] = useState<'estado' | 'cronograma' | 'pago' | 'reportar' | 'mis-reportes'>('estado');
+  const [activeTab, setActiveTab] = useState<'estado' | 'censo' | 'cronograma' | 'pago' | 'reportar' | 'mis-reportes'>('estado');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Dynamic BCV fetch on mount
+  // Sectors list for Censo
+  const [sectoresList, setSectoresList] = useState<any[]>([]);
+
+  // Dynamic BCV fetch and sectors on mount
   useEffect(() => {
     fetch('/api/bcv')
       .then((res) => res.json())
@@ -63,6 +72,13 @@ export default function CiudadanoPage() {
         if (data && data.valorUsdBs) {
           setTasaBcv(data.valorUsdBs);
         }
+      })
+      .catch(() => {});
+
+    fetch('/api/sectores')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setSectoresList(data);
       })
       .catch(() => {});
   }, []);
@@ -96,6 +112,22 @@ export default function CiudadanoPage() {
   const [reporteSuccess, setReporteSuccess] = useState<string | null>(null);
   const [obteniendoGps, setObteniendoGps] = useState(false);
   const [gpsDetectado, setGpsDetectado] = useState(false);
+  const [gpsMensajeOrigen, setGpsMensajeOrigen] = useState<string>('');
+
+  // Censo Catastral Municipal States
+  const [censoSectorId, setCensoSectorId] = useState<string>('');
+  const [censoCalle, setCensoCalle] = useState<string>('Calle Principal');
+  const [censoNumeroCasa, setCensoNumeroCasa] = useState<string>('Casa #01');
+  const [censoPuntoReferencia, setCensoPuntoReferencia] = useState<string>('');
+  const [censoTipoInmueble, setCensoTipoInmueble] = useState<string>('RESIDENCIAL');
+  const [censoHabitantes, setCensoHabitantes] = useState<number>(4);
+  const [censoBolsas, setCensoBolsas] = useState<number>(2);
+  const [censoCoords, setCensoCoords] = useState<{ lat: number; lng: number }>({
+    lat: 10.3180,
+    lng: -72.3150,
+  });
+  const [censoGuardando, setCensoGuardando] = useState(false);
+  const [censoGuardadoExitoso, setCensoGuardadoExitoso] = useState(false);
 
   // Dismissed Alert States
   const [reportesVistos, setReportesVistos] = useState<string[]>([]);
@@ -126,46 +158,54 @@ export default function CiudadanoPage() {
     } catch (e) {}
   };
 
-  const obtenerUbicacionGpsActual = () => {
-    if (typeof window === 'undefined' || !navigator.geolocation) {
-      alert('Tu dispositivo o navegador no soporta geolocalización GPS.');
-      return;
-    }
+  // Multi-tier Geolocation (Mobile GPS -> Network -> /api/geolocate in Maracaibo/Zulia)
+  const obtenerUbicacionGpsActual = async () => {
     setObteniendoGps(true);
 
-    // Tier 1: Try High Accuracy GPS
+    const applyGps = (lat: number, lng: number, label: string) => {
+      setReporteCoords({ lat, lng });
+      setCensoCoords({ lat, lng });
+      setGpsDetectado(true);
+      setGpsMensajeOrigen(label);
+      setObteniendoGps(false);
+    };
+
+    const fallbackToApi = async () => {
+      try {
+        const res = await fetch('/api/geolocate');
+        const data = await res.json();
+        if (data && data.lat && data.lng) {
+          applyGps(data.lat, data.lng, `Detectado en ${data.city || 'Maracaibo, Zulia'} (Red IP)`);
+          return;
+        }
+      } catch (e) {
+        console.warn('Fallback geolocate error:', e);
+      }
+      applyGps(10.6427, -71.6125, 'Ubicación en Estado Zulia');
+    };
+
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      await fallbackToApi();
+      return;
+    }
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        setReporteCoords({ lat, lng });
-        setGpsDetectado(true);
-        setObteniendoGps(false);
+        applyGps(pos.coords.latitude, pos.coords.longitude, 'GPS Satelital de Alta Precisión');
       },
-      (err) => {
-        console.warn('GPS High Accuracy fallo/timeout, intentando red móvil/WiFi:', err);
-        // Tier 2: Fallback to standard/network geolocation
+      async (err) => {
+        console.warn('GPS directo timeout o fallo, usando geolocalización de red en Zulia:', err);
         navigator.geolocation.getCurrentPosition(
           (pos) => {
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
-            setReporteCoords({ lat, lng });
-            setGpsDetectado(true);
-            setObteniendoGps(false);
+            applyGps(pos.coords.latitude, pos.coords.longitude, 'Geolocalización por Red Wi-Fi / Móvil');
           },
-          (fallbackErr) => {
-            console.error('GPS Fallback failed:', fallbackErr);
-            setObteniendoGps(false);
-            if (fallbackErr.code === 1) {
-              alert('Permiso de GPS no concedido. Por favor autoriza el acceso a la ubicación en tu navegador o selecciona tu punto directamente en el mapa satelital.');
-            } else {
-              alert('No se pudo obtener la posición GPS automáticamente. Puedes pulsar directamente sobre el mapa satelital para fijar el lugar del reporte.');
-            }
+          async () => {
+            await fallbackToApi();
           },
-          { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
         );
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 30000 }
     );
   };
 
@@ -175,6 +215,20 @@ export default function CiudadanoPage() {
     try {
       const res = await consultarContribuyentePorCedula(cedula);
       setContribuyenteData(res.usuario);
+
+      // Pre-fill Censo fields if property exists
+      if (res.usuario?.inmueblesRelacionados?.[0]?.inmueble) {
+        const inm = res.usuario.inmueblesRelacionados[0].inmueble;
+        if (inm.sectorId) setCensoSectorId(inm.sectorId);
+        if (inm.calle?.nombreCalle) setCensoCalle(inm.calle.nombreCalle);
+        if (inm.numeroCasaLocal) setCensoNumeroCasa(inm.numeroCasaLocal);
+        if (inm.referenciaUbic) setCensoPuntoReferencia(inm.referenciaUbic);
+        if (inm.tipoInmueble) setCensoTipoInmueble(inm.tipoInmueble);
+        if (inm.latitud && inm.longitud) {
+          setCensoCoords({ lat: inm.latitud, lng: inm.longitud });
+          setReporteCoords({ lat: inm.latitud, lng: inm.longitud });
+        }
+      }
       
       // Fetch dynamic BCV rate
       try {
@@ -192,6 +246,45 @@ export default function CiudadanoPage() {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGuardarCenso = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contribuyenteData) return;
+
+    if (!censoSectorId) {
+      alert('Por favor selecciona tu sector de residencia.');
+      return;
+    }
+
+    setCensoGuardando(true);
+    try {
+      const res = await registrarCensoInmuebleCiudadano({
+        usuarioId: contribuyenteData.id,
+        inmuebleId: inmuebleVinculado?.id,
+        sectorId: censoSectorId,
+        nombreCalle: censoCalle,
+        numeroCasaLocal: censoNumeroCasa,
+        puntoReferencia: censoPuntoReferencia,
+        tipoInmueble: censoTipoInmueble,
+        latitud: censoCoords.lat,
+        longitud: censoCoords.lng,
+      });
+
+      if (res.success) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
+        setCensoGuardadoExitoso(true);
+        await fetchContribuyente(cedulaInput);
+      }
+    } catch (err: any) {
+      alert(`Error al guardar censo: ${err?.message || 'Error desconocido'}`);
+    } finally {
+      setCensoGuardando(false);
     }
   };
 
@@ -593,6 +686,23 @@ export default function CiudadanoPage() {
               </button>
 
               <button
+                onClick={() => setActiveTab('censo')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
+                  activeTab === 'censo'
+                    ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-md shadow-sky-600/30 font-black'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <Home className="w-4 h-4 text-sky-400" />
+                <span>Censo de Vivienda (GPS)</span>
+                {inmuebleVinculado?.latitud && inmuebleVinculado?.longitud ? (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400" title="Vivienda Censada"></span>
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" title="Pendiente por Censar"></span>
+                )}
+              </button>
+
+              <button
                 onClick={() => setActiveTab('cronograma')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
                   activeTab === 'cronograma'
@@ -886,6 +996,340 @@ export default function CiudadanoPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: Censo Catastral Municipal & Geolocalización de Viviendas */}
+            {activeTab === 'censo' && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                {/* Header Card */}
+                <div className="bg-gradient-to-r from-slate-900 via-sky-950/50 to-slate-900 border-2 border-sky-500/40 rounded-3xl p-6 shadow-2xl space-y-3">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                    <div>
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 text-xs font-bold border border-sky-500/30 mb-2">
+                        <Home className="w-3.5 h-3.5 text-sky-400" />
+                        <span>Registro Oficial de Catastro • Alcaldía de Rosario de Perijá</span>
+                      </div>
+                      <h2 className="text-xl sm:text-2xl font-black text-white">
+                        Censo y Geolocalización Exacta de tu Vivienda
+                      </h2>
+                      <p className="text-xs text-slate-300 mt-1 max-w-2xl">
+                        Registra o actualiza la ubicación geográfica precisa de tu casa o comercio mediante GPS y mapa satelital. Esto garantiza que el camión de aseo cubra tu calle puntualmente y genera tu Ficha Catastral Digital con código QR.
+                      </p>
+                    </div>
+
+                    {inmuebleVinculado?.latitud && inmuebleVinculado?.longitud ? (
+                      <div className="bg-emerald-950/80 border border-emerald-500/50 p-3.5 rounded-2xl flex items-center gap-3 shrink-0 shadow-lg">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                          <CheckCircle2 className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">Vivienda Censada</span>
+                          <span className="text-xs font-mono font-bold text-white">#{inmuebleVinculado.codigoCatastral}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-amber-950/80 border border-amber-500/50 p-3.5 rounded-2xl flex items-center gap-3 shrink-0 shadow-lg">
+                        <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400">
+                          <AlertTriangle className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">Pendiente por Censar</span>
+                          <span className="text-xs text-amber-200">Fija tu ubicación en el mapa</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Form & Map Layout */}
+                <form onSubmit={handleGuardarCenso} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Left Column: Map & GPS Positioning (7 cols) */}
+                  <div className="lg:col-span-7 space-y-4">
+                    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
+                      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-800 pb-3">
+                        <div>
+                          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <Crosshair className="w-4 h-4 text-sky-400" />
+                            1. Ubica tu Casa en el Mapa Satelital
+                          </h3>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Haz clic o pulsa directamente sobre el techo de tu casa para fijar el pin.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const sel = sectoresList.find((s) => s.id === censoSectorId);
+                              if (sel && sel.centroLat && sel.centroLng) {
+                                setCensoCoords({ lat: sel.centroLat, lng: sel.centroLng });
+                              }
+                            }}
+                            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                            title="Centrar el mapa en el sector seleccionado"
+                          >
+                            <Compass className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Centrar Sector</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={obtenerUbicacionGpsActual}
+                            disabled={obteniendoGps}
+                            className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                          >
+                            {obteniendoGps ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <MapPin className="w-3.5 h-3.5" />
+                            )}
+                            <span>{obteniendoGps ? 'Detectando...' : '📍 Mi Ubicación GPS'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* GPS Origin Status Chip */}
+                      {gpsDetectado && (
+                        <div className="bg-sky-950/60 border border-sky-500/40 p-2.5 rounded-xl text-xs text-sky-200 flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            {gpsMensajeOrigen || 'Ubicación detectada'}
+                          </span>
+                          <span className="font-mono text-[11px] text-sky-400">
+                            {censoCoords.lat.toFixed(5)}, {censoCoords.lng.toFixed(5)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Interactive Map */}
+                      <div className="rounded-2xl overflow-hidden border border-slate-800">
+                        <LeafletMap
+                          center={[censoCoords.lat, censoCoords.lng]}
+                          zoom={17}
+                          height="380px"
+                          interactive={true}
+                          showTruckRoute={false}
+                          simulateMovement={false}
+                          onMapClick={(lat, lng) => {
+                            setCensoCoords({ lat, lng });
+                          }}
+                          markers={[
+                            {
+                              id: 'pin-censo-vivienda',
+                              lat: censoCoords.lat,
+                              lng: censoCoords.lng,
+                              title: `🏠 ${censoNumeroCasa} (${contribuyenteData?.nombres || 'Vecino'})`,
+                              description: `Sector: ${sectoresList.find((s) => s.id === censoSectorId)?.nombre || 'Rosario de Perijá'} • Toca cualquier punto del mapa para moverlo`,
+                              type: 'property',
+                            },
+                          ]}
+                        />
+                      </div>
+
+                      {/* Coordinates Footer */}
+                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs text-slate-400 flex-wrap gap-2">
+                        <div>
+                          <span>Coordenadas fijadas: </span>
+                          <strong className="text-emerald-400 font-mono">
+                            {censoCoords.lat.toFixed(6)} N, {censoCoords.lng.toFixed(6)} W
+                          </strong>
+                        </div>
+                        <span className="text-[11px] text-slate-500">
+                          💡 Puedes mover el pin haciendo clic en el mapa
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Catastral Form Details (5 cols) */}
+                  <div className="lg:col-span-5 space-y-4">
+                    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                        <Building className="w-4 h-4 text-emerald-400" />
+                        2. Datos del Inmueble & Hogar
+                      </h3>
+
+                      <div className="space-y-3.5">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1">
+                            Sector de Residencia (83 Sectores de Rosario): *
+                          </label>
+                          <select
+                            value={censoSectorId}
+                            onChange={(e) => {
+                              const sId = e.target.value;
+                              setCensoSectorId(sId);
+                              const sel = sectoresList.find((s) => s.id === sId);
+                              if (sel && sel.centroLat && sel.centroLng) {
+                                setCensoCoords({ lat: sel.centroLat, lng: sel.centroLng });
+                              }
+                            }}
+                            required
+                            className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-sky-500 font-semibold"
+                          >
+                            <option value="">-- Selecciona tu Sector --</option>
+                            {sectoresList.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.nombre} ({s.parroquia || 'El Rosario'})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-300 mb-1">
+                              Calle / Avenida: *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={censoCalle}
+                              onChange={(e) => setCensoCalle(e.target.value)}
+                              placeholder="Ej. Calle 1 Los Pinos"
+                              className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-300 mb-1">
+                              Nº Casa / Apto / Local: *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={censoNumeroCasa}
+                              onChange={(e) => setCensoNumeroCasa(e.target.value)}
+                              placeholder="Ej. Casa #24"
+                              className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-sky-500 font-bold"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1">
+                            Punto de Referencia Visual:
+                          </label>
+                          <input
+                            type="text"
+                            value={censoPuntoReferencia}
+                            onChange={(e) => setCensoPuntoReferencia(e.target.value)}
+                            placeholder="Ej. Frente al abasto El Sol, portón blanco rejas negras"
+                            className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1">
+                            Tipo de Inmueble:
+                          </label>
+                          <select
+                            value={censoTipoInmueble}
+                            onChange={(e) => setCensoTipoInmueble(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-sky-500 font-semibold"
+                          >
+                            <option value="RESIDENCIAL">🏠 Vivienda Familiar / Residencial</option>
+                            <option value="COMERCIAL_PEQ">🏪 Pequeño Comercio / Bodega / Panadería</option>
+                            <option value="COMERCIAL_GDE">🏢 Gran Comercio / Supermercado / Empresa</option>
+                            <option value="INDUSTRIAL">🏭 Galpón / Taller / Agropecuario</option>
+                            <option value="BALDIO">🌳 Terreno / Lote Baldío</option>
+                          </select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-300 mb-1">
+                              Habitantes en casa:
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="30"
+                              value={censoHabitantes}
+                              onChange={(e) => setCensoHabitantes(parseInt(e.target.value) || 1)}
+                              className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-sky-500 font-mono font-bold text-center"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-300 mb-1">
+                              Bolsas / semana (aprox):
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="50"
+                              value={censoBolsas}
+                              onChange={(e) => setCensoBolsas(parseInt(e.target.value) || 1)}
+                              className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-sky-500 font-mono font-bold text-center"
+                            />
+                          </div>
+                        </div>
+
+                        {censoGuardadoExitoso && (
+                          <div className="p-3 bg-emerald-950/80 border border-emerald-500/50 rounded-xl text-xs text-emerald-300 flex items-center gap-2 animate-in fade-in">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span>¡Vivienda registrada exitosamente en el censo municipal!</span>
+                          </div>
+                        )}
+
+                        <button
+                          type="submit"
+                          disabled={censoGuardando}
+                          className="w-full py-3.5 bg-gradient-to-r from-sky-600 via-indigo-600 to-sky-600 hover:from-sky-500 hover:to-indigo-500 text-white font-extrabold rounded-2xl text-xs shadow-xl shadow-sky-600/30 flex items-center justify-center gap-2 transition-all transform active:scale-95 disabled:opacity-50 cursor-pointer"
+                        >
+                          {censoGuardando ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Guardando en Catastro...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4 text-amber-300" />
+                              <span>GUARDAR Y REGISTRAR MI VIVIENDA EN EL CENSO</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Official Digital Catastral Badge */}
+                    {inmuebleVinculado && (
+                      <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-3">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                          <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <QrCode className="w-4 h-4 text-sky-400" />
+                            Ficha Catastral Digital
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">
+                            VALIDADA
+                          </span>
+                        </div>
+
+                        <div className="space-y-1.5 text-xs text-slate-300">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Código Catastral:</span>
+                            <strong className="font-mono text-sky-400">{inmuebleVinculado.codigoCatastral}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Contribuyente:</span>
+                            <span className="text-white font-semibold">{contribuyenteData.nombres} {contribuyenteData.apellidos}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Sector:</span>
+                            <span className="text-white">{inmuebleVinculado.sector?.nombre || 'Rosario de Perijá'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Tarifa Mensual:</span>
+                            <span className="font-mono font-bold text-emerald-400">${tarifaUsd.toFixed(2)} USD (Bs. {montoTotalBs.toFixed(2)})</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </form>
               </div>
             )}
 

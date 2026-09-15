@@ -47,6 +47,17 @@ export interface MapMarker {
   type?: 'truck' | 'incident' | 'property' | 'center' | 'user';
   status?: string;
   photoUrl?: string;
+  solvencia?: 'SOLVENTE' | 'PENDIENTE' | 'MORA' | 'EXONERADO' | string;
+  sector?: string;
+  contribuyente?: string;
+  cedula?: string;
+  telefono?: string;
+  codigoCatastral?: string;
+  tipoInmueble?: string;
+  numeroCasa?: string;
+  referencia?: string;
+  tarifaUsd?: number;
+  ultimoPagoFecha?: string;
 }
 
 export interface MapPolygon {
@@ -418,14 +429,95 @@ function MapInternal({
       if (m.type === 'truck') return;
 
       let iconColor = '#0284c7';
+      let iconBorder = 'white';
       let iconLabel = m.title;
+      let popupContent = '';
 
       if (m.type === 'incident') {
         iconColor = m.status === 'RESUELTO' ? '#10b981' : m.status === 'RECHAZADO' ? '#ef4444' : '#f59e0b';
         iconLabel = (m.status === 'RESUELTO' ? '✅ ' : m.status === 'RECHAZADO' ? '❌ ' : '⚠️ ') + m.title;
+
+        popupContent = `<div style="max-width: 250px; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc;">
+          <div style="font-size: 10px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ Incidencia Ciudadana</div>
+          <h4 style="margin: 2px 0 4px 0; font-size: 13px; font-weight: bold; color: #ffffff;">${m.title}</h4>
+          ${m.description ? `<p style="margin: 0 0 6px 0; font-size: 11px; color: #94a3b8; line-height: 1.3;">${m.description}</p>` : ''}
+          ${m.status ? `<div style="font-size: 11px; font-weight: bold; color: ${m.status === 'RESUELTO' ? '#34d399' : m.status === 'RECHAZADO' ? '#f87171' : '#fcd34d'}; margin-bottom: 6px;">Estado: ${m.status}</div>` : ''}
+          ${m.photoUrl ? `<img src="${m.photoUrl}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 8px; margin-top: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);" alt="Evidencia"/>` : ''}
+        </div>`;
       } else if (m.type === 'property') {
-        iconColor = '#6366f1';
-        iconLabel = '🏠 ' + m.title;
+        const solv = (m.solvencia || m.status || 'SOLVENTE').toUpperCase();
+        let solvBg = '#064e3b';
+        let solvBorder = '#34d399';
+        let solvText = '#6ee7b7';
+        let badgeLabel = '🟢 Solvente';
+
+        if (solv === 'PENDIENTE') {
+          iconColor = '#d97706';
+          iconBorder = '#fef08a';
+          solvBg = '#78350f';
+          solvBorder = '#facc15';
+          solvText = '#fde68a';
+          badgeLabel = '🟡 Por Validar';
+          iconLabel = '⏳ ' + (m.codigoCatastral || m.title);
+        } else if (solv === 'MORA') {
+          iconColor = '#dc2626';
+          iconBorder = '#fca5a5';
+          solvBg = '#7f1d1d';
+          solvBorder = '#f87171';
+          solvText = '#fca5a5';
+          badgeLabel = '🔴 En Mora';
+          iconLabel = '⚠️ ' + (m.codigoCatastral || m.title);
+        } else if (solv === 'EXONERADO' || solv === 'DESOCUPADO') {
+          iconColor = '#475569';
+          iconBorder = '#cbd5e1';
+          solvBg = '#1e293b';
+          solvBorder = '#94a3b8';
+          solvText = '#e2e8f0';
+          badgeLabel = '⚪ Exonerado';
+          iconLabel = '🏚️ ' + (m.codigoCatastral || m.title);
+        } else {
+          // Solvente
+          iconColor = '#059669';
+          iconBorder = '#a7f3d0';
+          iconLabel = '🏠 ' + (m.codigoCatastral || m.title);
+        }
+
+        popupContent = `
+          <div style="min-width: 240px; max-width: 290px; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc;">
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; padding-bottom: 5px; margin-bottom: 6px;">
+              <span style="font-size: 10px; font-weight: 900; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">📋 CATASTRO MUNICIPAL</span>
+              <span style="font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 9999px; background: ${solvBg}; color: ${solvText}; border: 1px solid ${solvBorder};">
+                ${badgeLabel}
+              </span>
+            </div>
+
+            <div style="font-size: 13px; font-weight: 900; color: #ffffff; margin-bottom: 2px;">
+              🏠 ${m.codigoCatastral || m.title}
+            </div>
+            <div style="font-size: 10px; color: #94a3b8; margin-bottom: 6px;">
+              Tipo: <strong style="color: #e2e8f0;">${m.tipoInmueble || 'Residencial'}</strong>
+            </div>
+
+            <div style="background: rgba(15, 23, 42, 0.85); padding: 7px; border-radius: 8px; border: 1px solid #334155; font-size: 11px; margin-bottom: 6px; line-height: 1.35;">
+              <div style="margin-bottom: 2px;">👤 <strong>Contribuyente:</strong> <span style="color: #f1f5f9;">${m.contribuyente || 'Vecino'}</span></div>
+              <div style="margin-bottom: 2px;">🪪 <strong>Cédula/RIF:</strong> <span style="color: #38bdf8; font-family: monospace;">${m.cedula || 'N/A'}</span></div>
+              <div style="margin-bottom: 2px;">📍 <strong>Sector:</strong> <span style="color: #facc15;">${m.sector || 'Rosario de Perijá'}</span></div>
+              <div style="margin-bottom: 2px;">🚪 <strong>Casa/Local:</strong> ${m.numeroCasa || m.description || '-'}</div>
+              ${m.referencia ? `<div style="font-size: 10px; color: #94a3b8; font-style: italic; margin-top: 2px;">📌 Ref: ${m.referencia}</div>` : ''}
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; background: #1e293b; padding: 5px 8px; border-radius: 6px; border: 1px solid #334155;">
+              <span style="color: #94a3b8;">Tarifa Mensual:</span>
+              <span style="color: #4ade80; font-weight: 800; font-family: monospace;">$${(m.tarifaUsd || 3).toFixed(2)} USD</span>
+            </div>
+          </div>
+        `;
+      } else {
+        popupContent = `<div style="max-width: 240px; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc;">
+          <div style="font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase;">GPS Rosario de Perijá</div>
+          <h4 style="margin: 2px 0 4px 0; font-size: 14px; font-weight: bold; color: #ffffff;">${m.title}</h4>
+          ${m.description ? `<p style="margin: 0 0 6px 0; font-size: 12px; color: #94a3b8;">${m.description}</p>` : ''}
+        </div>`;
       }
 
       const customIcon = L.divIcon({
@@ -438,12 +530,13 @@ function MapInternal({
             font-size: 11px;
             padding: 4px 8px;
             border-radius: 9999px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            border: 2px solid white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            border: 2px solid ${iconBorder};
             display: flex;
             align-items: center;
             gap: 4px;
             white-space: nowrap;
+            cursor: pointer;
           ">
             <span>${iconLabel}</span>
           </div>
@@ -453,15 +546,6 @@ function MapInternal({
       });
 
       const marker = L.marker([m.lat, m.lng], { icon: customIcon }).addTo(markerGroup);
-
-      const popupContent = `<div style="max-width: 240px; font-family: system-ui, -apple-system, sans-serif;">
-        <div style="font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase;">GPS Rosario de Perijá</div>
-        <h4 style="margin: 2px 0 4px 0; font-size: 14px; font-weight: bold; color: #0f172a;">${m.title}</h4>
-        ${m.description ? `<p style="margin: 0 0 6px 0; font-size: 12px; color: #475569;">${m.description}</p>` : ''}
-        ${m.status ? `<div style="font-size: 11px; font-weight: bold; color: ${m.status === 'RESUELTO' ? '#059669' : m.status === 'RECHAZADO' ? '#dc2626' : '#d97706'}; margin-bottom: 6px;">Estado: ${m.status}</div>` : ''}
-        ${m.photoUrl ? `<img src="${m.photoUrl}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 8px; margin-top: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.2);" alt="Evidencia"/>` : ''}
-      </div>`;
-
       marker.bindPopup(popupContent);
     });
   }, [L, markers, polygons]);
@@ -527,68 +611,80 @@ function MapInternal({
     `);
   }, [L, truckTelemetry.lat, truckTelemetry.lng, truckTelemetry.street, truckTelemetry.speed, truckTelemetry.nextStop, truckTelemetry.progressPercent, truckTelemetry.heading]);
 
-  // Geolocation trigger
-  const handleGeoLocateMe = () => {
+  // Geolocation trigger with Multi-tier Fallback (Mobile GPS -> Network -> /api/geolocate in Maracaibo/Zulia)
+  const handleGeoLocateMe = async () => {
+    setLocatingUser(true);
+
+    const applyLocation = (userLat: number, userLng: number, label = '📍 Tu Ubicación Actual') => {
+      setUserLocation([userLat, userLng]);
+      setLocatingUser(false);
+
+      if (mapRef.current && L) {
+        mapRef.current.flyTo([userLat, userLng], 17, { duration: 1.2 });
+
+        if (layersRef.current.userLocationGroup) {
+          layersRef.current.userLocationGroup.clearLayers();
+          const userIcon = L.divIcon({
+            className: 'user-gps-pulse',
+            html: `
+              <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+                <span style="position: absolute; width: 36px; height: 36px; background: rgba(14, 165, 233, 0.5); border-radius: 9999px; animation: ping 1.5s infinite;"></span>
+                <div style="background: #0284c7; width: 18px; height: 18px; border-radius: 9999px; border: 3px solid white; box-shadow: 0 0 10px rgba(2,132,199,0.8);"></div>
+              </div>
+            `,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          });
+
+          L.marker([userLat, userLng], { icon: userIcon })
+            .addTo(layersRef.current.userLocationGroup)
+            .bindPopup(`<strong>${label}</strong><br/>Detectada con éxito`)
+            .openPopup();
+        }
+      }
+
+      if (onMapClick) {
+        onMapClick(userLat, userLng);
+      }
+    };
+
+    const fallbackToApiGeolocate = async () => {
+      try {
+        const res = await fetch('/api/geolocate');
+        const data = await res.json();
+        if (data && data.lat && data.lng) {
+          applyLocation(data.lat, data.lng, `📍 Ubicación Detectada (${data.city || 'Estado Zulia'})`);
+          return;
+        }
+      } catch (e) {
+        console.warn('Fallback geolocate error:', e);
+      }
+      // Ultimate fallback: Maracaibo / Rosario Center
+      applyLocation(10.6427, -71.6125, '📍 Ubicación en Zulia');
+    };
+
     if (typeof window === 'undefined' || !navigator.geolocation) {
-      alert('Tu navegador no soporta geolocalización GPS.');
+      await fallbackToApiGeolocate();
       return;
     }
 
-    setLocatingUser(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const userLat = pos.coords.latitude;
-        const userLng = pos.coords.longitude;
-        setUserLocation([userLat, userLng]);
-        setLocatingUser(false);
-
-        if (mapRef.current && L) {
-          mapRef.current.flyTo([userLat, userLng], 17, { duration: 1.2 });
-
-          if (layersRef.current.userLocationGroup) {
-            layersRef.current.userLocationGroup.clearLayers();
-            const userIcon = L.divIcon({
-              className: 'user-gps-pulse',
-              html: `
-                <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-                  <span style="position: absolute; width: 36px; height: 36px; background: rgba(14, 165, 233, 0.5); border-radius: 9999px; animation: ping 1.5s infinite;"></span>
-                  <div style="background: #0284c7; width: 18px; height: 18px; border-radius: 9999px; border: 3px solid white; box-shadow: 0 0 10px rgba(2,132,199,0.8);"></div>
-                </div>
-              `,
-              iconSize: [24, 24],
-              iconAnchor: [12, 12],
-            });
-
-            L.marker([userLat, userLng], { icon: userIcon })
-              .addTo(layersRef.current.userLocationGroup)
-              .bindPopup('<strong>📍 Tu Ubicación Actual</strong><br/>Detectada por GPS')
-              .openPopup();
-          }
-        }
-
-        if (onMapClick) {
-          onMapClick(userLat, userLng);
-        }
+        applyLocation(pos.coords.latitude, pos.coords.longitude, '📍 Tu Ubicación GPS');
       },
-      (err) => {
-        console.warn('GPS Error:', err);
+      async (err) => {
+        console.warn('GPS directo no disponible o timeout, usando geolocalización por red/IP en Zulia:', err);
         navigator.geolocation.getCurrentPosition(
           (pos) => {
-            const userLat = pos.coords.latitude;
-            const userLng = pos.coords.longitude;
-            setUserLocation([userLat, userLng]);
-            setLocatingUser(false);
-            if (mapRef.current) mapRef.current.flyTo([userLat, userLng], 17);
-            if (onMapClick) onMapClick(userLat, userLng);
+            applyLocation(pos.coords.latitude, pos.coords.longitude, '📍 Tu Ubicación por Red');
           },
-          () => {
-            setLocatingUser(false);
-            alert('No se pudo obtener la ubicación GPS precisa. Por favor activa los permisos de ubicación en tu navegador.');
+          async () => {
+            await fallbackToApiGeolocate();
           },
-          { enableHighAccuracy: false, timeout: 20000 }
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
         );
       },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 30000 }
     );
   };
 

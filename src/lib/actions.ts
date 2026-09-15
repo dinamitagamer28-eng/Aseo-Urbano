@@ -1053,5 +1053,212 @@ export async function obtenerTurnosCuadrilla() {
   }
 }
 
+export async function registrarCensoInmuebleCiudadano(data: {
+  usuarioId: string;
+  inmuebleId?: string;
+  sectorId: string;
+  calleId?: string;
+  nombreCalle?: string;
+  numeroCasaLocal: string;
+  puntoReferencia?: string;
+  tipoInmueble?: string;
+  latitud: number;
+  longitud: number;
+  tarifaBaseUsd?: number;
+}) {
+  try {
+    // 1. Validar sector
+    const sector = await prisma.sector.findUnique({
+      where: { id: data.sectorId },
+      include: { callesTramos: true, tarifasSectores: true },
+    });
+    if (!sector) throw new Error('Sector no encontrado en los 83 sectores oficiales.');
+
+    // 2. Resolver calle
+    let calleId = data.calleId;
+    if (!calleId) {
+      if (data.nombreCalle && data.nombreCalle.trim()) {
+        const calleCreada = await prisma.calleTramo.create({
+          data: {
+            sectorId: sector.id,
+            nombreCalle: data.nombreCalle.trim(),
+            diaRecoleccion: 'LUNES Y JUEVES',
+          },
+        });
+        calleId = calleCreada.id;
+      } else if (sector.callesTramos.length > 0) {
+        calleId = sector.callesTramos[0].id;
+      } else {
+        const calleNueva = await prisma.calleTramo.create({
+          data: {
+            sectorId: sector.id,
+            nombreCalle: 'Calle Principal',
+            diaRecoleccion: 'LUNES Y JUEVES',
+          },
+        });
+        calleId = calleNueva.id;
+      }
+    }
+
+    const tarifaUsd = data.tarifaBaseUsd || sector.tarifasSectores?.[0]?.montoTarifaUsd || 3.00;
+    const tipo = data.tipoInmueble || 'RESIDENCIAL';
+
+    let inmueble;
+    if (data.inmuebleId) {
+      inmueble = await prisma.inmuebleCatastro.update({
+        where: { id: data.inmuebleId },
+        data: {
+          sectorId: sector.id,
+          calleId,
+          numeroCasaLocal: data.numeroCasaLocal,
+          referenciaUbic: data.puntoReferencia || null,
+          tipoInmueble: tipo,
+          tarifaBaseUsd: tarifaUsd,
+          latitud: data.latitud,
+          longitud: data.longitud,
+        },
+        include: { sector: true, calle: true },
+      });
+    } else {
+      // Generar código catastral municipal
+      const totalInmuebles = await prisma.inmuebleCatastro.count();
+      const codCat = `${sector.codigo || 'SEC'}-C${String(totalInmuebles + 1).padStart(3, '0')}`;
+
+      inmueble = await prisma.inmuebleCatastro.create({
+        data: {
+          codigoCatastral: codCat,
+          sectorId: sector.id,
+          calleId,
+          numeroCasaLocal: data.numeroCasaLocal,
+          referenciaUbic: data.puntoReferencia || null,
+          tipoInmueble: tipo,
+          tarifaBaseUsd: tarifaUsd,
+          estadoCuenta: 'SOLVENTE',
+          latitud: data.latitud,
+          longitud: data.longitud,
+        },
+        include: { sector: true, calle: true },
+      });
+
+      // Vincular al contribuyente
+      const existingLink = await prisma.inmuebleContribuyente.findFirst({
+        where: { usuarioId: data.usuarioId, inmuebleId: inmueble.id },
+      });
+      if (!existingLink) {
+        await prisma.inmuebleContribuyente.create({
+          data: {
+            usuarioId: data.usuarioId,
+            inmuebleId: inmueble.id,
+            tipoRelacion: 'PROPIETARIO',
+          },
+        });
+      }
+    }
+
+    revalidatePath('/ciudadano');
+    revalidatePath('/admin');
+
+    return {
+      success: true,
+      inmueble,
+    };
+  } catch (error: any) {
+    console.error('Error al registrar censo de inmueble:', error);
+    throw new Error(error.message || 'Error al guardar el censo de vivienda.');
+  }
+}
+
+export async function obtenerInmueblesCensadosAdmin() {
+  try {
+    const inmuebles = await prisma.inmuebleCatastro.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        sector: {
+          include: {
+            parroquia: true,
+            tarifasSectores: true,
+          },
+        },
+        calle: true,
+        contribuyentes: {
+          include: {
+            usuario: true,
+          },
+        },
+        recibos: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        facturas: {
+          where: { estado: 'PENDIENTE' },
+        },
+      },
+    });
+
+    return inmuebles.map((inm) => {
+      const prop = inm.contribuyentes?.[0]?.usuario;
+      const ultimoRecibo = inm.recibos?.[0];
+      return {
+        id: inm.id,
+        codigoCatastral: inm.codigoCatastral,
+        numeroCasaLocal: inm.numeroCasaLocal,
+        referenciaUbic: inm.referenciaUbic,
+        tipoInmueble: inm.tipoInmueble,
+        tarifaBaseUsd: inm.tarifaBaseUsd,
+        estadoCuenta: inm.estadoCuenta || 'SOLVENTE',
+        latitud: inm.latitud,
+        longitud: inm.longitud,
+        createdAt: inm.createdAt,
+        sectorId: inm.sectorId,
+        sectorNombre: inm.sector?.nombre || 'Rosario de Perijá',
+        sectorCodigo: inm.sector?.codigo || 'SEC',
+        sectorEstrato: inm.sector?.estrato || 'POPULAR',
+        parroquiaNombre: inm.sector?.parroquia?.nombre || 'El Rosario',
+        calleNombre: inm.calle?.nombreCalle || 'Calle Principal',
+        contribuyenteId: prop?.id || null,
+        contribuyenteNombre: prop ? `${prop.nombres} ${prop.apellidos || ''}`.trim() : 'Sin Asignar',
+        contribuyenteCedula: prop?.cedulaRif || 'N/A',
+        contribuyenteTelefono: prop?.telefonoMovil || 'N/A',
+        ultimoReciboFolio: ultimoRecibo?.numeroReciboFiscal || null,
+        ultimoReciboFecha: ultimoRecibo ? new Date(ultimoRecibo.createdAt).toLocaleDateString('es-VE') : null,
+        ultimoReciboMontoUsd: ultimoRecibo?.montoTotalUsd || null,
+        deudaPendienteUsd: (inm.facturas || []).reduce((acc, f) => acc + (f.montoUsd || 0), 0),
+      };
+    });
+  } catch (error: any) {
+    console.error('Error al obtener inmuebles censados:', error);
+    return [];
+  }
+}
+
+export async function actualizarSolvenciaInmuebleAdmin(data: {
+  inmuebleId: string;
+  nuevoEstado: string;
+  observaciones?: string;
+}) {
+  try {
+    const inmueble = await prisma.inmuebleCatastro.update({
+      where: { id: data.inmuebleId },
+      data: {
+        estadoCuenta: data.nuevoEstado,
+      },
+      include: { sector: true, calle: true },
+    });
+
+    revalidatePath('/admin');
+    revalidatePath('/ciudadano');
+
+    return {
+      success: true,
+      inmueble,
+    };
+  } catch (error: any) {
+    console.error('Error al actualizar solvencia de inmueble:', error);
+    throw new Error(error.message || 'Error al actualizar solvencia.');
+  }
+}
+
+
+
 
 

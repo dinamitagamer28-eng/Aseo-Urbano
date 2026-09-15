@@ -14,6 +14,8 @@ import {
   obtenerTodosSectoresConTarifas,
   actualizarTarifaDeSector,
   obtenerTurnosCuadrilla,
+  obtenerInmueblesCensadosAdmin,
+  actualizarSolvenciaInmuebleAdmin,
 } from '@/lib/actions';
 import {
   ShieldCheck,
@@ -45,7 +47,14 @@ import {
   PieChart,
   Activity,
   Sparkles,
-  Award
+  Award,
+  Home,
+  Building2,
+  Map,
+  Navigation2,
+  CheckCheck,
+  QrCode,
+  Phone
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -84,6 +93,17 @@ export default function AdminDashboard() {
   const [sectoresTarifas, setSectoresTarifas] = useState<any[]>([]);
   const [reportesIncidencias, setReportesIncidencias] = useState<any[]>([]);
   const [turnosCuadrilla, setTurnosCuadrilla] = useState<any[]>([]);
+  const [inmueblesCensados, setInmueblesCensados] = useState<any[]>([]);
+
+  // Cadastral Geovisor States
+  const [filtroCapaMapa, setFiltroCapaMapa] = useState<'TODOS' | 'VIVIENDAS' | 'INCIDENCIAS' | 'CAMION'>('TODOS');
+  const [filtroSolvenciaMapa, setFiltroSolvenciaMapa] = useState<'TODOS' | 'SOLVENTE' | 'PENDIENTE' | 'MORA' | 'EXONERADO'>('TODOS');
+  const [sectorMapaSeleccionado, setSectorMapaSeleccionado] = useState<string>('');
+  const [searchInmueblesMapa, setSearchInmueblesMapa] = useState<string>('');
+  const [inmuebleDetalleModal, setInmuebleDetalleModal] = useState<any | null>(null);
+  const [cambiandoSolvencia, setCambiandoSolvencia] = useState(false);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([10.3180, -72.3150]);
+  const [mapZoom, setMapZoom] = useState<number>(15);
 
   // Taquilla Cashier State
   const [taquillaCedula, setTaquillaCedula] = useState('14234567');
@@ -123,11 +143,12 @@ export default function AdminDashboard() {
   const cargarDatosCompletos = async () => {
     setLoadingData(true);
     try {
-      const [recibos, sectores, reportes, turnos] = await Promise.all([
+      const [recibos, sectores, reportes, turnos, inmuebles] = await Promise.all([
         obtenerRecibosAdmin(),
         obtenerTodosSectoresConTarifas(),
         obtenerReportesCuadrilla(),
         obtenerTurnosCuadrilla(),
+        obtenerInmueblesCensadosAdmin(),
       ]);
 
       const mappedRecibos = recibos.map((r: any) => ({
@@ -158,6 +179,7 @@ export default function AdminDashboard() {
       setSectoresTarifas(sectores);
       setReportesIncidencias(reportes);
       setTurnosCuadrilla(turnos || []);
+      setInmueblesCensados(inmuebles || []);
 
       if (sectores.length > 0 && !taquillaSectorId) {
         setTaquillaSectorId(sectores[0].id);
@@ -562,6 +584,103 @@ export default function AdminDashboard() {
   const reportesFiltradosMapa = reportesIncidencias.filter((rep) => {
     if (filtroMapa === 'TODOS') return true;
     return rep.estado === filtroMapa;
+  });
+
+  // Cadastral Census Calculations
+  const totalInmueblesConGps = inmueblesCensados.filter((i) => i.latitud && i.longitud).length;
+  const inmueblesSolventes = inmueblesCensados.filter((i) => (i.estadoCuenta || 'SOLVENTE') === 'SOLVENTE').length;
+  const inmueblesPendientes = inmueblesCensados.filter((i) => i.estadoCuenta === 'PENDIENTE').length;
+  const inmueblesEnMora = inmueblesCensados.filter((i) => i.estadoCuenta === 'MORA').length;
+  const inmueblesExentos = inmueblesCensados.filter((i) => i.estadoCuenta === 'EXONERADO' || i.estadoCuenta === 'DESOCUPADO').length;
+  const porcentajeSolvenciaCatastro = inmueblesCensados.length > 0
+    ? Math.round((inmueblesSolventes / inmueblesCensados.length) * 100)
+    : 100;
+
+  // Cadastral Handlers
+  const handleCambiarSolvenciaInmueble = async (inmuebleId: string, nuevoEstado: string) => {
+    setCambiandoSolvencia(true);
+    try {
+      await actualizarSolvenciaInmuebleAdmin({
+        inmuebleId,
+        nuevoEstado,
+      });
+      setInmueblesCensados((prev) =>
+        prev.map((inm) => (inm.id === inmuebleId ? { ...inm, estadoCuenta: nuevoEstado } : inm))
+      );
+      if (inmuebleDetalleModal && inmuebleDetalleModal.id === inmuebleId) {
+        setInmuebleDetalleModal((prev: any) => ({ ...prev, estadoCuenta: nuevoEstado }));
+      }
+      alert(`✅ Estado de solvencia actualizado a ${nuevoEstado}.`);
+    } catch (e: any) {
+      alert(`Error al actualizar estado: ${e?.message || e}`);
+    } finally {
+      setCambiandoSolvencia(false);
+    }
+  };
+
+  const handleCargarInmuebleEnTaquilla = (inm: any) => {
+    setTaquillaCedula(inm.contribuyenteCedula || '');
+    setTaquillaNombre(inm.contribuyenteNombre || '');
+    setTaquillaSectorId(inm.sectorId || '');
+    setTaquillaUbicacion(`${inm.calleNombre} • Casa/Local: ${inm.numeroCasaLocal}`);
+    setMontoTaquillaUsd(inm.tarifaBaseUsd || 3.0);
+    setActiveTab('taquilla');
+    setInmuebleDetalleModal(null);
+  };
+
+  const handleSeleccionarSectorMapa = (secId: string) => {
+    setSectorMapaSeleccionado(secId);
+    if (!secId) {
+      setMapCenter([10.3180, -72.3150]);
+      setMapZoom(15);
+      return;
+    }
+    const sec = sectoresTarifas.find((s) => s.id === secId);
+    if (sec) {
+      const lat = sec.centroLat || 10.3167;
+      const lng = sec.centroLng || -72.3167;
+      setMapCenter([lat, lng]);
+      setMapZoom(16);
+    }
+  };
+
+  const handleDescargarSolvenciaInmueble = async (inm: any) => {
+    try {
+      await generarCertificadoSolvenciaPdf({
+        contribuyenteNombre: inm.contribuyenteNombre || 'Vecino',
+        contribuyenteCedula: inm.contribuyenteCedula || 'V-00000000',
+        codigoCatastral: inm.codigoCatastral || 'INM-001',
+        sectorNombre: inm.sectorNombre || 'Rosario de Perijá',
+        ultimoReciboFolio: inm.ultimoReciboFolio || `SOLV-${Date.now().toString().slice(-6)}`,
+        ultimoReciboFecha: inm.ultimoReciboFecha || new Date().toLocaleDateString('es-VE'),
+        montoUltimoPagoBs: (inm.tarifaBaseUsd || 3.0) * tasaBcv,
+        montoUltimoPagoUsd: inm.tarifaBaseUsd || 3.0,
+      });
+      confetti({ particleCount: 70, spread: 50, origin: { y: 0.6 } });
+    } catch (e) {
+      alert('Error al generar certificado de solvencia');
+    }
+  };
+
+  // Filtered Properties for Geovisor Map and Table
+  const inmueblesFiltradosMapa = inmueblesCensados.filter((inm) => {
+    const matchSector = !sectorMapaSeleccionado || inm.sectorId === sectorMapaSeleccionado;
+    const matchSolvencia =
+      filtroSolvenciaMapa === 'TODOS' ||
+      (filtroSolvenciaMapa === 'SOLVENTE' && (inm.estadoCuenta || 'SOLVENTE') === 'SOLVENTE') ||
+      (filtroSolvenciaMapa === 'PENDIENTE' && inm.estadoCuenta === 'PENDIENTE') ||
+      (filtroSolvenciaMapa === 'MORA' && inm.estadoCuenta === 'MORA') ||
+      (filtroSolvenciaMapa === 'EXONERADO' && (inm.estadoCuenta === 'EXONERADO' || inm.estadoCuenta === 'DESOCUPADO'));
+
+    const matchSearch =
+      !searchInmueblesMapa.trim() ||
+      inm.codigoCatastral?.toLowerCase().includes(searchInmueblesMapa.toLowerCase()) ||
+      inm.contribuyenteNombre?.toLowerCase().includes(searchInmueblesMapa.toLowerCase()) ||
+      inm.contribuyenteCedula?.toLowerCase().includes(searchInmueblesMapa.toLowerCase()) ||
+      inm.sectorNombre?.toLowerCase().includes(searchInmueblesMapa.toLowerCase()) ||
+      inm.calleNombre?.toLowerCase().includes(searchInmueblesMapa.toLowerCase());
+
+    return matchSector && matchSolvencia && matchSearch;
   });
 
   if (status === 'loading' || (session?.user as any)?.rol !== 'ADMIN') {
@@ -1545,55 +1664,249 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 6: MONITOREO CARTOGRÁFICO EN VIVO (LEAFLET GPS) */}
+        {/* TAB 6: GEOVISOR CATASTRAL E INTELIGENCIA TERRITORIAL (LEAFLET GPS) */}
         {activeTab === 'mapa' && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-              <div className="flex justify-between items-center flex-wrap gap-3">
+            {/* Top Geovisor Controls Card */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
+              <div className="flex justify-between items-start flex-wrap gap-4 border-b border-slate-800 pb-4">
                 <div>
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <MapPin className="w-6 h-6 text-emerald-400" />
-                    Monitoreo Cartográfico de Rutas e Incidencias en Vivo (GPS)
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    Visualización satelital con georreferenciación en tiempo real de reportes vecinales y cuadrillas.
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      <MapPin className="w-6 h-6" />
+                    </span>
+                    <div>
+                      <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        Geovisor Catastral e Inteligencia Territorial (GPS)
+                        <span className="text-xs bg-emerald-950 text-emerald-300 border border-emerald-600/40 px-2.5 py-0.5 rounded-full font-mono font-bold">
+                          {inmueblesCensados.length} Inmuebles
+                        </span>
+                      </h2>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Monitoreo satelital HD de viviendas censadas con semáforo de solvencia tributaria, incidencias y cuadrillas en Rosario de Perijá.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Filter Map Markers */}
-                <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-bold">
+                {/* Sector Camera Selector & Quick Zoom */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5">
+                    <Navigation2 className="w-3.5 h-3.5 text-sky-400" />
+                    <span className="text-xs font-bold text-slate-400">Volar a Sector:</span>
+                    <select
+                      value={sectorMapaSeleccionado}
+                      onChange={(e) => handleSeleccionarSectorMapa(e.target.value)}
+                      className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
+                    >
+                      <option value="" className="bg-slate-900 text-white">Todos los Sectores (Vista General)</option>
+                      {sectoresTarifas.map((sec) => (
+                        <option key={sec.id} value={sec.id} className="bg-slate-900 text-white">
+                          {sec.nombre} ({sec.parroquia})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <button
-                    onClick={() => setFiltroMapa('TODOS')}
-                    className={`px-3 py-1.5 rounded-lg transition-colors ${
-                      filtroMapa === 'TODOS' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
-                    }`}
+                    onClick={() => {
+                      setSectorMapaSeleccionado('');
+                      setMapCenter([10.3180, -72.3150]);
+                      setMapZoom(15);
+                    }}
+                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                    title="Restablecer vista a Rosario de Perijá"
                   >
-                    Todos ({reportesIncidencias.length})
-                  </button>
-                  <button
-                    onClick={() => setFiltroMapa('RECIBIDO')}
-                    className={`px-3 py-1.5 rounded-lg transition-colors ${
-                      filtroMapa === 'RECIBIDO' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Pendientes ({reportesIncidencias.filter((r) => r.estado === 'RECIBIDO').length})
-                  </button>
-                  <button
-                    onClick={() => setFiltroMapa('RESUELTO')}
-                    className={`px-3 py-1.5 rounded-lg transition-colors ${
-                      filtroMapa === 'RESUELTO' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Resueltos ({reportesResueltosCount})
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Restablecer</span>
                   </button>
                 </div>
               </div>
 
-              <div className="rounded-2xl overflow-hidden border border-slate-800">
+              {/* Cadastral Census KPI Counters */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-3.5">
+                  <div className="text-[11px] text-slate-400 font-medium">Inmuebles Censados</div>
+                  <div className="text-2xl font-black text-white font-mono mt-0.5">
+                    {inmueblesCensados.length}
+                  </div>
+                  <div className="text-[10px] text-emerald-400 font-bold mt-0.5">
+                    {totalInmueblesConGps} con GPS satelital
+                  </div>
+                </div>
+
+                <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-3.5">
+                  <div className="text-[11px] text-slate-400 font-medium">Solvencia Territorial</div>
+                  <div className="text-2xl font-black text-emerald-400 font-mono mt-0.5">
+                    {porcentajeSolvenciaCatastro}%
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Cumplimiento fiscal
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setFiltroSolvenciaMapa('SOLVENTE')}
+                  className={`bg-slate-950/80 border rounded-2xl p-3.5 cursor-pointer transition ${
+                    filtroSolvenciaMapa === 'SOLVENTE' ? 'border-emerald-500 bg-emerald-950/20 ring-1 ring-emerald-500' : 'border-emerald-500/30 hover:border-emerald-500/60'
+                  }`}
+                >
+                  <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>Solventes</span>
+                  </div>
+                  <div className="text-2xl font-black text-emerald-400 font-mono mt-0.5">
+                    {inmueblesSolventes}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Al día con aseo</div>
+                </div>
+
+                <div
+                  onClick={() => setFiltroSolvenciaMapa('PENDIENTE')}
+                  className={`bg-slate-950/80 border rounded-2xl p-3.5 cursor-pointer transition ${
+                    filtroSolvenciaMapa === 'PENDIENTE' ? 'border-amber-500 bg-amber-950/20 ring-1 ring-amber-500' : 'border-amber-500/30 hover:border-amber-500/60'
+                  }`}
+                >
+                  <div className="text-[11px] text-amber-400 font-bold flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span>Por Validar</span>
+                  </div>
+                  <div className="text-2xl font-black text-amber-400 font-mono mt-0.5">
+                    {inmueblesPendientes}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Pago en revisión</div>
+                </div>
+
+                <div
+                  onClick={() => setFiltroSolvenciaMapa('MORA')}
+                  className={`bg-slate-950/80 border rounded-2xl p-3.5 cursor-pointer transition ${
+                    filtroSolvenciaMapa === 'MORA' ? 'border-red-500 bg-red-950/20 ring-1 ring-red-500' : 'border-red-500/30 hover:border-red-500/60'
+                  }`}
+                >
+                  <div className="text-[11px] text-red-400 font-bold flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                    <span>En Mora</span>
+                  </div>
+                  <div className="text-2xl font-black text-red-400 font-mono mt-0.5">
+                    {inmueblesEnMora}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Sin pago registrado</div>
+                </div>
+
+                <div
+                  onClick={() => setFiltroSolvenciaMapa('EXONERADO')}
+                  className={`bg-slate-950/80 border rounded-2xl p-3.5 cursor-pointer transition ${
+                    filtroSolvenciaMapa === 'EXONERADO' ? 'border-slate-500 bg-slate-800/40 ring-1 ring-slate-400' : 'border-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  <div className="text-[11px] text-slate-400 font-bold flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                    <span>Exonerados</span>
+                  </div>
+                  <div className="text-2xl font-black text-slate-300 font-mono mt-0.5">
+                    {inmueblesExentos}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Baldíos / Exentos</div>
+                </div>
+              </div>
+
+              {/* Multi-Layer & Solvency Filter Bar */}
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                {/* Layer Selector */}
+                <div className="flex items-center gap-1.5 flex-wrap text-xs font-bold">
+                  <span className="text-slate-400 mr-1 flex items-center gap-1">
+                    <Layers className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Capa:</span>
+                  </span>
+                  <button
+                    onClick={() => setFiltroCapaMapa('TODOS')}
+                    className={`px-3 py-1.5 rounded-xl transition ${
+                      filtroCapaMapa === 'TODOS' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white bg-slate-900'
+                    }`}
+                  >
+                    Todas las Capas
+                  </button>
+                  <button
+                    onClick={() => setFiltroCapaMapa('VIVIENDAS')}
+                    className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1 ${
+                      filtroCapaMapa === 'VIVIENDAS' ? 'bg-sky-600 text-white shadow-md' : 'text-slate-400 hover:text-white bg-slate-900'
+                    }`}
+                  >
+                    <span>🏠 Casas Censadas ({inmueblesFiltradosMapa.length})</span>
+                  </button>
+                  <button
+                    onClick={() => setFiltroCapaMapa('INCIDENCIAS')}
+                    className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1 ${
+                      filtroCapaMapa === 'INCIDENCIAS' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-400 hover:text-white bg-slate-900'
+                    }`}
+                  >
+                    <span>⚠️ Incidencias ({reportesIncidencias.length})</span>
+                  </button>
+                  <button
+                    onClick={() => setFiltroCapaMapa('CAMION')}
+                    className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1 ${
+                      filtroCapaMapa === 'CAMION' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:text-white bg-slate-900'
+                    }`}
+                  >
+                    <span>🚛 Cuadrilla Activa</span>
+                  </button>
+                </div>
+
+                {/* Solvency Filter Chips */}
+                <div className="flex items-center gap-1.5 flex-wrap text-xs font-bold">
+                  <span className="text-slate-400 mr-1 flex items-center gap-1">
+                    <Filter className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Semáforo:</span>
+                  </span>
+                  <button
+                    onClick={() => setFiltroSolvenciaMapa('TODOS')}
+                    className={`px-2.5 py-1 rounded-lg transition text-[11px] ${
+                      filtroSolvenciaMapa === 'TODOS' ? 'bg-slate-700 text-white font-black' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    onClick={() => setFiltroSolvenciaMapa('SOLVENTE')}
+                    className={`px-2.5 py-1 rounded-lg transition text-[11px] flex items-center gap-1 ${
+                      filtroSolvenciaMapa === 'SOLVENTE' ? 'bg-emerald-600 text-white font-black shadow-md' : 'text-emerald-400 hover:bg-emerald-950/40'
+                    }`}
+                  >
+                    <span>🟢 Solventes</span>
+                  </button>
+                  <button
+                    onClick={() => setFiltroSolvenciaMapa('PENDIENTE')}
+                    className={`px-2.5 py-1 rounded-lg transition text-[11px] flex items-center gap-1 ${
+                      filtroSolvenciaMapa === 'PENDIENTE' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'text-amber-400 hover:bg-amber-950/40'
+                    }`}
+                  >
+                    <span>🟡 Por Validar</span>
+                  </button>
+                  <button
+                    onClick={() => setFiltroSolvenciaMapa('MORA')}
+                    className={`px-2.5 py-1 rounded-lg transition text-[11px] flex items-center gap-1 ${
+                      filtroSolvenciaMapa === 'MORA' ? 'bg-red-600 text-white font-black shadow-md' : 'text-red-400 hover:bg-red-950/40'
+                    }`}
+                  >
+                    <span>🔴 En Mora</span>
+                  </button>
+                  <button
+                    onClick={() => setFiltroSolvenciaMapa('EXONERADO')}
+                    className={`px-2.5 py-1 rounded-lg transition text-[11px] flex items-center gap-1 ${
+                      filtroSolvenciaMapa === 'EXONERADO' ? 'bg-slate-600 text-white font-black shadow-md' : 'text-slate-400 hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>⚪ Exonerados</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Leaflet Satellite HD Map Container */}
+              <div className="rounded-3xl overflow-hidden border border-slate-800 shadow-2xl">
                 <LeafletMap
-                  center={[10.318, -72.315]}
-                  zoom={15}
-                  height="480px"
+                  center={mapCenter}
+                  zoom={mapZoom}
+                  height="500px"
                   interactive={true}
                   polygons={[
                     {
@@ -1610,26 +1923,198 @@ export default function AdminDashboard() {
                     },
                   ]}
                   markers={[
-                    {
-                      id: 'cam-01',
-                      lat: 10.3181,
-                      lng: -72.3151,
-                      title: 'Camión Compactador 01 (Activo)',
-                      description: 'Cuadrilla Operativa: Roberto González. Rango: Casco Central y Las Colinas.',
-                      type: 'truck',
-                    },
-                    ...reportesFiltradosMapa.map((rep, idx) => ({
-                      id: rep.id,
-                      lat: rep.latitud || 10.3188 + (idx * 0.001 - 0.002),
-                      lng: rep.longitud || -72.3159 + (idx * 0.0012 - 0.002),
-                      title: `Incidencia Nº ${rep.numeroIncidencia || `INC-${idx + 1}`}`,
-                      description: `${rep.descripcionIncidencia || 'Reporte de aseo'} • Sector: ${rep.sector?.nombre || 'General'} • Estado: ${rep.estado}`,
-                      type: 'incident' as const,
-                      status: rep.estado as any,
-                      photoUrl: rep.fotoUrl,
-                    })),
+                    // 1. Truck Marker
+                    ...(filtroCapaMapa === 'TODOS' || filtroCapaMapa === 'CAMION'
+                      ? [
+                          {
+                            id: 'cam-01',
+                            lat: 10.3181,
+                            lng: -72.3151,
+                            title: 'Camión Compactador 01 (Activo)',
+                            description: 'Cuadrilla Operativa: Roberto González. Rango: Casco Central y Las Colinas.',
+                            type: 'truck' as const,
+                          },
+                        ]
+                      : []),
+
+                    // 2. Incident Markers
+                    ...(filtroCapaMapa === 'TODOS' || filtroCapaMapa === 'INCIDENCIAS'
+                      ? reportesFiltradosMapa.map((rep, idx) => ({
+                          id: rep.id,
+                          lat: rep.latitud || 10.3188 + (idx * 0.001 - 0.002),
+                          lng: rep.longitud || -72.3159 + (idx * 0.0012 - 0.002),
+                          title: `Incidencia Nº ${rep.numeroIncidencia || `INC-${idx + 1}`}`,
+                          description: `${rep.descripcionIncidencia || 'Reporte de aseo'} • Sector: ${rep.sector?.nombre || 'General'} • Estado: ${rep.estado}`,
+                          type: 'incident' as const,
+                          status: rep.estado as any,
+                          photoUrl: rep.fotoUrl,
+                        }))
+                      : []),
+
+                    // 3. Cadastral Properties (Houses with Solvency Color Pins)
+                    ...(filtroCapaMapa === 'TODOS' || filtroCapaMapa === 'VIVIENDAS'
+                      ? inmueblesFiltradosMapa
+                          .filter((inm) => inm.latitud && inm.longitud)
+                          .map((inm) => ({
+                            id: `inm-${inm.id}`,
+                            lat: inm.latitud,
+                            lng: inm.longitud,
+                            title: inm.codigoCatastral,
+                            description: `${inm.sectorNombre} • ${inm.calleNombre} • Casa/Local: ${inm.numeroCasaLocal}`,
+                            type: 'property' as const,
+                            solvencia: inm.estadoCuenta || 'SOLVENTE',
+                            status: inm.estadoCuenta || 'SOLVENTE',
+                            sector: inm.sectorNombre,
+                            contribuyente: inm.contribuyenteNombre,
+                            cedula: inm.contribuyenteCedula,
+                            telefono: inm.contribuyenteTelefono,
+                            codigoCatastral: inm.codigoCatastral,
+                            tipoInmueble: inm.tipoInmueble,
+                            numeroCasa: inm.numeroCasaLocal,
+                            referencia: inm.referenciaUbic,
+                            tarifaUsd: inm.tarifaBaseUsd,
+                            ultimoPagoFecha: inm.ultimoReciboFecha,
+                          }))
+                      : []),
                   ]}
                 />
+              </div>
+
+              {/* Live Cadastral Property List & Technical Inspection Grid */}
+              <div className="space-y-4 pt-4 border-t border-slate-800">
+                <div className="flex justify-between items-center flex-wrap gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <Home className="w-5 h-5 text-sky-400" />
+                      Padrón Catastral Georreferenciado ({inmueblesFiltradosMapa.length} Inmuebles Listados)
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Registro oficial de viviendas censadas con coordenadas GPS, solvencia y emisión de certificados.
+                    </p>
+                  </div>
+
+                  {/* Search Properties */}
+                  <div className="relative w-full sm:w-80">
+                    <Search className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+                    <input
+                      type="text"
+                      value={searchInmueblesMapa}
+                      onChange={(e) => setSearchInmueblesMapa(e.target.value)}
+                      placeholder="Buscar por cédula, nombre, código catastral, sector..."
+                      className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+                </div>
+
+                {inmueblesFiltradosMapa.length === 0 ? (
+                  <div className="text-center py-10 bg-slate-950 rounded-2xl border border-slate-800 text-slate-500 text-xs">
+                    No se encontraron viviendas censadas que coincidan con los filtros seleccionados.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto max-h-[460px] rounded-2xl border border-slate-800">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider sticky top-0 z-10">
+                        <tr>
+                          <th className="p-3">Código Catastral</th>
+                          <th className="p-3">Contribuyente</th>
+                          <th className="p-3">Cédula / RIF</th>
+                          <th className="p-3">Sector & Calle</th>
+                          <th className="p-3">Tipo</th>
+                          <th className="p-3">Tarifa Mes</th>
+                          <th className="p-3">Solvencia</th>
+                          <th className="p-3">GPS</th>
+                          <th className="p-3 text-center">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800 bg-slate-900">
+                        {inmueblesFiltradosMapa.map((inm) => (
+                          <tr key={inm.id} className="hover:bg-slate-850/60 transition">
+                            <td className="p-3 font-mono font-bold text-sky-400">
+                              {inm.codigoCatastral}
+                            </td>
+                            <td className="p-3 font-bold text-white">
+                              {inm.contribuyenteNombre}
+                            </td>
+                            <td className="p-3 font-mono text-slate-300">
+                              {inm.contribuyenteCedula}
+                            </td>
+                            <td className="p-3 text-slate-300">
+                              <div className="font-semibold text-white">{inm.sectorNombre}</div>
+                              <div className="text-[11px] text-slate-400">{inm.calleNombre} • Casa: {inm.numeroCasaLocal}</div>
+                            </td>
+                            <td className="p-3">
+                              <span className="bg-slate-950 border border-slate-800 px-2 py-0.5 rounded text-[11px] font-semibold text-slate-300">
+                                {inm.tipoInmueble}
+                              </span>
+                            </td>
+                            <td className="p-3 font-mono font-bold text-emerald-400">
+                              ${(inm.tarifaBaseUsd || 3).toFixed(2)} USD
+                            </td>
+                            <td className="p-3">
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 ${
+                                  (inm.estadoCuenta || 'SOLVENTE') === 'SOLVENTE'
+                                    ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40'
+                                    : inm.estadoCuenta === 'PENDIENTE'
+                                    ? 'bg-amber-950/80 text-amber-300 border border-amber-500/40'
+                                    : inm.estadoCuenta === 'MORA'
+                                    ? 'bg-red-950/80 text-red-300 border border-red-500/40'
+                                    : 'bg-slate-800 text-slate-300 border border-slate-700'
+                                }`}
+                              >
+                                <span>{(inm.estadoCuenta || 'SOLVENTE') === 'SOLVENTE' ? '🟢 SOLVENTE' : inm.estadoCuenta === 'PENDIENTE' ? '🟡 PENDIENTE' : inm.estadoCuenta === 'MORA' ? '🔴 EN MORA' : '⚪ EXENTO'}</span>
+                              </span>
+                            </td>
+                            <td className="p-3 font-mono text-[11px] text-slate-400">
+                              {inm.latitud && inm.longitud ? (
+                                <button
+                                  onClick={() => {
+                                    setMapCenter([inm.latitud, inm.longitud]);
+                                    setMapZoom(18);
+                                  }}
+                                  className="text-sky-400 hover:underline flex items-center gap-1 font-bold"
+                                  title="Centrar en el mapa"
+                                >
+                                  <MapPin className="w-3 h-3 text-emerald-400" />
+                                  <span>{inm.latitud.toFixed(4)}, {inm.longitud.toFixed(4)}</span>
+                                </button>
+                              ) : (
+                                <span className="text-slate-600 italic">Sin GPS</span>
+                              )}
+                            </td>
+                            <td className="p-3 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => setInmuebleDetalleModal(inm)}
+                                  className="p-1.5 bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white rounded-lg transition"
+                                  title="Ver Ficha Técnica Catastral Completa"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                  onClick={() => handleDescargarSolvenciaInmueble(inm)}
+                                  className="p-1.5 bg-emerald-950 hover:bg-emerald-700 text-emerald-300 hover:text-white border border-emerald-600/40 rounded-lg transition"
+                                  title="Generar Certificado Oficial de Solvencia en PDF"
+                                >
+                                  <Award className="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                  onClick={() => handleCargarInmuebleEnTaquilla(inm)}
+                                  className="p-1.5 bg-amber-950 hover:bg-amber-700 text-amber-300 hover:text-white border border-amber-600/40 rounded-lg transition"
+                                  title="Cobrar en Taquilla Express"
+                                >
+                                  <DollarSign className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1763,6 +2248,198 @@ export default function AdminDashboard() {
                   <span>{procesandoRechazo ? 'Rechazando...' : 'Confirmar Rechazo'}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cadastral Inspection Sheet Modal */}
+      {inmuebleDetalleModal && (
+        <div className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-start border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-sky-400">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-bold text-sky-400">Ficha Catastral Oficial</span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                        (inmuebleDetalleModal.estadoCuenta || 'SOLVENTE') === 'SOLVENTE'
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+                          : inmuebleDetalleModal.estadoCuenta === 'PENDIENTE'
+                          ? 'bg-amber-950 text-amber-300 border border-amber-500/40'
+                          : inmuebleDetalleModal.estadoCuenta === 'MORA'
+                          ? 'bg-red-950 text-red-300 border border-red-500/40'
+                          : 'bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      {inmuebleDetalleModal.estadoCuenta || 'SOLVENTE'}
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-black text-white mt-0.5">
+                    {inmuebleDetalleModal.codigoCatastral}
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setInmuebleDetalleModal(null)}
+                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Technical Cadastral Details Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              {/* Contribuyente */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                <div className="text-[11px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Contribuyente Registrado</span>
+                </div>
+                <div><strong>Nombre:</strong> <span className="text-slate-200">{inmuebleDetalleModal.contribuyenteNombre}</span></div>
+                <div><strong>Cédula / RIF:</strong> <span className="text-sky-300 font-mono">{inmuebleDetalleModal.contribuyenteCedula}</span></div>
+                <div><strong>Teléfono Móvil:</strong> <span className="text-slate-300">{inmuebleDetalleModal.contribuyenteTelefono}</span></div>
+              </div>
+
+              {/* Ubicación Catastral */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                <div className="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Dirección Catastral</span>
+                </div>
+                <div><strong>Parroquia:</strong> <span className="text-slate-200">{inmuebleDetalleModal.parroquiaNombre}</span></div>
+                <div><strong>Sector:</strong> <span className="text-amber-300 font-bold">{inmuebleDetalleModal.sectorNombre}</span></div>
+                <div><strong>Calle / Tramo:</strong> <span className="text-slate-300">{inmuebleDetalleModal.calleNombre}</span></div>
+                <div><strong>Casa / Local:</strong> <span className="text-white font-bold">{inmuebleDetalleModal.numeroCasaLocal}</span></div>
+                {inmuebleDetalleModal.referenciaUbic && (
+                  <div className="text-[11px] text-slate-400 italic">📌 {inmuebleDetalleModal.referenciaUbic}</div>
+                )}
+              </div>
+
+              {/* Georreferenciación GPS */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                <div className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Map className="w-3.5 h-3.5" />
+                  <span>Georreferenciación Satelital</span>
+                </div>
+                <div><strong>Latitud:</strong> <span className="font-mono text-white">{inmuebleDetalleModal.latitud ? inmuebleDetalleModal.latitud.toFixed(6) : 'N/A'}</span></div>
+                <div><strong>Longitud:</strong> <span className="font-mono text-white">{inmuebleDetalleModal.longitud ? inmuebleDetalleModal.longitud.toFixed(6) : 'N/A'}</span></div>
+                {inmuebleDetalleModal.latitud && inmuebleDetalleModal.longitud && (
+                  <a
+                    href={`https://www.google.com/maps?q=${inmuebleDetalleModal.latitud},${inmuebleDetalleModal.longitud}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sky-400 hover:underline inline-flex items-center gap-1 pt-1 font-bold text-[11px]"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span>Abrir en Google Maps Satélite ↗</span>
+                  </a>
+                )}
+              </div>
+
+              {/* Tarifa & Deuda Fiscal */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                <div className="text-[11px] font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span>Parámetros Tributarios</span>
+                </div>
+                <div><strong>Tipo Inmueble:</strong> <span className="text-white font-bold">{inmuebleDetalleModal.tipoInmueble}</span></div>
+                <div><strong>Tarifa Base Aseo:</strong> <span className="font-mono text-emerald-400 font-bold">${(inmuebleDetalleModal.tarifaBaseUsd || 3).toFixed(2)} USD</span> (Bs. {((inmuebleDetalleModal.tarifaBaseUsd || 3) * tasaBcv).toFixed(2)})</div>
+                <div><strong>Último Recibo:</strong> <span className="text-slate-300">{inmuebleDetalleModal.ultimoReciboFolio || 'Sin recibos registrados'}</span></div>
+                {inmuebleDetalleModal.ultimoReciboFecha && (
+                  <div><strong>Fecha Último Pago:</strong> <span className="text-slate-400">{inmuebleDetalleModal.ultimoReciboFecha}</span></div>
+                )}
+              </div>
+            </div>
+
+            {/* Change Solvency Status Inspector Bar */}
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+              <label className="text-xs font-bold text-slate-300 block">
+                🛠️ Inspección Municipal / Modificar Estado de Solvencia Fiscal:
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  disabled={cambiandoSolvencia}
+                  onClick={() => handleCambiarSolvenciaInmueble(inmuebleDetalleModal.id, 'SOLVENTE')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                    (inmuebleDetalleModal.estadoCuenta || 'SOLVENTE') === 'SOLVENTE'
+                      ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
+                      : 'bg-slate-900 text-emerald-400 border border-emerald-500/30 hover:bg-slate-800'
+                  }`}
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  <span>🟢 Solvente (Al Día)</span>
+                </button>
+
+                <button
+                  disabled={cambiandoSolvencia}
+                  onClick={() => handleCambiarSolvenciaInmueble(inmuebleDetalleModal.id, 'PENDIENTE')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                    inmuebleDetalleModal.estadoCuenta === 'PENDIENTE'
+                      ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400'
+                      : 'bg-slate-900 text-amber-400 border border-amber-500/30 hover:bg-slate-800'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>🟡 Por Validar</span>
+                </button>
+
+                <button
+                  disabled={cambiandoSolvencia}
+                  onClick={() => handleCambiarSolvenciaInmueble(inmuebleDetalleModal.id, 'MORA')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                    inmuebleDetalleModal.estadoCuenta === 'MORA'
+                      ? 'bg-red-600 text-white ring-2 ring-red-400'
+                      : 'bg-slate-900 text-red-400 border border-red-500/30 hover:bg-slate-800'
+                  }`}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>🔴 En Mora</span>
+                </button>
+
+                <button
+                  disabled={cambiandoSolvencia}
+                  onClick={() => handleCambiarSolvenciaInmueble(inmuebleDetalleModal.id, 'EXONERADO')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                    inmuebleDetalleModal.estadoCuenta === 'EXONERADO'
+                      ? 'bg-slate-600 text-white ring-2 ring-slate-400'
+                      : 'bg-slate-900 text-slate-400 border border-slate-700 hover:bg-slate-800'
+                  }`}
+                >
+                  <span>⚪ Exonerado / Baldío</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2.5 pt-2 flex-wrap">
+              <button
+                onClick={() => setInmuebleDetalleModal(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold"
+              >
+                Cerrar
+              </button>
+
+              <button
+                onClick={() => handleDescargarSolvenciaInmueble(inmuebleDetalleModal)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md"
+              >
+                <Award className="w-4 h-4" />
+                <span>Emitir Certificado de Solvencia PDF</span>
+              </button>
+
+              <button
+                onClick={() => handleCargarInmuebleEnTaquilla(inmuebleDetalleModal)}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md font-black"
+              >
+                <DollarSign className="w-4 h-4" />
+                <span>Cobrar en Taquilla Express</span>
+              </button>
             </div>
           </div>
         </div>
