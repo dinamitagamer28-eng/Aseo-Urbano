@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
 import LeafletMap from '@/components/LeafletMap';
 import {
@@ -47,9 +47,28 @@ import {
   RotateCcw,
   UserCheck,
   KeyRound,
+  LogOut,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as XLSX from 'xlsx';
+
+function sanitizarNombre(nombre: string): string {
+  if (!nombre) return '';
+  return nombre
+    .replace(/Alcald[\?\uFFFD]a/gi, 'Alcaldía')
+    .replace(/Perij[\?\uFFFD]/gi, 'Perijá')
+    .replace(/L[\?\uFFFD]pez/gi, 'López')
+    .replace(/Bol[\?\uFFFD]var/gi, 'Bolívar')
+    .replace(/M[\?\uFFFD]rquez/gi, 'Márquez')
+    .replace(/Jes[\?\uFFFD]s/gi, 'Jesús')
+    .replace(/concepci[\?\uFFFD]n/gi, 'Concepción')
+    .replace(/falc[\?\uFFFD]n/gi, 'Falcón')
+    .replace(/Di[\?\uFFFD]lisis/gi, 'Diálisis')
+    .replace(/Andr[\?\uFFFD]s/gi, 'Andrés')
+    .replace(/Ca[\?\uFFFD]ada/gi, 'Cañada')
+    .replace(/Jos[\?\uFFFD]/gi, 'José')
+    .replace(/[\uFFFD]/g, '');
+}
 
 export default function CensoCampoPage() {
   const { data: session } = useSession();
@@ -196,6 +215,16 @@ export default function CensoCampoPage() {
     }
     setIsUnlocked(false);
     setAdminPinInput('');
+  };
+
+  const handleSalir = async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('censo_master_unlocked');
+      localStorage.removeItem('censo_unlocked_pin');
+      sessionStorage.removeItem('role_scope');
+    }
+    setIsUnlocked(false);
+    await signOut({ callbackUrl: '/login' });
   };
 
   // Resilient GPS Telemetry for Field Worker
@@ -550,6 +579,14 @@ export default function CensoCampoPage() {
             </form>
 
             <div className="pt-2 border-t border-slate-800/80 flex justify-between items-center text-xs text-slate-400">
+              <button
+                type="button"
+                onClick={handleSalir}
+                className="text-red-400 hover:text-red-300 font-bold flex items-center gap-1 cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Salir del sistema</span>
+              </button>
               <a href="/login" className="text-sky-400 hover:underline font-bold">
                 Iniciar sesión con cuenta ↗
               </a>
@@ -576,7 +613,7 @@ export default function CensoCampoPage() {
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black text-white tracking-tight flex items-center gap-1.5">
+                <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
                   Censo Catastral & Empadronamiento
                   <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-full font-bold">
                     PWA Campo
@@ -624,11 +661,20 @@ export default function CensoCampoPage() {
 
             <button
               onClick={handleCerrarCenso}
-              className="px-3 py-1.5 bg-red-950/80 hover:bg-red-800 text-red-300 border border-red-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1"
-              title="Bloquear sesión de censo"
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+              title="Bloquear panel de censo"
             >
               <Lock className="w-3.5 h-3.5" />
               <span>Bloquear</span>
+            </button>
+
+            <button
+              onClick={handleSalir}
+              className="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-md shadow-red-600/30 cursor-pointer"
+              title="Cerrar sesión y salir del sistema"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Salir</span>
             </button>
 
             {/* Navigation links if SuperAdmin (ROSARIO2026) or Admin (ADMIN2026) */}
@@ -685,7 +731,7 @@ export default function CensoCampoPage() {
               >
                 {sectores.map((sec) => (
                   <option key={sec.id} value={sec.id} className="bg-slate-900">
-                    {sec.nombre} ({sec.parroquia?.nombre || 'Rosario'})
+                    {sanitizarNombre(sec.nombre)} ({sec.parroquia?.nombre || 'Rosario'})
                   </option>
                 ))}
               </select>
@@ -1236,7 +1282,7 @@ export default function CensoCampoPage() {
                 >
                   {sectores.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.nombre} ({s.parroquia?.nombre || 'Rosario'})
+                      {sanitizarNombre(s.nombre)} ({s.parroquia?.nombre || 'Rosario'})
                     </option>
                   ))}
                 </select>

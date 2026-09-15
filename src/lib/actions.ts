@@ -1409,6 +1409,24 @@ export async function verificarClaveAdminCenso(clave: string) {
   return { success: false, message: 'Clave de Acceso al Censo incorrecta.' };
 }
 
+function sanitizarNombreSector(nombre: string): string {
+  if (!nombre) return '';
+  return nombre
+    .replace(/Alcald[\?\uFFFD]a/gi, 'Alcaldía')
+    .replace(/Perij[\?\uFFFD]/gi, 'Perijá')
+    .replace(/L[\?\uFFFD]pez/gi, 'López')
+    .replace(/Bol[\?\uFFFD]var/gi, 'Bolívar')
+    .replace(/M[\?\uFFFD]rquez/gi, 'Márquez')
+    .replace(/Jes[\?\uFFFD]s/gi, 'Jesús')
+    .replace(/concepci[\?\uFFFD]n/gi, 'Concepción')
+    .replace(/falc[\?\uFFFD]n/gi, 'Falcón')
+    .replace(/Di[\?\uFFFD]lisis/gi, 'Diálisis')
+    .replace(/Andr[\?\uFFFD]s/gi, 'Andrés')
+    .replace(/Ca[\?\uFFFD]ada/gi, 'Cañada')
+    .replace(/Jos[\?\uFFFD]/gi, 'José')
+    .replace(/[\uFFFD]/g, '');
+}
+
 export async function obtenerPadronCompletoCenso(sectorIdFiltro?: string) {
   try {
     const whereInmueble: any = {};
@@ -1468,7 +1486,7 @@ export async function obtenerPadronCompletoCenso(sectorIdFiltro?: string) {
         estadoCenso: tieneGps ? 'CENSADO' : 'FALTANTE',
         createdAt: inm.createdAt,
         sectorId: inm.sectorId,
-        sectorNombre: inm.sector?.nombre || 'Rosario de Perijá',
+        sectorNombre: sanitizarNombreSector(inm.sector?.nombre || 'Rosario de Perijá'),
         sectorCodigo: inm.sector?.codigo || 'SEC',
         sectorEstrato: inm.sector?.estrato || 'POPULAR',
         parroquiaNombre: inm.sector?.parroquia?.nombre || 'El Rosario',
@@ -1484,6 +1502,11 @@ export async function obtenerPadronCompletoCenso(sectorIdFiltro?: string) {
       };
     });
 
+    const mappedSectores = sectores.map((sec) => ({
+      ...sec,
+      nombre: sanitizarNombreSector(sec.nombre),
+    }));
+
     const totalInmuebles = mappedInmuebles.length;
     const totalCensados = mappedInmuebles.filter((i) => i.censado).length;
     const totalFaltantes = totalInmuebles - totalCensados;
@@ -1492,7 +1515,7 @@ export async function obtenerPadronCompletoCenso(sectorIdFiltro?: string) {
     return {
       success: true,
       inmuebles: mappedInmuebles,
-      sectores,
+      sectores: mappedSectores,
       metricas: {
         totalInmuebles,
         totalCensados,
