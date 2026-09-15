@@ -1298,11 +1298,17 @@ export default function CensoCampoPage() {
                   </label>
                   <input
                     type="text"
-                    placeholder="Ej. Calle 2 Los Pinos"
+                    list="calles-sugeridas-modal"
+                    placeholder="Ej. Selecciona o escribe..."
                     value={nuevoForm.calleNombre}
                     onChange={(e) => setNuevoForm({ ...nuevoForm, calleNombre: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500"
                   />
+                  <datalist id="calles-sugeridas-modal">
+                    {(sectores.find((s) => s.id === nuevoForm.sectorId)?.callesTramos || []).map((c: any) => (
+                      <option key={c.id} value={c.nombreCalle} />
+                    ))}
+                  </datalist>
                 </div>
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">

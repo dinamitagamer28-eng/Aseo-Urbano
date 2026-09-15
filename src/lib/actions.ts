@@ -1612,18 +1612,30 @@ export async function crearNuevoInmuebleCensoCampo(data: {
     });
     if (!sector) throw new Error('Sector no encontrado.');
 
-    // 2. Calle
+    // 2. Calle: Reutilizar existentes y evitar cadenas de prueba como sólo números
     let calleId = data.calleId;
     if (!calleId) {
-      if (data.calleNombre && data.calleNombre.trim()) {
-        const calleCreada = await prisma.calleTramo.create({
-          data: {
-            sectorId: sector.id,
-            nombreCalle: data.calleNombre.trim(),
-            diaRecoleccion: 'LUNES Y JUEVES',
-          },
-        });
-        calleId = calleCreada.id;
+      const rawCalle = (data.calleNombre || '').trim();
+      // Validar que no sea basura numérica (ej. 76666666666) o menor a 3 caracteres
+      const esBasura = !rawCalle || /^\d+$/.test(rawCalle) || rawCalle.length < 3;
+
+      if (!esBasura) {
+        const calleExistente = sector.callesTramos.find(
+          (c) => c.nombreCalle.trim().toLowerCase() === rawCalle.toLowerCase()
+        );
+
+        if (calleExistente) {
+          calleId = calleExistente.id;
+        } else {
+          const calleCreada = await prisma.calleTramo.create({
+            data: {
+              sectorId: sector.id,
+              nombreCalle: rawCalle,
+              diaRecoleccion: 'LUNES Y JUEVES',
+            },
+          });
+          calleId = calleCreada.id;
+        }
       } else if (sector.callesTramos.length > 0) {
         calleId = sector.callesTramos[0].id;
       } else {
