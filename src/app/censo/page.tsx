@@ -605,14 +605,14 @@ export default function CensoCampoPage() {
       <Navbar tasaBcv={tasaBcv} />
 
       {/* Top Banner for Field Workers */}
-      <div className="bg-slate-900 border-b border-slate-800 py-3.5 px-4 sm:px-6 sticky top-[57px] z-30 shadow-lg backdrop-blur-md">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between md:items-center gap-3">
-          <div className="flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+      <div className="bg-slate-900 border-b border-slate-800 py-3 sm:py-3.5 px-3 sm:px-6 sticky top-[57px] z-30 shadow-lg backdrop-blur-md">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
+          <div className="flex items-center gap-2.5 text-center sm:text-left">
+            <span className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shrink-0">
               <Compass className="w-5 h-5 animate-spin-slow" />
             </span>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center sm:justify-start gap-2">
                 <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
                   Censo Catastral & Empadronamiento
                   <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-full font-bold">
@@ -627,15 +627,15 @@ export default function CensoCampoPage() {
           </div>
 
           {/* Quick Header Actions */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center justify-center md:justify-end gap-1.5 sm:gap-2 flex-wrap w-full md:w-auto">
             <button
               onClick={() => capturarGpsEmpadronador()}
               disabled={obteniendoGps}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              className="px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
               title="Actualizar posición GPS actual"
             >
               <Crosshair className={`w-3.5 h-3.5 ${obteniendoGps ? 'animate-spin text-amber-400' : ''}`} />
-              <span>
+              <span className="font-mono text-[11px] sm:text-xs">
                 {censadorLat && censadorLng
                   ? `GPS: ${censadorLat.toFixed(4)}, ${censadorLng.toFixed(4)}`
                   : 'Detectar GPS'}
@@ -644,15 +644,15 @@ export default function CensoCampoPage() {
 
             <button
               onClick={() => setNuevoInmuebleModal(true)}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-indigo-600/30 cursor-pointer"
+              className="px-3 sm:px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-indigo-600/30 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>+ Nueva Vivienda</span>
+              <span>Nueva Vivienda</span>
             </button>
 
             <button
               onClick={exportarExcelCenso}
-              className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm"
+              className="px-2.5 sm:px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm"
               title="Exportar Censo a Excel"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -661,7 +661,7 @@ export default function CensoCampoPage() {
 
             <button
               onClick={handleCerrarCenso}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+              className="px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
               title="Bloquear panel de censo"
             >
               <Lock className="w-3.5 h-3.5" />
@@ -670,7 +670,7 @@ export default function CensoCampoPage() {
 
             <button
               onClick={handleSalir}
-              className="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-md shadow-red-600/30 cursor-pointer"
+              className="px-3 sm:px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-md shadow-red-600/30 cursor-pointer"
               title="Cerrar sesión y salir del sistema"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -679,10 +679,10 @@ export default function CensoCampoPage() {
 
             {/* Navigation links if SuperAdmin (ROSARIO2026) or Admin (ADMIN2026) */}
             {((session?.user as any)?.subRol === 'SUPERADMIN' || (session?.user as any)?.rol === 'ADMIN' || (typeof window !== 'undefined' && ['SUPERADMIN', 'ADMIN'].includes(sessionStorage.getItem('role_scope') || ''))) && (
-              <div className="flex items-center gap-1.5 border-l border-slate-700 pl-2">
+              <div className="flex items-center gap-1 border-l border-slate-700 pl-2">
                 <a
                   href="/admin"
-                  className="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                  className="px-2 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1"
                   title="Ir al Panel Admin"
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
@@ -690,7 +690,7 @@ export default function CensoCampoPage() {
                 </a>
                 <a
                   href="/cuadrilla"
-                  className="px-2.5 py-1.5 bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                  className="px-2 py-1.5 bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1"
                   title="Ir a App Cuadrilla"
                 >
                   <Truck className="w-3.5 h-3.5 text-amber-400" />
@@ -698,7 +698,7 @@ export default function CensoCampoPage() {
                 </a>
                 <a
                   href="/ciudadano"
-                  className="px-2.5 py-1.5 bg-sky-950/80 hover:bg-sky-900 text-sky-300 border border-sky-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                  className="px-2 py-1.5 bg-sky-950/80 hover:bg-sky-900 text-sky-300 border border-sky-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1"
                   title="Ir a App Ciudadano"
                 >
                   <Users className="w-3.5 h-3.5 text-sky-400" />
@@ -710,14 +710,14 @@ export default function CensoCampoPage() {
         </div>
       </div>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 pb-28 sm:pb-12 overflow-x-hidden">
         {/* Sector Selection & Progress Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-5">
-          <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 border-b border-slate-800 pb-4">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-4 sm:space-y-5 overflow-hidden">
+          <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3.5 sm:gap-4 border-b border-slate-800 pb-4">
             {/* Sector Selector */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
-                <MapPin className="w-4 h-4 text-indigo-400" />
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto min-w-0">
+              <span className="text-xs font-bold text-slate-400 flex items-center gap-1 shrink-0">
+                <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />
                 <span>Sector de Trabajo:</span>
               </span>
               <select
@@ -727,7 +727,7 @@ export default function CensoCampoPage() {
                   setCalleFiltro('TODAS');
                   setNuevoForm((prev) => ({ ...prev, sectorId: e.target.value }));
                 }}
-                className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-indigo-500 cursor-pointer w-full sm:w-auto max-w-full truncate"
               >
                 {sectores.map((sec) => (
                   <option key={sec.id} value={sec.id} className="bg-slate-900">
@@ -741,7 +741,7 @@ export default function CensoCampoPage() {
                 <select
                   value={calleFiltro}
                   onChange={(e) => setCalleFiltro(e.target.value)}
-                  className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer w-full sm:w-auto max-w-full truncate"
                 >
                   <option value="TODAS">Todas las Calles del Sector</option>
                   {callesSector.map((c: any) => (
@@ -754,49 +754,52 @@ export default function CensoCampoPage() {
             </div>
 
             {/* View Mode Buttons */}
-            <div className="flex bg-slate-950 p-1 rounded-2xl border border-slate-800 text-xs font-bold self-start lg:self-auto">
+            <div className="grid grid-cols-3 sm:flex bg-slate-950 p-1 rounded-2xl border border-slate-800 text-xs font-bold w-full sm:w-auto text-center shrink-0">
               <button
                 type="button"
                 onClick={() => setViewMode('lista')}
-                className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+                className={`py-2 px-1.5 sm:px-3 rounded-xl transition flex items-center justify-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs text-center ${
                   viewMode === 'lista' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <Users className="w-3.5 h-3.5" />
-                <span>Lista Casa x Casa</span>
+                <Users className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Lista Casas</span>
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode('mapa')}
-                className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+                className={`py-2 px-1.5 sm:px-3 rounded-xl transition flex items-center justify-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs text-center ${
                   viewMode === 'mapa' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <MapPin className="w-3.5 h-3.5" />
-                <span>Mapa Satelital</span>
+                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Mapa GPS</span>
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode('calcomanias')}
-                className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+                className={`py-2 px-1.5 sm:px-3 rounded-xl transition flex items-center justify-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs text-center ${
                   viewMode === 'calcomanias' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <QrCode className="w-3.5 h-3.5" />
-                <span>QRs de Fachada</span>
+                <QrCode className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">QRs Fachada</span>
               </button>
             </div>
           </div>
 
           {/* Progress Bar of the Sector */}
           <div className="space-y-2">
-            <div className="flex justify-between items-center text-xs">
+            <div className="flex justify-between items-center text-xs flex-wrap gap-1">
               <span className="font-bold text-slate-300 flex items-center gap-1.5">
-                <span>Avance del Censo en {sectorActual?.nombre || 'Sector'}:</span>
+                <span>Avance en {sectorActual?.nombre || 'Sector'}:</span>
                 <span className="text-indigo-400 font-mono font-black">{pctAvanceSector}%</span>
               </span>
+              <span className="text-slate-400 font-mono text-[11px]">
+                {censadosSector} de {totalSector} viviendas
+              </span>
             </div>
-            <div className="w-full bg-slate-950 rounded-full h-3.5 border border-slate-800 overflow-hidden p-0.5">
+            <div className="w-full bg-slate-950 rounded-full h-3 sm:h-3.5 border border-slate-800 overflow-hidden p-0.5">
               <div
                 className="bg-gradient-to-r from-indigo-500 via-emerald-500 to-emerald-400 h-full rounded-full transition-all duration-500"
                 style={{ width: `${Math.max(pctAvanceSector, 2)}%` }}
@@ -805,56 +808,56 @@ export default function CensoCampoPage() {
           </div>
 
           {/* Metric Status Badges */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
             <div
               onClick={() => setFiltroEstado('TODOS')}
-              className={`bg-slate-950 p-3.5 rounded-2xl border transition cursor-pointer ${
+              className={`bg-slate-950 p-3 sm:p-3.5 rounded-2xl border transition cursor-pointer text-center sm:text-left ${
                 filtroEstado === 'TODOS'
                   ? 'border-indigo-500 bg-indigo-950/20 ring-1 ring-indigo-500'
                   : 'border-slate-800 hover:border-slate-700'
               }`}
             >
-              <div className="text-[11px] text-slate-400 font-bold">Total Viviendas Sector</div>
-              <div className="text-2xl font-black text-white font-mono mt-0.5">{totalSector}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Padrón asignado</div>
+              <div className="text-[10px] sm:text-[11px] text-slate-400 font-bold truncate">Viviendas Sector</div>
+              <div className="text-xl sm:text-2xl font-black text-white font-mono mt-0.5">{totalSector}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5 truncate">Padrón asignado</div>
             </div>
 
             <div
               onClick={() => setFiltroEstado('CENSADOS')}
-              className={`bg-slate-950 p-3.5 rounded-2xl border transition cursor-pointer ${
+              className={`bg-slate-950 p-3 sm:p-3.5 rounded-2xl border transition cursor-pointer text-center sm:text-left ${
                 filtroEstado === 'CENSADOS'
                   ? 'border-emerald-500 bg-emerald-950/20 ring-1 ring-emerald-500'
                   : 'border-emerald-500/30 hover:border-emerald-500/60'
               }`}
             >
-              <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Censadas con GPS</span>
+              <div className="text-[10px] sm:text-[11px] text-emerald-400 font-bold flex items-center justify-center sm:justify-start gap-1 truncate">
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Censadas GPS</span>
               </div>
-              <div className="text-2xl font-black text-emerald-400 font-mono mt-0.5">{censadosSector}</div>
-              <div className="text-[10px] text-emerald-300 mt-0.5">Coordenadas listas</div>
+              <div className="text-xl sm:text-2xl font-black text-emerald-400 font-mono mt-0.5">{censadosSector}</div>
+              <div className="text-[10px] text-emerald-300 mt-0.5 truncate">Coordenadas listas</div>
             </div>
 
             <div
               onClick={() => setFiltroEstado('FALTANTES')}
-              className={`bg-slate-950 p-3.5 rounded-2xl border transition cursor-pointer ${
+              className={`bg-slate-950 p-3 sm:p-3.5 rounded-2xl border transition cursor-pointer text-center sm:text-left ${
                 filtroEstado === 'FALTANTES'
                   ? 'border-red-500 bg-red-950/20 ring-1 ring-red-500'
                   : 'border-red-500/30 hover:border-red-500/60'
               }`}
             >
-              <div className="text-[11px] text-red-400 font-bold flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Faltantes por Censar</span>
+              <div className="text-[10px] sm:text-[11px] text-red-400 font-bold flex items-center justify-center sm:justify-start gap-1 truncate">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Faltan Censar</span>
               </div>
-              <div className="text-2xl font-black text-red-400 font-mono mt-0.5">{faltantesSector}</div>
-              <div className="text-[10px] text-red-300 mt-0.5">Pendientes por visita</div>
+              <div className="text-xl sm:text-2xl font-black text-red-400 font-mono mt-0.5">{faltantesSector}</div>
+              <div className="text-[10px] text-red-300 mt-0.5 truncate">Pendientes por visita</div>
             </div>
 
-            <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
-              <div className="text-[11px] text-slate-400 font-bold">Total Municipio</div>
-              <div className="text-2xl font-black text-indigo-400 font-mono mt-0.5">{inmuebles.length}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">En los 83 sectores</div>
+            <div className="bg-slate-950 p-3 sm:p-3.5 rounded-2xl border border-slate-800 text-center sm:text-left">
+              <div className="text-[10px] sm:text-[11px] text-slate-400 font-bold truncate">Total Municipio</div>
+              <div className="text-xl sm:text-2xl font-black text-indigo-400 font-mono mt-0.5">{inmuebles.length}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5 truncate">En los 83 sectores</div>
             </div>
           </div>
         </div>
@@ -863,43 +866,43 @@ export default function CensoCampoPage() {
         {viewMode === 'lista' && (
           <div className="space-y-4 animate-in fade-in duration-200">
             {/* Search Bar & Instant Filter */}
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2.5 sm:gap-3">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-500" />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar por cédula, nombre, calle, casa o código..."
+                  placeholder="Buscar cédula, nombre, calle, casa..."
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-indigo-500 placeholder:text-slate-500"
                 />
               </div>
 
               {/* Status Chips */}
-              <div className="flex bg-slate-900 p-1 rounded-2xl border border-slate-800 text-xs font-bold shrink-0">
+              <div className="grid grid-cols-3 sm:flex bg-slate-900 p-1 rounded-2xl border border-slate-800 text-xs font-bold w-full sm:w-auto text-center shrink-0">
                 <button
                   onClick={() => setFiltroEstado('TODOS')}
-                  className={`px-3 py-1.5 rounded-xl transition ${
+                  className={`py-2 px-1 sm:px-3 rounded-xl transition text-[11px] sm:text-xs flex items-center justify-center ${
                     filtroEstado === 'TODOS' ? 'bg-slate-700 text-white font-black' : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  Todos ({inmueblesSector.length})
+                  <span className="truncate">Todos ({inmueblesSector.length})</span>
                 </button>
                 <button
                   onClick={() => setFiltroEstado('FALTANTES')}
-                  className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1 ${
+                  className={`py-2 px-1 sm:px-3 rounded-xl transition flex items-center justify-center gap-1 text-[11px] sm:text-xs ${
                     filtroEstado === 'FALTANTES' ? 'bg-red-600 text-white font-black' : 'text-red-400 hover:bg-red-950/40'
                   }`}
                 >
-                  <span>🔴 Faltantes ({faltantesSector})</span>
+                  <span className="truncate">🔴 Faltan ({faltantesSector})</span>
                 </button>
                 <button
                   onClick={() => setFiltroEstado('CENSADOS')}
-                  className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1 ${
+                  className={`py-2 px-1 sm:px-3 rounded-xl transition flex items-center justify-center gap-1 text-[11px] sm:text-xs ${
                     filtroEstado === 'CENSADOS' ? 'bg-emerald-600 text-white font-black' : 'text-emerald-400 hover:bg-emerald-950/40'
                   }`}
                 >
-                  <span>🟢 Censados ({censadosSector})</span>
+                  <span className="truncate">🟢 Listos ({censadosSector})</span>
                 </button>
               </div>
             </div>

@@ -156,28 +156,28 @@ export default function Navbar({ tasaBcv }: NavbarProps) {
           {/* Right Status Badge */}
           <div className="flex items-center gap-2">
             {isCiudadano && (
-              <div className="flex items-center gap-2 bg-sky-950/80 border border-sky-600/40 px-3 py-1.5 rounded-xl text-xs font-bold text-sky-300">
+              <div className="hidden sm:flex items-center gap-2 bg-sky-950/80 border border-sky-600/40 px-3 py-1.5 rounded-xl text-xs font-bold text-sky-300">
                 <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
                 <span>PWA Ciudadana</span>
               </div>
             )}
 
             {isCuadrilla && (
-              <div className="flex items-center gap-2 bg-amber-950/80 border border-amber-600/40 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-300">
+              <div className="hidden sm:flex items-center gap-2 bg-amber-950/80 border border-amber-600/40 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-300">
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
                 <span>PWA Cuadrilla</span>
               </div>
             )}
 
             {isAdmin && (
-              <div className="flex items-center gap-2 bg-emerald-950/80 border border-emerald-600/40 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-300">
+              <div className="hidden sm:flex items-center gap-2 bg-emerald-950/80 border border-emerald-600/40 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-300">
                 <Shield className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Acceso Seguro</span>
               </div>
             )}
 
             {isCenso && (
-              <div className="flex items-center gap-2 bg-indigo-950/80 border border-indigo-600/40 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-300">
+              <div className="hidden sm:flex items-center gap-2 bg-indigo-950/80 border border-indigo-600/40 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-300">
                 <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
                 <span>PWA Censo</span>
               </div>
