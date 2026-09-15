@@ -373,6 +373,16 @@ export default function AdminDashboard() {
       motivoRechazo: rep.notasResolucion,
     }));
 
+    const dataSectores = sectoresTarifas.map((s) => ({
+      codigo: s.codigo,
+      nombre: s.nombre,
+      estrato: s.estrato || 'POPULAR',
+      tarifaUsd: s.tarifaUsd || 3.0,
+      tarifaBs: Math.round((s.tarifaUsd || 3.0) * tasaBcv * 100) / 100,
+      parroquia: s.parroquia?.nombre || 'Rosario de Perijá',
+      fase: s.faseDespliegue || 'PILOTO_ACTIVO',
+    }));
+
     const resumen = {
       totalRecaudadoBs: totalBs,
       totalRecaudadoUsd: totalUsd,
@@ -385,7 +395,13 @@ export default function AdminDashboard() {
       tasaBcvActual: tasaBcv,
     };
 
-    exportToExcelOficial(dataRecibos, dataReportes, resumen);
+    try {
+      exportToExcelOficial(dataRecibos, dataReportes, dataSectores, resumen);
+      confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+    } catch (e: any) {
+      console.error('Error al exportar Excel:', e);
+      alert('Error al generar el archivo Excel.');
+    }
   };
 
   // Export to PDF for Contraloría
@@ -826,7 +842,9 @@ export default function AdminDashboard() {
 
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-1">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tasa de Solvencia Fiscal</span>
-                <div className="text-2xl font-black text-sky-400 font-mono">88.5%</div>
+                <div className="text-2xl font-black text-sky-400 font-mono">
+                  {recibosFiscales.length > 0 ? Math.round((recibosFiscales.filter((r) => r.estado === 'APROBADO').length / recibosFiscales.length) * 100) : 100}%
+                </div>
                 <span className="text-[11px] text-slate-400 block font-medium">{recibosFiscales.filter((r) => r.estado === 'APROBADO').length} de {recibosFiscales.length || 1} solventes</span>
               </div>
 
