@@ -1036,4 +1036,22 @@ export async function resetearTodosLosReportesCuadrilla() {
   }
 }
 
+export async function obtenerTurnosCuadrilla() {
+  try {
+    return await prisma.cuadrillaTurno.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        supervisor: true,
+        camion: true,
+        sector: { include: { parroquia: true } },
+        avancesTramos: { include: { tramo: true } },
+      },
+    });
+  } catch (error) {
+    console.error('Error al obtener turnos de cuadrilla:', error);
+    return [];
+  }
+}
+
+
 

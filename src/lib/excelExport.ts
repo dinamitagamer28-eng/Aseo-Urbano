@@ -42,6 +42,17 @@ export interface SectorTarifaExportItem {
   fase: string;
 }
 
+export interface TurnoExportItem {
+  id?: string;
+  fecha: string;
+  camion: string;
+  supervisor: string;
+  sector: string;
+  estado: string;
+  toneladas: number;
+  novedades?: string;
+}
+
 export interface ResumenGestion {
   totalRecaudadoBs: number;
   totalRecaudadoUsd: number;
@@ -54,11 +65,21 @@ export interface ResumenGestion {
   tasaBcvActual: number;
 }
 
+function s2ab(s: string): ArrayBuffer {
+  const buf = new ArrayBuffer(s.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < s.length; i++) {
+    view[i] = s.charCodeAt(i) & 0xff;
+  }
+  return buf;
+}
+
 export function exportToExcelOficial(
   recibos: ReciboExportItem[],
   reportes: ReporteExportItem[],
   sectores?: SectorTarifaExportItem[],
   resumen?: ResumenGestion,
+  turnos?: TurnoExportItem[],
   nombreArchivo?: string
 ) {
   const fechaHoy = new Date().toISOString().split('T')[0];
@@ -77,7 +98,7 @@ export function exportToExcelOficial(
       cedulaRif: 'V-14234567',
       contribuyente: 'Contribuyente Taquilla',
       codigoCatastral: 'TAQ-C-14234567',
-      sector: '2 de febrero',
+      sector: 'Casco Central',
       metodoPago: 'PUNTO_VENTA',
       referenciaBancaria: 'TAQ-918234',
       tasaBcvUsd: resumen?.tasaBcvActual || 842.21,
@@ -87,23 +108,28 @@ export function exportToExcelOficial(
       observacionesFiscales: 'Cobro en Taquilla Municipal',
     }
   ]).map((r) => ({
-    'Folio Fiscal': r.numeroReciboFiscal,
-    'Nº Correlativo': r.folioCorrelativo || '-',
+    'Folio Fiscal': String(r.numeroReciboFiscal || 'N/A'),
+    'Nº Correlativo': r.folioCorrelativo ? `#${r.folioCorrelativo}` : '-',
     'Fecha de Emisión': r.fechaEmision ? (r.fechaEmision.includes('T') ? new Date(r.fechaEmision).toLocaleString('es-VE') : r.fechaEmision) : '-',
-    'C.I / RIF': r.cedulaRif,
-    'Contribuyente': r.contribuyente,
-    'Código Catastral': r.codigoCatastral || 'N/A',
-    'Sector / Parroquia': r.sector || 'Rosario de Perijá',
-    'Método de Pago': r.metodoPago,
-    'Ref. Bancaria': r.referenciaBancaria || 'TAQUILLA',
-    'Tasa BCV Aplicada (Bs/$)': r.tasaBcvUsd ? Number(r.tasaBcvUsd).toFixed(2) : '-',
-    'Monto Pagado (Bs)': Number(r.montoTotalBs).toFixed(2),
-    'Monto Pagado (USD)': Number(r.montoTotalUsd).toFixed(2),
-    'Estado Fiscal': r.estado,
-    'Observaciones / Conciliación': r.observacionesFiscales || 'Conforme en cuenta bancaria municipal',
+    'C.I / RIF': String(r.cedulaRif || 'N/A'),
+    'Contribuyente': String(r.contribuyente || 'Contribuyente'),
+    'Código Catastral': String(r.codigoCatastral || 'N/A'),
+    'Sector / Parroquia': String(r.sector || 'Rosario de Perijá'),
+    'Método de Pago': String(r.metodoPago || 'PAGO_MOVIL'),
+    'Ref. Bancaria': String(r.referenciaBancaria || 'TAQUILLA'),
+    'Tasa BCV Aplicada (Bs/$)': Number(r.tasaBcvUsd || 842.21).toFixed(2),
+    'Monto Pagado (Bs)': Number(r.montoTotalBs || 0).toFixed(2),
+    'Monto Pagado (USD)': Number(r.montoTotalUsd || 0).toFixed(2),
+    'Estado Fiscal': String(r.estado || 'APROBADO'),
+    'Observaciones / Conciliación': String(r.observacionesFiscales || 'Conforme en cuenta bancaria municipal'),
   }));
 
   const wsRecibos = XLSX.utils.json_to_sheet(dataRecibos);
+  wsRecibos['!cols'] = [
+    { wch: 22 }, { wch: 14 }, { wch: 22 }, { wch: 16 }, { wch: 28 },
+    { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 22 },
+    { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 40 }
+  ];
   XLSX.utils.book_append_sheet(wb, wsRecibos, 'Recaudación y Pagos');
 
   // -------------------------------------------------------------
@@ -121,58 +147,76 @@ export function exportToExcelOficial(
       estado: 'RESUELTO',
       cuadrilla: 'CAM-01 (Compactador)',
       motivoRechazo: 'Atendido en campo con foto de evidencia.',
-    },
-    {
-      folio: 'REP-2026-002',
-      fecha: new Date().toISOString(),
-      tipo: 'BOTE_CLANDESTINO',
-      sector: 'Las Colinas',
-      descripcion: 'Desechos en esquina de avenida principal',
-      usuario: 'María González',
-      telefono: '0414-6001234',
-      estado: 'RESUELTO',
-      cuadrilla: 'CAM-01 (Compactador)',
-      motivoRechazo: 'Recolectado conforme a ruta.',
     }
   ]).map((rep) => ({
-    'Folio Reporte': rep.folio,
+    'Folio Reporte': String(rep.folio || 'REP-001'),
     'Fecha': rep.fecha ? (rep.fecha.includes('T') ? new Date(rep.fecha).toLocaleDateString('es-VE') : rep.fecha) : '-',
-    'Tipo de Incidencia': rep.tipo.replace(/_/g, ' '),
-    'Sector': rep.sector,
-    'Detalle / Descripción': rep.descripcion || '-',
-    'Ciudadano': rep.usuario,
-    'Teléfono': rep.telefono || '-',
-    'Estado': rep.estado,
-    'Cuadrilla / Operario': rep.cuadrilla || 'Cuadrilla 01',
-    'Resolución / Observación': rep.motivoRechazo || 'Atendido en campo',
+    'Tipo de Incidencia': String(rep.tipo || 'INCIDENCIA').replace(/_/g, ' '),
+    'Sector': String(rep.sector || 'Rosario'),
+    'Detalle / Descripción': String(rep.descripcion || '-'),
+    'Ciudadano': String(rep.usuario || 'Vecino'),
+    'Teléfono': String(rep.telefono || '-'),
+    'Estado': String(rep.estado || 'PENDIENTE'),
+    'Cuadrilla / Operario': String(rep.cuadrilla || 'CAM-01 Compactador'),
+    'Resolución / Observación': String(rep.motivoRechazo || 'Atendido en campo'),
   }));
 
   const wsReportes = XLSX.utils.json_to_sheet(dataReportes);
+  wsReportes['!cols'] = [
+    { wch: 18 }, { wch: 14 }, { wch: 24 }, { wch: 22 }, { wch: 35 },
+    { wch: 24 }, { wch: 16 }, { wch: 16 }, { wch: 22 }, { wch: 40 }
+  ];
   XLSX.utils.book_append_sheet(wb, wsReportes, 'Reportes de Incidencias');
 
   // -------------------------------------------------------------
-  // 3. HOJA DE ZONIFICACIÓN Y TARIFAS MUNICIPALES (83 SECTORES)
+  // 3. HOJA DE TURNOS OPERATIVOS DE CUADRILLA & PESAJE
+  // -------------------------------------------------------------
+  if (turnos && turnos.length > 0) {
+    const dataTurnos = turnos.map((t, idx) => ({
+      'Nº Turno': `#${idx + 1}`,
+      'Fecha': t.fecha,
+      'Camión / Unidad': String(t.camion || 'CAM-01'),
+      'Supervisor en Campo': String(t.supervisor || 'Supervisor Operativo'),
+      'Sector / Ruta': String(t.sector || 'Casco Central'),
+      'Estado del Turno': String(t.estado || 'FINALIZADO'),
+      'Toneladas Recolectadas (Tn)': Number(t.toneladas || 0).toFixed(2),
+      'Novedades / Cierre': String(t.novedades || 'Ruta completada hacia relleno sanitario'),
+    }));
+    const wsTurnos = XLSX.utils.json_to_sheet(dataTurnos);
+    wsTurnos['!cols'] = [
+      { wch: 12 }, { wch: 16 }, { wch: 20 }, { wch: 26 },
+      { wch: 22 }, { wch: 18 }, { wch: 24 }, { wch: 40 }
+    ];
+    XLSX.utils.book_append_sheet(wb, wsTurnos, 'Turnos y Cuadrillas');
+  }
+
+  // -------------------------------------------------------------
+  // 4. HOJA DE ZONIFICACIÓN Y TARIFAS MUNICIPALES (83 SECTORES)
   // -------------------------------------------------------------
   if (sectores && sectores.length > 0) {
     const dataSectores = sectores.map((s) => ({
-      'Código Sector': s.codigo,
-      'Nombre del Sector': s.nombre,
-      'Parroquia': s.parroquia || 'Rosario',
-      'Estrato Tarifario': s.estrato,
-      'Tarifa Base ($ USD)': Number(s.tarifaUsd).toFixed(2),
-      'Tarifa en Bolívares (Bs)': Number(s.tarifaBs).toFixed(2),
-      'Fase de Recolección': s.fase,
+      'Código Sector': String(s.codigo || '-'),
+      'Nombre del Sector': String(s.nombre || '-'),
+      'Parroquia': String(s.parroquia || 'El Rosario'),
+      'Estrato Tarifario': String(s.estrato || 'RESIDENCIAL'),
+      'Tarifa Base ($ USD)': Number(s.tarifaUsd || 0).toFixed(2),
+      'Tarifa en Bolívares (Bs)': Number(s.tarifaBs || 0).toFixed(2),
+      'Fase de Recolección': String(s.fase || 'ACTIVO'),
     }));
     const wsSectores = XLSX.utils.json_to_sheet(dataSectores);
+    wsSectores['!cols'] = [
+      { wch: 16 }, { wch: 30 }, { wch: 22 }, { wch: 20 },
+      { wch: 20 }, { wch: 22 }, { wch: 20 }
+    ];
     XLSX.utils.book_append_sheet(wb, wsSectores, 'Zonificación y Tarifas');
   }
 
   // -------------------------------------------------------------
-  // 4. HOJA DE RESUMEN EJECUTIVO Y MÉTRICAS MUNICIPALES
+  // 5. HOJA DE RESUMEN EJECUTIVO Y MÉTRICAS MUNICIPALES
   // -------------------------------------------------------------
-  const tasaBcvVal = resumen?.tasaBcvActual || 842.21;
-  const totBsVal = resumen?.totalRecaudadoBs || 4994.92;
-  const totUsdVal = resumen?.totalRecaudadoUsd || 6.00;
+  const tasaBcvVal = Number(resumen?.tasaBcvActual) || 842.21;
+  const totBsVal = Number(resumen?.totalRecaudadoBs) || 0;
+  const totUsdVal = Number(resumen?.totalRecaudadoUsd) || 0;
 
   const dataResumen = [
     { 'Métrica Municipal': 'Ente Emisor', 'Valor / Detalle': 'Alcaldía del Municipio Rosario de Perijá - Dirección de Administración Tributaria (SETRIB)' },
@@ -181,36 +225,48 @@ export function exportToExcelOficial(
     { 'Métrica Municipal': 'Tasa Oficial BCV de Referencia', 'Valor / Detalle': `Bs. ${tasaBcvVal.toFixed(2)} / USD` },
     { 'Métrica Municipal': 'Total Recaudado en Bolívares (Bs)', 'Valor / Detalle': `Bs. ${totBsVal.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
     { 'Métrica Municipal': 'Total Recaudado en Dólares ($ USD)', 'Valor / Detalle': `$ ${totUsdVal.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD` },
-    { 'Métrica Municipal': 'Recibos Fiscales Aprobados (Solventes)', 'Valor / Detalle': resumen?.totalRecibosAprobados || 2 },
-    { 'Métrica Municipal': 'Pagos Pendientes por Conciliar', 'Valor / Detalle': resumen?.totalRecibosPendientes || 1 },
-    { 'Métrica Municipal': 'Pagos Rechazados / Observados', 'Valor / Detalle': resumen?.totalRecibosRechazados || 1 },
-    { 'Métrica Municipal': 'Tasa de Cumplimiento Tributario', 'Valor / Detalle': '88.5%' },
-    { 'Métrica Municipal': 'Toneladas de Basura Recolectadas en el Mes', 'Valor / Detalle': `${resumen?.totalToneladasMes || 142.5} Toneladas (Relleno Sanitario)` },
+    { 'Métrica Municipal': 'Recibos Fiscales Aprobados (Solventes)', 'Valor / Detalle': String(resumen?.totalRecibosAprobados ?? 0) },
+    { 'Métrica Municipal': 'Pagos Pendientes por Conciliar', 'Valor / Detalle': String(resumen?.totalRecibosPendientes ?? 0) },
+    { 'Métrica Municipal': 'Pagos Rechazados / Observados', 'Valor / Detalle': String(resumen?.totalRecibosRechazados ?? 0) },
+    { 'Métrica Municipal': 'Reportes de Incidencias Resueltos', 'Valor / Detalle': String(resumen?.totalReportesResueltos ?? 0) },
+    { 'Métrica Municipal': 'Reportes de Incidencias Pendientes', 'Valor / Detalle': String(resumen?.totalReportesPendientes ?? 0) },
+    { 'Métrica Municipal': 'Toneladas de Residuos Recolectadas', 'Valor / Detalle': `${Number(resumen?.totalToneladasMes || 0).toFixed(2)} Toneladas (Relleno Sanitario)` },
     { 'Métrica Municipal': 'Unidades de Recolección Operativas', 'Valor / Detalle': '2 Camiones Compactadores (CAM-01 y CAM-02)' },
     { 'Métrica Municipal': 'Total de Sectores Atendidos', 'Valor / Detalle': '83 Sectores en las 3 Parroquias' },
   ];
   const wsResumen = XLSX.utils.json_to_sheet(dataResumen);
+  wsResumen['!cols'] = [{ wch: 45 }, { wch: 65 }];
   XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen Ejecutivo');
 
   // -------------------------------------------------------------
-  // DESCARGA ROBUSTA Y COMPATIBLE EN TODOS LOS NAVEGADORES
+  // DESCARGA ROBUSTA CON BINARY ARRAYBUFFER Y BLOB NATIVO
   // -------------------------------------------------------------
   try {
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${filename}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    }, 250);
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+    const blob = new Blob([s2ab(wbout)], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    if (typeof window !== 'undefined') {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `${filename}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+    }
   } catch (err) {
-    console.error('Error generando archivo Excel:', err);
-    // Fallback direct
-    XLSX.writeFile(wb, `${filename}.xlsx`);
+    console.error('Error generando archivo Excel con Blob:', err);
+    try {
+      XLSX.writeFile(wb, `${filename}.xlsx`);
+    } catch (e2) {
+      console.error('Error en fallback de exportación Excel:', e2);
+      throw new Error('No se pudo generar el archivo Excel en el navegador.');
+    }
   }
 }
