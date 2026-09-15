@@ -43,13 +43,15 @@ import {
   BarChart3,
   PieChart,
   Activity,
-  Sparkles
+  Sparkles,
+  Award
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import confetti from 'canvas-confetti';
 import { exportToExcelOficial } from '@/lib/excelExport';
+import { generarCertificadoSolvenciaPdf } from '@/lib/generarCertificadoSolvencia';
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
@@ -423,6 +425,25 @@ export default function AdminDashboard() {
     doc.save(`Libro_Fiscal_Contraloria_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
+  // Generate and Download Official Municipal Solvency Certificate PDF
+  const handleDescargarSolvenciaAdmin = async (r: any) => {
+    try {
+      await generarCertificadoSolvenciaPdf({
+        contribuyenteNombre: r.contribuyente,
+        contribuyenteCedula: r.cedula,
+        codigoCatastral: r.inmueble || '04-03-URB-01',
+        sectorNombre: r.sector || 'Casco Urbano',
+        ultimoReciboFolio: r.numeroReciboFiscal,
+        ultimoReciboFecha: r.fecha,
+        montoUltimoPagoBs: r.montoBs,
+        montoUltimoPagoUsd: r.montoUsd,
+      });
+      confetti({ particleCount: 70, spread: 50, origin: { y: 0.6 } });
+    } catch (e) {
+      alert('Error al generar certificado de solvencia');
+    }
+  };
+
   // KPI calculations
   const totalBs = recibosFiscales.filter((r) => r.estado === 'APROBADO').reduce((acc, curr) => acc + curr.montoBs, 0);
   const totalUsd = recibosFiscales.filter((r) => r.estado === 'APROBADO').reduce((acc, curr) => acc + curr.montoUsd, 0);
@@ -722,7 +743,17 @@ export default function AdminDashboard() {
                               {r.estado}
                             </span>
                           </td>
-                          <td className="p-3 text-center">
+                          <td className="p-3 text-center flex items-center justify-center gap-1.5">
+                            {r.estado === 'APROBADO' && (
+                              <button
+                                onClick={() => handleDescargarSolvenciaAdmin(r)}
+                                className="px-2 py-1 bg-emerald-950/80 hover:bg-emerald-800 border border-emerald-500/40 text-emerald-300 hover:text-white rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1"
+                                title="Descargar Certificado Oficial de Solvencia Municipal"
+                              >
+                                <Award className="w-3 h-3 text-emerald-400" />
+                                <span>Solvencia</span>
+                              </button>
+                            )}
                             <button
                               onClick={() => handleVerReciboModal(r)}
                               className="px-2.5 py-1 bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1"
@@ -1158,7 +1189,17 @@ export default function AdminDashboard() {
                               {r.estado}
                             </span>
                           </td>
-                          <td className="p-3 text-center">
+                          <td className="p-3 text-center flex items-center justify-center gap-1.5">
+                            {r.estado === 'APROBADO' && (
+                              <button
+                                onClick={() => handleDescargarSolvenciaAdmin(r)}
+                                className="px-2 py-1 bg-emerald-950/80 hover:bg-emerald-800 border border-emerald-500/40 text-emerald-300 hover:text-white rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1"
+                                title="Descargar Certificado Oficial de Solvencia Municipal"
+                              >
+                                <Award className="w-3 h-3 text-emerald-400" />
+                                <span>Solvencia</span>
+                              </button>
+                            )}
                             <button
                               onClick={() => handleVerReciboModal(r)}
                               className="px-2.5 py-1 bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1"

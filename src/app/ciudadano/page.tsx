@@ -37,10 +37,13 @@ import {
   History,
   DollarSign,
   ChevronRight,
-  Calendar
+  Calendar,
+  Award,
+  FileCheck
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import CronogramaRutas from '@/components/CronogramaRutas';
+import { generarCertificadoSolvenciaPdf } from '@/lib/generarCertificadoSolvencia';
 
 export default function CiudadanoPage() {
   const { data: session, status } = useSession();
@@ -212,6 +215,44 @@ export default function CiudadanoPage() {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const [generandoSolvencia, setGenerandoSolvencia] = useState(false);
+
+  const handleDescargarSolvencia = async (reciboEspecifico?: any) => {
+    if (!contribuyenteData || !inmuebleVinculado) {
+      alert('Debes tener un inmueble vinculado para emitir tu certificado de solvencia.');
+      return;
+    }
+
+    setGenerandoSolvencia(true);
+    try {
+      const ultimoAprobado = reciboEspecifico || inmuebleVinculado.recibos?.find((r: any) => r.estado === 'APROBADO');
+
+      await generarCertificadoSolvenciaPdf({
+        contribuyenteNombre: `${contribuyenteData.nombres} ${contribuyenteData.apellidos}`,
+        contribuyenteCedula: `${contribuyenteData.tipoDoc}-${contribuyenteData.cedulaRif}`,
+        codigoCatastral: inmuebleVinculado.codigoCatastral,
+        sectorNombre: inmuebleVinculado.sector?.nombre || 'Casco Urbano',
+        direccionInmueble: inmuebleVinculado.direccionExacta || inmuebleVinculado.numeroCasaLocal,
+        tipoInmueble: inmuebleVinculado.tipoInmueble || 'RESIDENCIAL',
+        ultimoReciboFolio: ultimoAprobado?.numeroReciboFiscal,
+        ultimoReciboFecha: ultimoAprobado?.createdAt,
+        montoUltimoPagoBs: ultimoAprobado?.montoTotalBs,
+        montoUltimoPagoUsd: ultimoAprobado?.montoTotalUsd,
+      });
+
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+    } catch (err) {
+      console.error('Error generando solvencia:', err);
+      alert('Ocurrió un error al generar el Certificado de Solvencia PDF.');
+    } finally {
+      setGenerandoSolvencia(false);
+    }
   };
 
   // Main property
@@ -603,6 +644,34 @@ export default function CiudadanoPage() {
             {/* TAB CONTENT: Estado del Servicio */}
             {activeTab === 'estado' && (
               <div className="space-y-6 animate-in fade-in duration-200">
+                {/* Solvency Certificate Download Card (If Solvent or Has Approved Receipts) */}
+                <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 border-2 border-emerald-500/50 rounded-3xl p-5 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                      <Award className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>Trámite Oficial • Solvente con el Municipio</span>
+                      </div>
+                      <h3 className="text-base font-black text-white">Certificado Oficial de Solvencia Municipal</h3>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        Documento legal en PDF con membrete oficial de la Alcaldía, código QR verificable y firma digital.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleDescargarSolvencia()}
+                    disabled={generandoSolvencia}
+                    className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-black text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer shrink-0 disabled:opacity-50"
+                  >
+                    <FileCheck className="w-4 h-4" />
+                    <span>{generandoSolvencia ? 'Generando PDF...' : 'DESCARGAR SOLVENCIA (PDF)'}</span>
+                  </button>
+                </div>
+
                 {/* Truck Status Alert */}
                 <div className="bg-gradient-to-r from-sky-950 to-slate-900 border border-sky-600/40 rounded-3xl p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
@@ -756,6 +825,16 @@ export default function CiudadanoPage() {
                                   (${recibo.montoTotalUsd.toFixed(2)} USD)
                                 </div>
                               </div>
+                              {recibo.estado === 'APROBADO' && (
+                                <button
+                                  onClick={() => handleDescargarSolvencia(recibo)}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 hover:text-white transition flex items-center gap-1 shadow-sm cursor-pointer"
+                                  title="Descargar Certificado Oficial de Solvencia Municipal"
+                                >
+                                  <Award className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>Solvencia PDF</span>
+                                </button>
+                              )}
                               <button
                                 onClick={() => {
                                   setReciboModalData({
