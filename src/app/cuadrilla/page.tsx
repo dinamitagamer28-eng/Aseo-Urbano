@@ -39,12 +39,16 @@ import {
   XCircle,
   Scale,
   Users,
-  ShieldCheck
+  ShieldCheck,
+  Wifi,
+  WifiOff,
+  RefreshCw
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import confetti from 'canvas-confetti';
+import { getOfflineQueue, addOfflineAction, processOfflineQueue } from '@/lib/offlineSync';
 
 export default function CuadrillaPage() {
   const { data: session, status } = useSession();
@@ -55,6 +59,11 @@ export default function CuadrillaPage() {
   const [camionCode, setCamionCode] = useState('CAM-01 (Compactador 6.5 Tn)');
   const [sectorName, setSectorName] = useState('Municipio Rosario de Perijá');
   const [turnoActivo, setTurnoActivo] = useState(true);
+
+  // Offline / Network States
+  const [isOnline, setIsOnline] = useState(true);
+  const [offlineCount, setOfflineCount] = useState(0);
+  const [isSyncingOffline, setIsSyncingOffline] = useState(false);
 
   const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
   const todayStr = new Date().toISOString().split('T')[0];
@@ -80,6 +89,56 @@ export default function CuadrillaPage() {
   useEffect(() => {
     localStorage.setItem('historialRutas', JSON.stringify(historialRutas));
   }, [historialRutas]);
+
+  // Network & Offline Queue Listeners
+  useEffect(() => {
+    setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true);
+    setOfflineCount(getOfflineQueue().length);
+
+    const handleOnline = async () => {
+      setIsOnline(true);
+      const queue = getOfflineQueue();
+      if (queue.length > 0) {
+        setIsSyncingOffline(true);
+        const res = await processOfflineQueue();
+        setIsSyncingOffline(false);
+        setOfflineCount(getOfflineQueue().length);
+        if (res.success > 0) {
+          alert(`📡 ¡Conexión restablecida! Se sincronizaron automáticamente ${res.success} registros con el servidor de la Alcaldía.`);
+          fetchReportes();
+        }
+      }
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const handleSincronizarManual = async () => {
+    if (!navigator.onLine) {
+      alert('⚠️ No hay conexión a Internet en este momento. Los registros permanecen guardados en tu dispositivo.');
+      return;
+    }
+    setIsSyncingOffline(true);
+    const res = await processOfflineQueue();
+    setIsSyncingOffline(false);
+    setOfflineCount(getOfflineQueue().length);
+    if (res.success > 0) {
+      alert(`✅ Se sincronizaron ${res.success} acciones pendientes.`);
+      fetchReportes();
+    } else {
+      alert('Tu aplicación está al día. No hay pendientes por sincronizar.');
+    }
+  };
 
   const RUTAS_POR_DIA = {
     lunes: [
@@ -212,25 +271,60 @@ export default function CuadrillaPage() {
   const handleTomarFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setCameraActive(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('type', 'reportes');
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      setFotoEvidenciaCapturada(data.url);
-    } catch (e) {
-      console.error(e);
-      alert('Error al subir la foto de evidencia');
-    } finally {
-      setCameraActive(false);
-    }
+
+    // Convert to local Base64 for instant preview & offline resilience
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const base64Data = evt.target?.result as string;
+      setFotoEvidenciaCapturada(base64Data);
+
+      // Attempt server upload only if online
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        setCameraActive(true);
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('type', 'reportes');
+          const res = await fetch('/api/upload', { method: 'POST', body: formData });
+          const data = await res.json();
+          if (data.url) {
+            setFotoEvidenciaCapturada(data.url);
+          }
+        } catch (err) {
+          console.warn('Foto guardada localmente (modo offline):', err);
+        } finally {
+          setCameraActive(false);
+        }
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleResolverReclamo = async () => {
     if (!fotoEvidenciaCapturada) {
       alert('¡ERROR OPERATIVO! Se requiere la foto de evidencia obligatoria.');
+      return;
+    }
+
+    // Offline Guard
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      addOfflineAction('RESOLVER_REPORTE', {
+        reporteId: selectedReporte.id,
+        supervisorId: (session?.user as any)?.id || undefined,
+        fotoResolucionUrl: fotoEvidenciaCapturada,
+        notasResolucion: `Atendido en campo por ${supervisorCode} (Modo Offline). Foto adjunta.`,
+      });
+      setReportes((prev) =>
+        prev.map((r) =>
+          r.id === selectedReporte.id
+            ? { ...r, estado: 'RESUELTO', fotoResolucion: fotoEvidenciaCapturada, notasResolucion: `Atendido en campo (Guardado Offline en dispositivo).` }
+            : r
+        )
+      );
+      setSelectedReporte(null);
+      setFotoEvidenciaCapturada(null);
+      setOfflineCount(getOfflineQueue().length);
+      alert('📶 Guardado en tu dispositivo: No hay conexión a Internet. La resolución y foto de evidencia se subirán automáticamente en cuanto recuperes señal.');
       return;
     }
 
@@ -257,7 +351,17 @@ export default function CuadrillaPage() {
         fetchReportes();
       }
     } catch (e: any) {
-      alert(e.message || 'Error al resolver reclamo');
+      // Fallback to offline queue on network failure
+      addOfflineAction('RESOLVER_REPORTE', {
+        reporteId: selectedReporte.id,
+        supervisorId: (session?.user as any)?.id || undefined,
+        fotoResolucionUrl: fotoEvidenciaCapturada,
+        notasResolucion: `Atendido en campo por ${supervisorCode}. Foto adjunta.`,
+      });
+      setSelectedReporte(null);
+      setFotoEvidenciaCapturada(null);
+      setOfflineCount(getOfflineQueue().length);
+      alert('📶 Fallo de conexión: La acción se ha guardado en la memoria local y se sincronizará automáticamente.');
     } finally {
       setResolviendo(false);
     }
@@ -270,9 +374,30 @@ export default function CuadrillaPage() {
 
   const handleConfirmarRechazoReporte = async () => {
     if (!rechazarModalReporte) return;
+    const motivoLimpio = motivoRechazoReporte.trim() || 'Incidencia no procede según las normas operativas de recolección.';
+
+    // Offline Guard
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      addOfflineAction('RECHAZAR_REPORTE', {
+        reporteId: rechazarModalReporte.id,
+        supervisorId: (session?.user as any)?.id || undefined,
+        motivoRechazo: motivoLimpio,
+      });
+      setReportes((prev) =>
+        prev.map((r) =>
+          r.id === rechazarModalReporte.id
+            ? { ...r, estado: 'RECHAZADO', notasResolucion: `Rechazado por Cuadrilla (Offline): ${motivoLimpio}` }
+            : r
+        )
+      );
+      setRechazarModalReporte(null);
+      setOfflineCount(getOfflineQueue().length);
+      alert(`📶 Guardado en dispositivo: El rechazo del reporte ${rechazarModalReporte.folio} se sincronizará al detectar señal.`);
+      return;
+    }
+
     setProcesandoRechazoReporte(true);
     try {
-      const motivoLimpio = motivoRechazoReporte.trim() || 'Incidencia no procede según las normas operativas de recolección.';
       const res = await rechazarReporteCuadrilla({
         reporteId: rechazarModalReporte.id,
         supervisorId: (session?.user as any)?.id || undefined,
@@ -292,7 +417,14 @@ export default function CuadrillaPage() {
         fetchReportes();
       }
     } catch (e: any) {
-      alert(e.message || 'Error al rechazar reporte');
+      addOfflineAction('RECHAZAR_REPORTE', {
+        reporteId: rechazarModalReporte.id,
+        supervisorId: (session?.user as any)?.id || undefined,
+        motivoRechazo: motivoLimpio,
+      });
+      setRechazarModalReporte(null);
+      setOfflineCount(getOfflineQueue().length);
+      alert(`📶 Guardado en cola offline para sincronización automática.`);
     } finally {
       setProcesandoRechazoReporte(false);
     }
@@ -415,10 +547,36 @@ export default function CuadrillaPage() {
       {/* Field Crew Top Status Banner with Switch & Logout */}
       <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-slate-950 py-3 px-4 shadow-lg sticky top-[57px] z-40">
         <div className="max-w-4xl mx-auto flex justify-between items-center flex-wrap gap-2">
-          <div className="flex items-center gap-2 font-black text-sm tracking-tight">
+          <div className="flex items-center gap-2 font-black text-sm tracking-tight flex-wrap">
             <Truck className="w-6 h-6 animate-bounce text-slate-950" />
             <span>OPERACIÓN DE CAMPO: CAMIÓN 01</span>
             <span className="bg-slate-950 text-amber-400 px-2 py-0.5 rounded text-xs">LAS COLINAS</span>
+
+            {/* Network / Offline Sync Status Badge */}
+            {isOnline ? (
+              <span className="inline-flex items-center gap-1 bg-emerald-950 text-emerald-300 border border-emerald-500/50 px-2 py-0.5 rounded-full text-[10px] font-black">
+                <Wifi className="w-3 h-3 text-emerald-400" />
+                <span>EN LÍNEA</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 bg-red-950 text-red-200 border border-red-500/50 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
+                <WifiOff className="w-3 h-3 text-red-400" />
+                <span>MODO OFFLINE</span>
+              </span>
+            )}
+
+            {/* Offline Pending Items Badge & Sync Button */}
+            {offlineCount > 0 && (
+              <button
+                onClick={handleSincronizarManual}
+                disabled={isSyncingOffline}
+                className="inline-flex items-center gap-1 bg-slate-950 text-amber-400 hover:text-white px-2.5 py-0.5 rounded-full text-[10px] font-black border border-amber-400/50 shadow-md transition cursor-pointer"
+                title="Sincronizar cambios pendientes con la Alcaldía"
+              >
+                <RefreshCw className={`w-3 h-3 text-amber-400 ${isSyncingOffline ? 'animate-spin' : ''}`} />
+                <span>{offlineCount} pendiente{offlineCount > 1 ? 's' : ''} (Sincronizar)</span>
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <a

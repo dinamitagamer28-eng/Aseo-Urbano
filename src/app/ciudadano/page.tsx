@@ -36,9 +36,11 @@ import {
   Send,
   History,
   DollarSign,
-  ChevronRight
+  ChevronRight,
+  Calendar
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import CronogramaRutas from '@/components/CronogramaRutas';
 
 export default function CiudadanoPage() {
   const { data: session, status } = useSession();
@@ -47,7 +49,7 @@ export default function CiudadanoPage() {
   const [loading, setLoading] = useState(false);
   const [contribuyenteData, setContribuyenteData] = useState<any>(null);
   const [tasaBcv, setTasaBcv] = useState<number>(832.49);
-  const [activeTab, setActiveTab] = useState<'estado' | 'pago' | 'reportar' | 'mis-reportes'>('estado');
+  const [activeTab, setActiveTab] = useState<'estado' | 'cronograma' | 'pago' | 'reportar' | 'mis-reportes'>('estado');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Dynamic BCV fetch on mount
@@ -550,6 +552,18 @@ export default function CiudadanoPage() {
               </button>
 
               <button
+                onClick={() => setActiveTab('cronograma')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
+                  activeTab === 'cronograma'
+                    ? 'bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <Calendar className="w-4 h-4" />
+                <span>Horarios y Rutas</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('pago')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
                   activeTab === 'pago'
@@ -793,6 +807,18 @@ export default function CiudadanoPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: Cronograma de Rutas y Horarios Oficiales */}
+            {activeTab === 'cronograma' && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <CronogramaRutas
+                  userSectorNombre={inmuebleVinculado?.sector?.nombre}
+                  onSelectSector={() => {
+                    setActiveTab('estado');
+                  }}
+                />
               </div>
             )}
 
