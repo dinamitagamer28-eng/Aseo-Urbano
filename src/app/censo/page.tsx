@@ -9,6 +9,9 @@ import {
   guardarCensoCampo,
   crearNuevoInmuebleCensoCampo,
   verificarClaveAdminCenso,
+  eliminarInmuebleCenso,
+  resetearGpsCenso,
+  buscarCiudadanoPorCedula,
 } from '@/lib/actions';
 import { generarCertificadoSolvenciaPdf } from '@/lib/generarCertificadoSolvencia';
 import {
@@ -40,6 +43,10 @@ import {
   Navigation,
   ShieldCheck,
   Truck,
+  Trash2,
+  RotateCcw,
+  UserCheck,
+  KeyRound,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as XLSX from 'xlsx';
@@ -77,12 +84,14 @@ export default function CensoCampoPage() {
   const [qrModalInmueble, setQrModalInmueble] = useState<any | null>(null);
   const [editarModalInmueble, setEditarModalInmueble] = useState<any | null>(null);
 
-  // Form for New Inmueble
+  // Form for New Inmueble with Citizen Account Linking
   const [nuevoForm, setNuevoForm] = useState({
     cedulaRif: '',
     nombres: '',
     apellidos: '',
     telefonoMovil: '',
+    email: '',
+    password: '',
     sectorId: '',
     calleNombre: '',
     numeroCasaLocal: '',
@@ -91,6 +100,9 @@ export default function CensoCampoPage() {
     latitud: 10.3167,
     longitud: -72.3167,
   });
+  const [ciudadanoEncontrado, setCiudadanoEncontrado] = useState<any | null>(null);
+  const [buscandoCiudadano, setBuscandoCiudadano] = useState(false);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [guardandoNuevo, setGuardandoNuevo] = useState(false);
 
   // Check stored unlock token on mount
@@ -273,7 +285,74 @@ export default function CensoCampoPage() {
     }
   };
 
-  // Create New Inmueble in Field
+  // Search existing citizen account in real time
+  const handleBuscarCiudadano = async (ced: string) => {
+    if (!ced || ced.trim().length < 4) {
+      setCiudadanoEncontrado(null);
+      return;
+    }
+    setBuscandoCiudadano(true);
+    try {
+      const res = await buscarCiudadanoPorCedula(ced);
+      if (res.exists && res.usuario) {
+        setCiudadanoEncontrado(res.usuario);
+        setNuevoForm((prev) => ({
+          ...prev,
+          nombres: res.usuario.nombres,
+          apellidos: res.usuario.apellidos || '',
+          telefonoMovil: res.usuario.telefonoMovil || prev.telefonoMovil,
+          email: res.usuario.email || prev.email,
+        }));
+      } else {
+        setCiudadanoEncontrado(false);
+      }
+    } catch (e) {
+      console.warn('Error buscando ciudadano:', e);
+    } finally {
+      setBuscandoCiudadano(false);
+    }
+  };
+
+  // Eliminar Censo / Inmueble Completo
+  const handleEliminarCenso = async (inm: any) => {
+    const confirmacion = window.confirm(
+      `¿Estás seguro de que deseas eliminar el registro de censo del inmueble ${inm.codigoCatastral} (${inm.contribuyenteNombre} - Casa: ${inm.numeroCasaLocal})?\n\nEsta acción eliminará el inmueble y su padrón de censo.`
+    );
+    if (!confirmacion) return;
+
+    setEliminandoId(inm.id);
+    try {
+      const res = await eliminarInmuebleCenso(inm.id);
+      if (res.success) {
+        alert(`✅ El censo del inmueble ${inm.codigoCatastral} ha sido eliminado con éxito.`);
+        await cargarDatosCenso(sectorSeleccionado);
+      }
+    } catch (e: any) {
+      alert(`Error al eliminar censo: ${e?.message || 'Error desconocido'}`);
+    } finally {
+      setEliminandoId(null);
+    }
+  };
+
+  // Resetear GPS (Volver a Faltante)
+  const handleResetearGps = async (inm: any) => {
+    const confirmacion = window.confirm(
+      `¿Deseas desmarcar el censo de ${inm.codigoCatastral}? El inmueble volverá al estado "Faltante por Censar" sin coordenadas GPS.`
+    );
+    if (!confirmacion) return;
+
+    try {
+      const res = await resetearGpsCenso(inm.id);
+      if (res.success) {
+        alert(`✅ Censo desmarcado. El inmueble vuelve a estado Faltante.`);
+        await cargarDatosCenso(sectorSeleccionado);
+      }
+    } catch (e: any) {
+      alert(`Error al desmarcar censo: ${e?.message || 'Error desconocido'}`);
+    }
+  };
+
+  // Create New Inmueble in Field with Citizen Account Integration
   const handleCrearNuevoInmueble = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoForm.cedulaRif || !nuevoForm.nombres || !nuevoForm.sectorId || !nuevoForm.numeroCasaLocal) {
@@ -289,6 +368,8 @@ export default function CensoCampoPage() {
         nombres: nuevoForm.nombres,
         apellidos: nuevoForm.apellidos,
         telefonoMovil: nuevoForm.telefonoMovil,
+        email: nuevoForm.email,
+        password: nuevoForm.password,
         sectorId: nuevoForm.sectorId,
         calleNombre: nuevoForm.calleNombre || 'Calle Principal',
         numeroCasaLocal: nuevoForm.numeroCasaLocal,
@@ -301,11 +382,22 @@ export default function CensoCampoPage() {
       if (res.success) {
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
         setNuevoInmuebleModal(false);
+
+        if (res.cuentaRecienCreada) {
+          alert(
+            `🎉 ¡Vivienda censada con éxito!\n\n👤 Se creó una cuenta nueva para el contribuyente:\n• Cédula/Usuario: ${nuevoForm.cedulaRif}\n• Contraseña: ${res.passwordAsignada}\n\nEl ciudadano ya puede ingresar al Portal Ciudadano para consultar su solvencia y pagar con Pago Móvil.`
+          );
+        } else {
+          alert(`✅ Vivienda censada y vinculada exitosamente a la cuenta de ${res.usuario.nombres}.`);
+        }
+
         setNuevoForm({
           cedulaRif: '',
           nombres: '',
           apellidos: '',
           telefonoMovil: '',
+          email: '',
+          password: '',
           sectorId: sectorSeleccionado || (sectores[0]?.id || ''),
           calleNombre: '',
           numeroCasaLocal: '',
@@ -314,10 +406,11 @@ export default function CensoCampoPage() {
           latitud: 10.3167,
           longitud: -72.3167,
         });
-        await cargarDatosCenso();
+        setCiudadanoEncontrado(null);
+        await cargarDatosCenso(sectorSeleccionado);
       }
     } catch (e: any) {
-      alert(`Error al registrar vivienda en campo: ${e?.message || e}`);
+      alert(`Error al crear vivienda en censo: ${e?.message || e}`);
     } finally {
       setGuardandoNuevo(false);
     }
@@ -656,10 +749,6 @@ export default function CensoCampoPage() {
                 <span>Avance del Censo en {sectorActual?.nombre || 'Sector'}:</span>
                 <span className="text-indigo-400 font-mono font-black">{pctAvanceSector}%</span>
               </span>
-              <span className="text-slate-400">
-                <strong className="text-emerald-400 font-mono">{censadosSector}</strong> de{' '}
-                <strong className="text-white font-mono">{totalSector}</strong> viviendas censadas
-              </span>
             </div>
             <div className="w-full bg-slate-950 rounded-full h-3.5 border border-slate-800 overflow-hidden p-0.5">
               <div
@@ -898,11 +987,11 @@ export default function CensoCampoPage() {
                       </button>
 
                       {/* Secondary Buttons Row */}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           type="button"
                           onClick={() => setQrModalInmueble(inm)}
-                          className="flex-1 py-1.5 px-2 bg-slate-950 hover:bg-indigo-950/80 text-indigo-300 hover:text-white border border-indigo-500/30 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1"
+                          className="flex-1 min-w-[90px] py-1.5 px-2 bg-slate-950 hover:bg-indigo-950/80 text-indigo-300 hover:text-white border border-indigo-500/30 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1"
                           title="Generar Código QR para puerta / fachada"
                         >
                           <QrCode className="w-3.5 h-3.5 text-indigo-400" />
@@ -912,10 +1001,11 @@ export default function CensoCampoPage() {
                         <button
                           type="button"
                           onClick={() => setEditarModalInmueble(inm)}
-                          className="py-1.5 px-2.5 bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-xl text-[11px] font-bold border border-slate-800 transition"
+                          className="py-1.5 px-2.5 bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-xl text-[11px] font-bold border border-slate-800 transition flex items-center gap-1"
                           title="Editar datos de la casa"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Editar</span>
                         </button>
 
                         <button
@@ -937,11 +1027,36 @@ export default function CensoCampoPage() {
                               alert('Error al generar certificado');
                             }
                           }}
-                          className="py-1.5 px-2.5 bg-slate-950 hover:bg-slate-800 text-emerald-400 rounded-xl text-[11px] font-bold border border-slate-800 transition"
+                          className="py-1.5 px-2.5 bg-slate-950 hover:bg-slate-800 text-emerald-400 rounded-xl text-[11px] font-bold border border-slate-800 transition flex items-center gap-1"
                           title="Descargar Ficha / Certificado PDF"
                         >
                           <Award className="w-3.5 h-3.5" />
                         </button>
+
+                        {/* Botón para Eliminar Censo */}
+                        <button
+                          type="button"
+                          onClick={() => handleEliminarCenso(inm)}
+                          disabled={eliminandoId === inm.id}
+                          className="py-1.5 px-2.5 bg-slate-950 hover:bg-red-950/80 text-red-400 hover:text-white rounded-xl text-[11px] font-bold border border-red-500/30 transition flex items-center justify-center gap-1 cursor-pointer"
+                          title="Eliminar este censo e inmueble"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Eliminar</span>
+                        </button>
+
+                        {/* Botón para desmarcar censo (volver a faltante) */}
+                        {inm.censado && (
+                          <button
+                            type="button"
+                            onClick={() => handleResetearGps(inm)}
+                            className="py-1.5 px-2 bg-slate-950 hover:bg-amber-950/80 text-amber-400 rounded-xl text-[11px] font-bold border border-amber-500/30 transition flex items-center gap-1"
+                            title="Desmarcar censo (quitar coordenadas GPS)"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span className="hidden sm:inline">Reset GPS</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -962,29 +1077,46 @@ export default function CensoCampoPage() {
                     <span>Mapa Satelital de Trabajo • {sectorActual?.nombre || 'Sector'}</span>
                   </h3>
                   <p className="text-xs text-slate-400">
-                    🟢 Verde: Censados con GPS • 🔴 Rojo: Faltantes • 📍 Azul: Tu ubicación actual
+                    🟢 Casas Censadas en Satélite • 📍 Ubicación en vivo del Empadronador
                   </p>
                 </div>
-                <button
-                  onClick={capturarGpsEmpadronador}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
-                >
-                  <Crosshair className="w-3.5 h-3.5" />
-                  <span>Centrar en mi ubicación</span>
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-1 bg-emerald-950 border border-emerald-500/40 text-emerald-300 rounded-xl text-xs font-bold">
+                    🏠 {inmueblesSector.filter((i) => i.latitud && i.longitud).length} casas en este sector
+                  </span>
+                  <button
+                    onClick={capturarGpsEmpadronador}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-indigo-600/30"
+                  >
+                    <Crosshair className="w-3.5 h-3.5" />
+                    <span>Mi Ubicación</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="rounded-2xl overflow-hidden border border-slate-800">
+              <div className="rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
                 <LeafletMap
                   center={[
-                    censadorLat || sectorActual?.centroLat || 10.3167,
-                    censadorLng || sectorActual?.centroLng || -72.3167,
+                    inmueblesSector.find((i) => i.latitud && i.longitud)?.latitud ||
+                      inmuebles.find((i) => i.latitud && i.longitud)?.latitud ||
+                      censadorLat ||
+                      sectorActual?.centroLat ||
+                      10.3167,
+                    inmueblesSector.find((i) => i.latitud && i.longitud)?.longitud ||
+                      inmuebles.find((i) => i.latitud && i.longitud)?.longitud ||
+                      censadorLng ||
+                      sectorActual?.centroLng ||
+                      -72.3167,
                   ]}
-                  zoom={16}
-                  height="520px"
+                  zoom={17}
+                  height="540px"
                   interactive={true}
+                  showTruckRoute={false}
+                  simulateMovement={false}
+                  autoFollowTruck={false}
                   markers={[
-                    ...inmueblesSector
+                    // Todas las viviendas censadas del sector actual (o del municipio)
+                    ...(inmueblesSector.some((i) => i.latitud && i.longitud) ? inmueblesSector : inmuebles)
                       .filter((inm) => inm.latitud && inm.longitud)
                       .map((inm) => ({
                         id: `censo-${inm.id}`,
@@ -993,8 +1125,8 @@ export default function CensoCampoPage() {
                         title: inm.codigoCatastral,
                         description: `${inm.contribuyenteNombre} • Casa: ${inm.numeroCasaLocal}`,
                         type: 'property' as const,
-                        solvencia: inm.censado ? 'SOLVENTE' : 'MORA',
-                        status: inm.censado ? 'SOLVENTE' : 'MORA',
+                        solvencia: 'SOLVENTE',
+                        status: 'CENSADO',
                         sector: inm.sectorNombre,
                         contribuyente: inm.contribuyenteNombre,
                         cedula: inm.contribuyenteCedula,
@@ -1004,6 +1136,19 @@ export default function CensoCampoPage() {
                         referencia: inm.referenciaUbic,
                         tarifaUsd: inm.tarifaBaseUsd,
                       })),
+                    // Posición GPS del empadronador
+                    ...(censadorLat && censadorLng
+                      ? [
+                          {
+                            id: 'empadronador-gps-live',
+                            lat: censadorLat,
+                            lng: censadorLng,
+                            title: 'Tu Ubicación Actual',
+                            description: 'Empadronador de campo en vivo',
+                            type: 'user' as const,
+                          },
+                        ]
+                      : []),
                   ]}
                 />
               </div>
@@ -1140,15 +1285,20 @@ export default function CensoCampoPage() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">
-                    Cédula / RIF del Propietario <span className="text-red-400">*</span>
+                  <label className="block font-bold text-slate-300 mb-1 flex items-center justify-between">
+                    <span>Cédula / RIF <span className="text-red-400">*</span></span>
+                    {buscandoCiudadano && <span className="text-[10px] text-sky-400 animate-pulse">Buscando...</span>}
                   </label>
                   <input
                     type="text"
                     required
                     placeholder="Ej. V-18456789"
                     value={nuevoForm.cedulaRif}
-                    onChange={(e) => setNuevoForm({ ...nuevoForm, cedulaRif: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNuevoForm({ ...nuevoForm, cedulaRif: val });
+                      handleBuscarCiudadano(val);
+                    }}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500 font-mono"
                   />
                 </div>
@@ -1167,6 +1317,33 @@ export default function CensoCampoPage() {
                 </div>
               </div>
 
+              {/* Citizen Account Linking Banner */}
+              {ciudadanoEncontrado && (
+                <div className="p-3 bg-emerald-950/70 border border-emerald-500/50 rounded-2xl text-emerald-200 text-xs flex items-center gap-2.5 animate-in fade-in">
+                  <UserCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <div>
+                    <div className="font-bold text-white text-xs">
+                      ✅ Cuenta Encontrada: {ciudadanoEncontrado.nombres} ({ciudadanoEncontrado.cedulaRif})
+                    </div>
+                    <div className="text-[11px] text-emerald-300">
+                      El inmueble se vinculará directamente a su cuenta de contribuyente registrada.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {ciudadanoEncontrado === false && nuevoForm.cedulaRif.trim().length >= 5 && (
+                <div className="p-3 bg-indigo-950/60 border border-indigo-500/40 rounded-2xl text-indigo-200 text-xs space-y-1.5 animate-in fade-in">
+                  <div className="flex items-center gap-2 font-bold text-white">
+                    <KeyRound className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <span>Se creará automáticamente la Cuenta del Ciudadano</span>
+                  </div>
+                  <div className="text-[11px] text-indigo-300">
+                    El vecino podrá ingresar a la <strong>App Ciudadana</strong> con su Cédula y consultar su solvencia o pagar con Pago Móvil.
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">
@@ -1178,6 +1355,33 @@ export default function CensoCampoPage() {
                     value={nuevoForm.telefonoMovil}
                     onChange={(e) => setNuevoForm({ ...nuevoForm, telefonoMovil: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">
+                    Correo Electrónico (Opcional)
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="correo@ejemplo.com"
+                    value={nuevoForm.email}
+                    onChange={(e) => setNuevoForm({ ...nuevoForm, email: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">
+                    Contraseña Inicial (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={`Por defecto: ${nuevoForm.cedulaRif || 'Cédula'}`}
+                    value={nuevoForm.password}
+                    onChange={(e) => setNuevoForm({ ...nuevoForm, password: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500 font-mono text-xs"
                   />
                 </div>
                 <div>
@@ -1394,20 +1598,33 @@ export default function CensoCampoPage() {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-between items-center pt-3 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setEditarModalInmueble(null)}
-                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-bold"
+                  onClick={() => {
+                    handleEliminarCenso(editarModalInmueble);
+                    setEditarModalInmueble(null);
+                  }}
+                  className="px-3 py-2 bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-300 hover:text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
                 >
-                  Cancelar
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Eliminar Inmueble</span>
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold"
-                >
-                  Guardar Cambios
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditarModalInmueble(null)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold shadow-md shadow-indigo-600/30"
+                  >
+                    Guardar Cambios
+                  </button>
+                </div>
               </div>
             </form>
           </div>

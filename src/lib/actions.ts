@@ -1564,6 +1564,8 @@ export async function crearNuevoInmuebleCensoCampo(data: {
   nombres: string;
   apellidos?: string;
   telefonoMovil?: string;
+  email?: string;
+  password?: string;
   sectorId: string;
   calleNombre?: string;
   calleId?: string;
@@ -1613,18 +1615,43 @@ export async function crearNuevoInmuebleCensoCampo(data: {
       }
     }
 
-    // 3. Usuario / Contribuyente
+    // 3. Usuario / Contribuyente: Vincular a cuenta existente o crearla
+    const cleanDigits = cleanDoc.replace(/[^0-9]/g, '');
     let usuario = await prisma.usuario.findFirst({
-      where: { cedulaRif: cedulaCompleta },
+      where: {
+        OR: [
+          { cedulaRif: cedulaCompleta },
+          { cedulaRif: cleanDoc },
+          { cedulaRif: cleanDigits },
+          { cedulaRif: `V-${cleanDigits}` },
+          { cedulaRif: `E-${cleanDigits}` },
+          { cedulaRif: `J-${cleanDigits}` },
+          { cedulaRif: `G-${cleanDigits}` },
+          ...(data.email ? [{ email: data.email.trim().toLowerCase() }] : []),
+        ],
+      },
     });
 
+    let cuentaRecienCreada = false;
+    let passwordAsignada = '';
+
     if (!usuario) {
+      cuentaRecienCreada = true;
+      const bcrypt = await import('bcrypt');
+      passwordAsignada = data.password && data.password.trim() ? data.password.trim() : (cleanDoc || `V${cleanDigits}`);
+      const defaultEmail = data.email && data.email.trim()
+        ? data.email.trim().toLowerCase()
+        : `vecino_${cleanDigits || Date.now()}@rosariodeperija.gob.ve`;
+      const passwordHash = await bcrypt.hash(passwordAsignada, 10);
+
       usuario = await prisma.usuario.create({
         data: {
           tipoDoc: cedulaCompleta.substring(0, 1),
           cedulaRif: cedulaCompleta,
           nombres: data.nombres.trim(),
           apellidos: (data.apellidos || '').trim(),
+          email: defaultEmail,
+          passwordHash: passwordHash,
           telefonoMovil: (data.telefonoMovil || '0414-0000000').trim(),
           rol: 'CIUDADANO',
         },
@@ -1670,10 +1697,107 @@ export async function crearNuevoInmuebleCensoCampo(data: {
       success: true,
       inmueble,
       usuario,
+      cuentaRecienCreada,
+      passwordAsignada: cuentaRecienCreada ? passwordAsignada : undefined,
     };
   } catch (error: any) {
     console.error('Error al crear nuevo inmueble en censo:', error);
     throw new Error(error.message || 'Error al registrar nueva vivienda en campo.');
+  }
+}
+
+export async function buscarCiudadanoPorCedula(cedula: string) {
+  try {
+    if (!cedula || !cedula.trim()) return { exists: false };
+
+    const cleanRaw = cedula.trim().toUpperCase();
+    const cleanDigits = cleanRaw.replace(/[^0-9]/g, '');
+
+    const usuario = await prisma.usuario.findFirst({
+      where: {
+        OR: [
+          { cedulaRif: cleanRaw },
+          { cedulaRif: `V-${cleanDigits}` },
+          { cedulaRif: `E-${cleanDigits}` },
+          { cedulaRif: `J-${cleanDigits}` },
+          { cedulaRif: `G-${cleanDigits}` },
+          { cedulaRif: cleanDigits },
+          ...(cleanDigits.length >= 5 ? [{ cedulaRif: { contains: cleanDigits } }] : []),
+        ],
+      },
+      select: {
+        id: true,
+        nombres: true,
+        apellidos: true,
+        cedulaRif: true,
+        email: true,
+        telefonoMovil: true,
+      },
+    });
+
+    if (usuario) {
+      return { exists: true, usuario };
+    }
+
+    return { exists: false };
+  } catch (error) {
+    console.error('Error buscando ciudadano por cédula:', error);
+    return { exists: false };
+  }
+}
+
+export async function eliminarInmuebleCenso(inmuebleId: string) {
+  try {
+    if (!inmuebleId) throw new Error('ID de inmueble requerido.');
+
+    // 1. Eliminar recibos de pago
+    await prisma.reciboPago.deleteMany({
+      where: { inmuebleId },
+    });
+
+    // 2. Eliminar facturas
+    await prisma.facturaTasa.deleteMany({
+      where: { inmuebleId },
+    });
+
+    // 3. Eliminar relaciones de contribuyentes
+    await prisma.inmuebleContribuyente.deleteMany({
+      where: { inmuebleId },
+    });
+
+    // 4. Eliminar el inmueble catastral
+    const deleted = await prisma.inmuebleCatastro.delete({
+      where: { id: inmuebleId },
+    });
+
+    revalidatePath('/censo');
+    revalidatePath('/admin');
+    revalidatePath('/ciudadano');
+
+    return { success: true, deletedId: deleted.id };
+  } catch (error: any) {
+    console.error('Error al eliminar inmueble de censo:', error);
+    throw new Error(error.message || 'Error al eliminar el censo.');
+  }
+}
+
+export async function resetearGpsCenso(inmuebleId: string) {
+  try {
+    if (!inmuebleId) throw new Error('ID de inmueble requerido.');
+
+    const updated = await prisma.inmuebleCatastro.update({
+      where: { id: inmuebleId },
+      data: { latitud: null, longitud: null },
+    });
+
+    revalidatePath('/censo');
+    revalidatePath('/admin');
+    revalidatePath('/ciudadano');
+
+    return { success: true, inmueble: updated };
+  } catch (error: any) {
+    console.error('Error al resetear GPS de censo:', error);
+    throw new Error(error.message || 'Error al resetear censo.');
   }
 }
 

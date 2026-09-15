@@ -476,16 +476,18 @@ function MapInternal({
           badgeLabel = '⚪ Exonerado';
           iconLabel = '🏚️ ' + (m.codigoCatastral || m.title);
         } else {
-          // Solvente
+          // Solvente / Censado
           iconColor = '#059669';
-          iconBorder = '#a7f3d0';
-          iconLabel = '🏠 ' + (m.codigoCatastral || m.title);
+          iconBorder = '#6ee7b7';
+          const casaNom = m.numeroCasa ? `${m.numeroCasa}` : (m.codigoCatastral || m.title);
+          const contribNom = m.contribuyente ? ` (${m.contribuyente.split(' ')[0]})` : '';
+          iconLabel = `🟢 ${casaNom}${contribNom}`;
         }
 
         popupContent = `
-          <div style="min-width: 240px; max-width: 290px; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc;">
+          <div style="min-width: 250px; max-width: 300px; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc;">
             <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; padding-bottom: 5px; margin-bottom: 6px;">
-              <span style="font-size: 10px; font-weight: 900; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">📋 CATASTRO MUNICIPAL</span>
+              <span style="font-size: 10px; font-weight: 900; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">📍 INMUEBLE CENSADO</span>
               <span style="font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 9999px; background: ${solvBg}; color: ${solvText}; border: 1px solid ${solvBorder};">
                 ${badgeLabel}
               </span>
@@ -504,6 +506,7 @@ function MapInternal({
               <div style="margin-bottom: 2px;">📍 <strong>Sector:</strong> <span style="color: #facc15;">${m.sector || 'Rosario de Perijá'}</span></div>
               <div style="margin-bottom: 2px;">🚪 <strong>Casa/Local:</strong> ${m.numeroCasa || m.description || '-'}</div>
               ${m.referencia ? `<div style="font-size: 10px; color: #94a3b8; font-style: italic; margin-top: 2px;">📌 Ref: ${m.referencia}</div>` : ''}
+              <div style="font-size: 10px; color: #34d399; margin-top: 3px; font-family: monospace;">🌐 GPS: ${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}</div>
             </div>
 
             <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; background: #1e293b; padding: 5px 8px; border-radius: 6px; border: 1px solid #334155;">
@@ -530,13 +533,14 @@ function MapInternal({
             font-size: 11px;
             padding: 4px 8px;
             border-radius: 9999px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.7);
             border: 2px solid ${iconBorder};
             display: flex;
             align-items: center;
             gap: 4px;
             white-space: nowrap;
             cursor: pointer;
+            transform: translateZ(0);
           ">
             <span>${iconLabel}</span>
           </div>
@@ -548,7 +552,23 @@ function MapInternal({
       const marker = L.marker([m.lat, m.lng], { icon: customIcon }).addTo(markerGroup);
       marker.bindPopup(popupContent);
     });
-  }, [L, markers, polygons]);
+
+    // Auto fit map view to markers if available and not tracking truck
+    if (!autoFollowTruck && markers.length > 0 && mapRef.current) {
+      const validPoints = markers
+        .filter((m) => m.lat && m.lng && m.type !== 'truck')
+        .map((m) => [m.lat, m.lng] as [number, number]);
+
+      if (validPoints.length === 1) {
+        mapRef.current.setView(validPoints[0], 17);
+      } else if (validPoints.length > 1) {
+        try {
+          const bounds = L.latLngBounds(validPoints);
+          mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
+        } catch (e) {}
+      }
+    }
+  }, [L, markers, polygons, autoFollowTruck]);
 
   // Render Dynamic Garbage Truck Marker
   useEffect(() => {
