@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador de APK Flutter - Censo Territorial Alcaldía</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { background-color: #050811; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .phone-frame {
+      width: 390px;
+      height: 800px;
+      border-radius: 48px;
+      box-shadow: 0 25px 60px -15px rgba(0,0,0,0.9), 0 0 0 12px #1e293b, 0 0 0 14px #334155;
+      overflow: hidden;
+      position: relative;
+    }
+    .notch {
+      width: 140px;
+      height: 26px;
+      background: #0f172a;
+      border-bottom-left-radius: 16px;
+      border-bottom-right-radius: 16px;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+  <!-- Encabezado de la Herramienta -->
+  <div class="text-center mb-5 max-w-xl">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-bold uppercase tracking-wider mb-2">
+      📱 Simulador de APK Móvil (Flutter / Android)
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-black text-white">App Censo Territorial • Alcaldía de Rosario</h1>
+    <p class="text-xs text-slate-400 mt-1">
+      Demostración interactiva en vivo del código Flutter generado en <code class="text-sky-400 bg-slate-900 px-1.5 py-0.5 rounded">Aseo-Censo-Flutter</code> conectado al backend local.
+    </p>
+  </div>
+
+  <!-- Marco del Smartphone -->
+  <div class="phone-frame bg-slate-950 flex flex-col">
+    <!-- Notch / Cámara frontal -->
+    <div class="notch flex items-center justify-center">
+      <div class="w-3 h-3 rounded-full bg-slate-800 border border-slate-700"></div>
+    </div>
+
+    <!-- PANTALLA 1: LOGIN (Visible si no está autenticado) -->
+    <div id="screenLogin" class="flex-1 p-6 flex flex-col justify-center items-center relative z-10">
+      <div class="w-16 h-16 rounded-2xl bg-slate-900 border border-sky-500/40 flex items-center justify-center shadow-lg shadow-sky-500/20 mb-4">
+        <svg class="w-8 h-8 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      </div>
+
+      <h2 class="text-lg font-black text-white text-center">Censo Territorial Municipal</h2>
+      <p class="text-xs text-sky-400 font-semibold text-center mt-0.5">Alcaldía de Rosario de Perijá</p>
+
+      <div class="mt-2 mb-6 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-[10px] font-bold text-amber-400 flex items-center gap-1">
+        <span>🔒 USO EXCLUSIVO FUNCIONARIOS</span>
+      </div>
+
+      <div id="loginError" class="hidden w-full mb-3 p-2.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs font-semibold"></div>
+
+      <form id="loginForm" class="w-full space-y-3">
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Cédula o Correo</label>
+          <input id="loginUser" type="text" required value="V-30643300" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500" placeholder="Ej. V-30643300">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Contraseña</label>
+          <input id="loginPass" type="password" required value="1234" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500" placeholder="••••••••">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-amber-400 uppercase mb-1">Clave de Empleado Municipal</label>
+          <input id="loginKey" type="text" required value="ADMIN2026" class="w-full bg-slate-900 border border-amber-500/40 rounded-xl px-3 py-2.5 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-400" placeholder="ADMIN2026">
+        </div>
+
+        <button type="submit" class="w-full mt-4 py-3 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-sky-600/30 transition">
+          Ingresar al Sistema de Censo
+        </button>
+      </form>
+
+      <p class="text-[10px] text-slate-500 text-center mt-6">
+        Catastro y Servicios Públicos • 2026
+      </p>
+    </div>
+
+    <!-- PANTALLA 2: MAPA GPS Y CENSO (Visible al autenticar) -->
+    <div id="screenMap" class="hidden flex-1 flex flex-col relative">
+      <!-- Barra Superior de Cabecera Móvil -->
+      <div class="h-14 bg-slate-900/90 border-b border-slate-800 px-4 pt-4 flex items-center justify-between z-20 backdrop-blur-md">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <div>
+            <div class="text-xs font-extrabold text-white leading-tight">CENSO TERRITORIAL</div>
+            <div class="text-[9px] text-slate-400">Rosario de Perijá</div>
+          </div>
+        </div>
+        <button id="btnLogout" class="text-slate-400 hover:text-red-400 text-xs p-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </button>
+      </div>
+
+      <!-- Mapa Leaflet GPS a Pantalla Completa -->
+      <div id="mapContainer" class="flex-1 w-full relative z-0"></div>
+
+      <!-- Botón Flotante Satélite -->
+      <div class="absolute top-16 right-3 z-20 flex flex-col gap-2">
+        <button id="btnToggleLayer" class="w-8 h-8 rounded-xl bg-slate-900/90 border border-slate-700 text-sky-400 flex items-center justify-center shadow-lg text-xs font-bold">
+          🛰️
+        </button>
+      </div>
+
+      <!-- Hint de Instrucción Táctil -->
+      <div class="absolute top-16 left-3 z-20 pointer-events-none">
+        <div class="bg-slate-950/80 border border-slate-800 px-2.5 py-1 rounded-lg text-[10px] text-slate-300 flex items-center gap-1.5 shadow-lg backdrop-blur-md">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Toca el mapa para fijar la casa</span>
+        </div>
+      </div>
+
+      <!-- Barra Inferior Flotante de Campo (Action Dock) -->
+      <div class="absolute bottom-4 left-3 right-3 z-20">
+        <div class="bg-slate-900/95 border border-sky-500/40 rounded-2xl p-3 shadow-2xl backdrop-blur-md space-y-2">
+          <div class="flex items-center justify-between text-[10px] font-bold text-slate-300">
+            <span class="text-emerald-400 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> GPS Activo (±4m)
+            </span>
+            <span>Hoy: <strong id="lblHoy" class="text-sky-400">0</strong> | Total: <strong id="lblTotal" class="text-emerald-400">0</strong></span>
+          </div>
+
+          <div id="pinAlert" class="hidden bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded text-[9px] text-emerald-300 font-medium">
+            📍 Punto seleccionado listo para registrar
+          </div>
+
+          <button id="btnOpenModal" class="w-full py-2.5 bg-gradient-to-r from-sky-600 to-emerald-600 hover:from-sky-500 hover:to-emerald-500 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2">
+            <span class="text-base font-bold">+</span>
+            <span>Censar Casa y Ciudadano</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Bottom Sheet Deslizable -->
+      <div id="modalSheet" class="hidden absolute inset-0 bg-slate-950/80 z-30 flex flex-col justify-end backdrop-blur-sm animate-in fade-in">
+        <div class="bg-slate-900 border-t border-slate-700 rounded-t-3xl p-4 max-h-[85%] overflow-y-auto space-y-3 text-xs">
+          <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+            <h3 class="font-extrabold text-white text-sm">Registro de Censo en Campo</h3>
+            <button id="btnCloseModal" class="text-slate-400 hover:text-white text-base">✕</button>
+          </div>
+
+          <form id="censusForm" class="space-y-3">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Sector</label>
+              <select id="fieldSector" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs"></select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nº de Casa *</label>
+                <input id="fieldNumeroCasa" type="text" required placeholder="Ej. Casa #14" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs">
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tipo Inmueble</label>
+                <select id="fieldTipoInmueble" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs">
+                  <option value="RESIDENCIAL">Residencial ($2)</option>
+                  <option value="COMERCIAL_PEQ">Comercio Pequeño ($8)</option>
+                  <option value="COMERCIAL_GDE">Gran Comercio ($35)</option>
+                  <option value="BALDIO">Terreno Baldío ($1)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Cédula del Habitante / Titular *</label>
+              <div class="flex gap-1.5">
+                <input id="fieldCedula" type="text" required placeholder="18456789" class="flex-1 bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs">
+                <button type="button" id="btnBuscarCedula" class="px-3 bg-sky-600 rounded-xl text-white font-bold text-xs">Buscar</button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombres *</label>
+                <input id="fieldNombres" type="text" required placeholder="Juan" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs">
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Apellidos</label>
+                <input id="fieldApellidos" type="text" placeholder="Pérez" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Teléfono WhatsApp</label>
+              <input id="fieldTelefono" type="tel" placeholder="0414-1234567" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs">
+            </div>
+
+            <button type="submit" id="btnGuardarCenso" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-xs rounded-xl shadow-lg mt-2">
+              Confirmar y Guardar Censo
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Variables de Estado
+    let map, satelliteLayer, streetsLayer;
+    let currentMarker, targetMarker, houseMarkersLayer;
+    let selectedLatLng = null;
+    let userLatLng = [10.3180, -72.3150];
+    let isSatellite = true;
+    let sectores = [];
+
+    // 1. Manejo del Login
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const key = document.getElementById('loginKey').value.trim().toUpperCase();
+      const errBox = document.getElementById('loginError');
+
+      if (key !== 'ADMIN2026' && key !== 'CUADRILLA2026' && key !== 'ROSARIO2026') {
+        errBox.textContent = 'Clave de Empleado inválida. Acceso exclusivo para la Alcaldía.';
+        errBox.classList.remove('hidden');
+        return;
+      }
+
+      errBox.classList.add('hidden');
+      document.getElementById('screenLogin').classList.add('hidden');
+      document.getElementById('screenMap').classList.remove('hidden');
+
+      setTimeout(initMap, 200);
+      loadCensoData();
+    });
+
+    document.getElementById('btnLogout').addEventListener('click', () => {
+      document.getElementById('screenMap').classList.add('hidden');
+      document.getElementById('screenLogin').classList.remove('hidden');
+    });
+
+    // 2. Inicialización del Mapa Leaflet
+    function initMap() {
+      if (map) return;
+
+      map = L.map('mapContainer', { zoomControl: false, attributionControl: false }).setView(userLatLng, 17);
+
+      satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+      streetsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
+
+      satelliteLayer.addTo(map);
+      houseMarkersLayer = L.layerGroup().addTo(map);
+
+      // Marcador del Censista
+      currentMarker = L.circleMarker(userLatLng, {
+        radius: 8,
+        fillColor: '#0284c7',
+        color: '#ffffff',
+        weight: 3,
+        opacity: 1,
+        fillOpacity: 0.9
+      }).addTo(map);
+
+      // Clic en el mapa para fijar casa
+      map.on('click', (e) => {
+        selectedLatLng = e.latlng;
+        if (targetMarker) map.removeLayer(targetMarker);
+
+        targetMarker = L.marker(selectedLatLng, {
+          icon: L.divIcon({
+            html: '<div style="background:#10b981; border:2px solid white; border-radius:50%; width:20px; height:20px; box-shadow:0 0 10px #10b981;"></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          })
+        }).addTo(map);
+
+        document.getElementById('pinAlert').classList.remove('hidden');
+      });
+    }
+
+    // Cambiar capa Satélite / Calles
+    document.getElementById('btnToggleLayer').addEventListener('click', () => {
+      isSatellite = !isSatellite;
+      if (isSatellite) {
+        map.removeLayer(streetsLayer);
+        map.addLayer(satelliteLayer);
+      } else {
+        map.removeLayer(satelliteLayer);
+        map.addLayer(streetsLayer);
+      }
+    });
+
+    // Cargar datos de la API de la Alcaldía
+    async function loadCensoData() {
+      try {
+        const res = await fetch('http://localhost:5000/api/censo');
+        const data = await res.json();
+        if (data.success) {
+          sectores = data.sectores || [];
+          document.getElementById('lblHoy').textContent = data.censadosHoy || 0;
+          document.getElementById('lblTotal').textContent = data.totalInmuebles || 0;
+
+          // Poblar sectores en el select
+          const selSector = document.getElementById('fieldSector');
+          selSector.innerHTML = sectores.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+
+          // Marcadores de casas
+          houseMarkersLayer.clearLayers();
+          (data.inmuebles || []).forEach(inm => {
+            if (inm.latitud && inm.longitud) {
+              const marker = L.circleMarker([inm.latitud, inm.longitud], {
+                radius: 6,
+                fillColor: inm.tipoInmueble.includes('COMERCIAL') ? '#f59e0b' : '#38bdf8',
+                color: '#ffffff',
+                weight: 1.5,
+                fillOpacity: 0.8
+              });
+              marker.bindPopup(`<b>${inm.codigoCatastral}</b><br>${inm.numeroCasaLocal}<br>${inm.propietarioNombre}`);
+              houseMarkersLayer.addLayer(marker);
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Backend API:', err);
+      }
+    }
+
+    // Modal
+    document.getElementById('btnOpenModal').addEventListener('click', () => {
+      document.getElementById('modalSheet').classList.remove('hidden');
+    });
+
+    document.getElementById('btnCloseModal').addEventListener('click', () => {
+      document.getElementById('modalSheet').classList.add('hidden');
+    });
+
+    // Búsqueda de Cédula
+    document.getElementById('btnBuscarCedula').addEventListener('click', async () => {
+      const cedula = document.getElementById('fieldCedula').value.trim();
+      if (!cedula) return;
+      try {
+        const res = await fetch('http://localhost:5000/api/censo/buscar', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ cedula })
+        });
+        const data = await res.json();
+        if (data.encontrado && data.usuario) {
+          document.getElementById('fieldNombres').value = data.usuario.nombres || '';
+          document.getElementById('fieldApellidos').value = data.usuario.apellidos || '';
+          document.getElementById('fieldTelefono').value = data.usuario.telefonoMovil || '';
+        }
+      } catch (_) {}
+    });
+
+    // Guardar Censo
+    document.getElementById('censusForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const sectorId = document.getElementById('fieldSector').value;
+      const numeroCasaLocal = document.getElementById('fieldNumeroCasa').value;
+      const tipoInmueble = document.getElementById('fieldTipoInmueble').value;
+      const cedulaNumero = document.getElementById('fieldCedula').value;
+      const nombres = document.getElementById('fieldNombres').value;
+      const apellidos = document.getElementById('fieldApellidos').value;
+      const telefonoMovil = document.getElementById('fieldTelefono').value;
+
+      const payload = {
+        sectorId,
+        calleId: sectores[0]?.callesTramos?.[0]?.id || 'calle-principal',
+        numeroCasaLocal,
+        tipoInmueble,
+        tarifaBaseUsd: tipoInmueble === 'RESIDENCIAL' ? 2.0 : 8.0,
+        latitud: selectedLatLng ? selectedLatLng.lat : userLatLng[0],
+        longitud: selectedLatLng ? selectedLatLng.lng : userLatLng[1],
+        tipoDoc: 'V',
+        cedulaNumero,
+        nombres,
+        apellidos,
+        telefonoMovil
+      };
+
+      try {
+        const res = await fetch('http://localhost:5000/api/censo', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const resData = await res.json();
+        if (resData.success) {
+          alert('¡Censo guardado exitosamente en el servidor de la Alcaldía!');
+          document.getElementById('modalSheet').classList.add('hidden');
+          document.getElementById('censusForm').reset();
+          document.getElementById('pinAlert').classList.add('hidden');
+          loadCensoData();
+        } else {
+          alert(resData.error || 'Error al guardar');
+        }
+      } catch (err) {
+        alert('Error de conexión con el servidor de la Alcaldía');
+      }
+    });
+  </script>
+</body>
+</html>

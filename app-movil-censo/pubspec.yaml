@@ -1,0 +1,26 @@
+name: censo_alcaldia_app
+description: "Aplicativo Móvil Exclusivo para Funcionarios de la Alcaldía de Rosario de Perijá - Censo Territorial con GPS"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  geolocator: ^13.0.2
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
+  intl: ^0.19.0
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
