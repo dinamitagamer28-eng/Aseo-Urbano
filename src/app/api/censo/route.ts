@@ -169,11 +169,10 @@ export async function POST(request: Request) {
       });
     }
 
-    // Garantizar que la coordenada esté dentro de La Villa del Rosario
-    let finalLat = Number(latitud || lat || 10.3267);
-    let finalLng = Number(longitud || lng || -72.3125);
-    const isInsideRosario = (finalLat >= 10.27 && finalLat <= 10.38 && finalLng >= -72.37 && finalLng <= -72.25);
-    if (!isInsideRosario) {
+    // Guardar coordenadas exactas capturadas por el dispositivo móvil en tiempo real
+    let finalLat = Number(latitud !== undefined && latitud !== null ? latitud : lat);
+    let finalLng = Number(longitud !== undefined && longitud !== null ? longitud : lng);
+    if (isNaN(finalLat) || isNaN(finalLng) || (finalLat === 0 && finalLng === 0)) {
       finalLat = resolvedSector.centroLat || 10.3267;
       finalLng = resolvedSector.centroLng || -72.3125;
     }
