@@ -1372,22 +1372,63 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
         function isInsideRosario(lat, lng) {
       if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) return false;
-      // Perímetro urbano y periurbano de La Villa del Rosario de Perijá, Zulia
       return (lat >= 10.2500 && lat <= 10.4000 && lng >= -72.3800 && lng <= -72.2400);
     }
 
-    function updateCensusButtonState() {
-      const btnOpen = document.getElementById('btn-open-modal');
-      if (!btnOpen) return;
-      const inside = isInsideRosario(currentLat, currentLng);
-      if (inside) {
-        btnOpen.style.opacity = '1';
-        btnOpen.style.borderColor = '#10b981';
-        btnOpen.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span>+ Censar Casa Aquí</span>';
+    // BLOQUEO TOTAL DE FORMULARIO SI ESTÁ FUERA DE LA VILLA DEL ROSARIO
+    function setFormBlockedState(blocked, lat, lng) {
+      const form = document.getElementById('census-form');
+      if (!form) return;
+      const elementsToToggle = [
+        'inmueble-sector',
+        'inmueble-calle',
+        'inmueble-numero',
+        'inmueble-tipo',
+        'inmueble-ref',
+        'ciudadano-tipo-doc',
+        'ciudadano-cedula',
+        'btn-search-ced',
+        'ciudadano-nombre',
+        'ciudadano-telefono',
+        'ciudadano-parentesco',
+        'ciudadano-hab'
+      ];
+
+      const submitBtn = form.querySelector('button[type="submit"]');
+
+      elementsToToggle.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.disabled = blocked;
+          el.style.opacity = blocked ? '0.45' : '1';
+          el.style.cursor = blocked ? 'not-allowed' : 'auto';
+        }
+      });
+
+      const calleInput = document.getElementById('inmueble-calle');
+      if (blocked) {
+        if (calleInput) {
+          calleInput.dataset.prev = calleInput.value;
+          calleInput.value = '🚫 Bloqueado (Fuera de La Villa del Rosario)';
+        }
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.style.background = '#334155';
+          submitBtn.style.cursor = 'not-allowed';
+          submitBtn.style.opacity = '0.6';
+          submitBtn.innerHTML = '<span>🔒 Censo Bloqueado (Fuera de La Villa del Rosario)</span>';
+        }
       } else {
-        btnOpen.style.opacity = '0.85';
-        btnOpen.style.borderColor = '#f59e0b';
-        btnOpen.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg><span style="color:#fbbf24;">🔒 Fuera de La Villa (Bloqueado)</span>';
+        if (calleInput && calleInput.value.includes('Bloqueado')) {
+          calleInput.value = calleInput.dataset.prev || '';
+        }
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.style.background = 'linear-gradient(135deg, #059669, #0284c7)';
+          submitBtn.style.cursor = 'pointer';
+          submitBtn.style.opacity = '1';
+          submitBtn.innerHTML = '✓ Guardar en Base de Datos';
+        }
       }
     }
 
@@ -1527,16 +1568,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
       drawRosarioSectors();
 
       map.on('click', (e) => {
-        if (!isInsideRosario(currentLat, currentLng)) {
-          alert('🚫 OPCIÓN DE CENSO BLOQUEADA\n\nEstás fuera del área de La Villa del Rosario (ej: Maracaibo). No puedes registrar predios fuera del municipio.');
-          return;
-        }
         let lat = e.latlng.lat;
         let lng = e.latlng.lng;
-        if (!isInsideRosario(lat, lng)) {
-          alert('🚫 Punto fuera de jurisdicción: Solo puedes censar predios dentro del área de La Villa del Rosario.');
-          return;
-        }
+// click en mapa
         updateExactCoords(lat, lng);
         setPointMarker(lat, lng);
         openModal();
@@ -1647,44 +1681,31 @@ svg.leaflet-image-layer.leaflet-interactive path {
         }
 
         const inside = isInsideRosario(lat, lng);
-        const submitBtn = document.querySelector('#census-form button[type="submit"]');
 
         if (inside) {
+          // DENTRO DE LA VILLA DEL ROSARIO: HABILITADO NORMAL
+          setFormBlockedState(false);
           updateExactCoords(lat, lng, '✓ En tus Manos (±' + Math.round(acc || 5) + 'm)');
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.style.background = 'linear-gradient(135deg, #059669, #0284c7)';
-            submitBtn.style.cursor = 'pointer';
-            submitBtn.style.opacity = '1';
-            submitBtn.innerHTML = '✓ Guardar en Base de Datos';
-          }
           btn.innerHTML = '<span>✓ ¡Punto Marcado en tus Manos!</span>';
           setTimeout(() => { btn.innerHTML = prevHtml; }, 2500);
         } else {
-          // FUERA DE LA VILLA DEL ROSARIO (EJ: MARACAIBO) -> BLOQUEAR CENSO
+          // FUERA DE LA VILLA DEL ROSARIO (EJ: MARACAIBO): BLOQUEO TOTAL DE CALLE, AV Y CENSO
+          setFormBlockedState(true, lat, lng);
           updateExactCoords(lat, lng, '🚫 Fuera de La Villa (Bloqueado)');
           coordsStatusBadge.style.background = '#ef4444';
           coordsStatusBadge.style.color = '#ffffff';
 
-          if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.style.background = '#475569';
-            submitBtn.style.cursor = 'not-allowed';
-            submitBtn.style.opacity = '0.6';
-            submitBtn.innerHTML = '🔒 Censo Bloqueado (Fuera de La Villa)';
-          }
-
           btn.innerHTML = '<span>⚠️ Fuera de La Villa</span>';
           setTimeout(() => { btn.innerHTML = prevHtml; }, 3000);
 
-          alert('🚫 CENSO BLOQUEADO POR GEOLOCALIZACIÓN\n\n' +
+          alert('🚫 ZONA FUERA DE COBERTURA DEL ASEO URBANO\n\n' +
                 '• Ubicación detectada en tus manos: ' + lat.toFixed(6) + '° N, ' + lng.toFixed(6) + '° O\n\n' +
                 'Te encuentras fuera del área de La Villa del Rosario (ej: Maracaibo).\n\n' +
-                'La opción de censar ha sido bloqueada porque no estás dentro de la zona del Aseo Urbano ni en el municipio Rosario de Perijá.');
+                'Se ha bloqueado la opción de censar: no se permite seleccionar calle, avenida ni registrar viviendas fuera de la zona del Aseo de La Villa del Rosario.');
         }
       }
 
-      // 1. Si tenemos AndroidGPS nativo (hardware satelital / antenas)
+      // 1. Intentar con puente Android nativo de hardware
       if (window.AndroidGPS) {
         try {
           if (typeof window.AndroidGPS.refreshGps === 'function') window.AndroidGPS.refreshGps();
@@ -1709,7 +1730,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
             applyCapturedPoint(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
           },
           (err) => {
-            // Si hay error o demora, usar la última coordenada disponible del teléfono
             let lat = currentLat;
             let lng = currentLng;
             applyCapturedPoint(lat, lng, 5);
@@ -1746,16 +1766,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
       if (typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng)) {
         currentLat = lat;
         currentLng = lng;
-        const inside = isInsideRosario(lat, lng);
-        if (inside) {
-          gpsAccuracy.textContent = '±' + Math.round(acc || 5) + 'm (La Villa)';
-          gpsAccuracy.style.color = '#38bdf8';
-        } else {
-          gpsAccuracy.textContent = '⚠️ Fuera de La Villa (±' + Math.round(acc || 5) + 'm)';
-          gpsAccuracy.style.color = '#f87171';
-        }
+        gpsAccuracy.textContent = '±' + Math.round(acc || 5) + 'm';
         if (workerMarker) workerMarker.setLatLng([currentLat, currentLng]);
-        updateCensusButtonState();
       }
     };
 
@@ -1769,7 +1781,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
             if (p.length >= 2) {
               let lt = parseFloat(p[0]);
               let ln = parseFloat(p[1]);
-              // sin forzar clamp
+              // GPS real
               window.onNativeGps(lt, ln, parseFloat(p[2] || 5), 'GPS Hardware');
               return;
             }
@@ -1781,7 +1793,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
           (pos) => {
             let lt = pos.coords.latitude;
             let ln = pos.coords.longitude;
-            // sin forzar clamp
+            // GPS real
             window.onNativeGps(lt, ln, pos.coords.accuracy, 'GPS Web');
           },
           () => window.onNativeGps(VILLA_ROSARIO[0], VILLA_ROSARIO[1], 5, 'Villa del Rosario'),
@@ -1810,17 +1822,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
         lat = sc[0];
         lng = sc[1];
       }
+      setFormBlockedState(false);
       updateExactCoords(lat, lng, selectedLat ? '✓ Capturada' : 'Fijada');
       modalOverlay.classList.add('open');
     }
 
     document.getElementById('btn-open-modal').addEventListener('click', () => {
-      if (!isInsideRosario(currentLat, currentLng)) {
-        alert('🚫 OPCIÓN DE CENSO BLOQUEADA\n\n' +
-              'Tu teléfono se encuentra fuera del área de La Villa del Rosario de Perijá (ej: Maracaibo).\n\n' +
-              'No puedes censar porque no estás en la zona del Aseo Urbano ni en el territorio de La Villa del Rosario.');
-        return;
-      }
       const sectorVal = document.getElementById('inmueble-sector').value;
       const sc = SECTOR_COORDS[sectorVal] || VILLA_ROSARIO;
       const lat = selectedLat || currentLat || sc[0];
@@ -1881,8 +1888,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
         lngGuardar = sc[1];
       }
 
-      if (!isInsideRosario(latGuardar, lngGuardar) || !isInsideRosario(currentLat, currentLng)) {
-        alert('🚫 OPERACIÓN BLOQUEADA\n\nNo puedes guardar este censo porque te encuentras fuera del municipio La Villa del Rosario de Perijá (ej: Maracaibo) y fuera de la zona del Aseo Urbano.');
+      if (!isInsideRosario(latGuardar, lngGuardar)) {
+        alert('🚫 OPERACIÓN BLOQUEADA: No puedes registrar un censo fuera del área de La Villa del Rosario de Perijá.');
         return;
       }
 
