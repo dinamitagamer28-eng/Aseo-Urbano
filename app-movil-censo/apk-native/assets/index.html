@@ -714,7 +714,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
       100% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0); }
     }
 
-    /* PINES DE CASAS EN EL MAPA CON VISIBILIDAD SATELITAL DE ALTO CONTRASTE */
     .house-pin-wrapper {
       position: relative;
       cursor: pointer;
@@ -745,8 +744,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
     }
 
     .selected-marker {
-      width: 22px;
-      height: 22px;
+      width: 24px;
+      height: 24px;
       background: #ef4444;
       border: 3px solid #ffffff;
       border-radius: 50%;
@@ -987,7 +986,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
       font-weight: bold;
     }
 
-    /* POPUP DE LEAFLET PERSONALIZADO */
     .leaflet-popup-content-wrapper {
       background: #0f172a !important;
       color: #f8fafc !important;
@@ -1129,7 +1127,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     </div>
   </div>
 
-  <!-- MODAL DE CENSO -->
+  <!-- MODAL DE CENSO CON VISUALIZACIÓN EXACTA Y BOTÓN DE CAPTURA -->
   <div id="modal-overlay" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-header">
@@ -1148,9 +1146,34 @@ svg.leaflet-image-layer.leaflet-interactive path {
       </div>
 
       <form id="census-form" class="modal-body">
-        <div style="background: #1e293b; padding: 8px 12px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 11px; color: #94a3b8;">📍 Coordenada Fija en La Villa:</span>
-          <span id="coords-text" style="font-size: 11px; font-family: monospace; color: #38bdf8; font-weight: bold;">-- , --</span>
+
+        <!-- PANEL DE COORDENADAS EXACTAS Y BOTÓN DE CAPTURA -->
+        <div style="background: #1e293b; border: 1px solid rgba(56, 189, 248, 0.35); padding: 12px; border-radius: 14px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+              <span style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase;">Zona Marcada en La Villa</span>
+            </div>
+            <span id="coords-status-badge" style="font-size: 10px; background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 2px 8px; border-radius: 8px; font-weight: bold;">Fijada</span>
+          </div>
+
+          <!-- LATITUD Y LONGITUD CLARAS Y DESGLOSADAS -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #0f172a; padding: 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.08);">
+            <div>
+              <div style="font-size: 10px; color: #94a3b8; font-weight: 700;">LATITUD (N):</div>
+              <div id="lat-display" style="font-size: 13px; font-family: monospace; color: #ffffff; font-weight: 800;">10.326700 N</div>
+            </div>
+            <div>
+              <div style="font-size: 10px; color: #94a3b8; font-weight: 700;">LONGITUD (O):</div>
+              <div id="lng-display" style="font-size: 13px; font-family: monospace; color: #ffffff; font-weight: 800;">-72.312500 O</div>
+            </div>
+          </div>
+
+          <!-- BOTÓN DE CAPTURAR COORDENADAS ABAJO DE LAS COORDENADAS -->
+          <button type="button" id="btn-capture-coords" style="width: 100%; padding: 10px; border-radius: 10px; background: rgba(2, 132, 199, 0.2); border: 1px solid #0284c7; color: #38bdf8; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+            <span>🎯 Capturar Coordenadas del Punto</span>
+          </button>
         </div>
 
         <div style="font-size: 11px; font-weight: 800; color: #38bdf8;">1. UBICACIÓN Y VIVIENDA</div>
@@ -1251,7 +1274,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     </div>
   </div>
 
-  <!-- MODAL DE LISTA DE CASAS CENSADAS (CATASTRO) CON OPCIÓN DE VER EN MAPA Y BORRAR -->
+  <!-- MODAL DE LISTA DE CATASTRO (SIN BOTÓN DE BORRAR PARA SEGURIDAD) -->
   <div id="modal-list" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-header">
@@ -1307,7 +1330,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <script>
     const VILLA_ROSARIO = [10.3267, -72.3125];
     let currentLat = VILLA_ROSARIO[0], currentLng = VILLA_ROSARIO[1];
-    let selectedLat = null, selectedLng = null;
+    let selectedLat = VILLA_ROSARIO[0], selectedLng = VILLA_ROSARIO[1];
     let map = null, workerMarker = null, selectedPointMarker = null;
     let satLayer = null, labelsLayer = null, streetsLayer = null;
     let houseMarkers = [];
@@ -1315,7 +1338,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
     const DEFAULT_SERVER = 'http://192.168.86.250:5000';
     let serverBaseUrl = localStorage.getItem('alcaldia_server_url') || DEFAULT_SERVER;
 
-    // BASE DE DATOS LOCAL
     let censos = [];
 
     const SECTOR_COORDS = {
@@ -1360,9 +1382,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
     const dbStatusText = document.getElementById('db-status-text');
     const serverDot = document.getElementById('server-dot');
     const modalOverlay = document.getElementById('modal-overlay');
-    const coordsText = document.getElementById('coords-text');
+    const latDisplay = document.getElementById('lat-display');
+    const lngDisplay = document.getElementById('lng-display');
+    const coordsStatusBadge = document.getElementById('coords-status-badge');
 
-    // Auto-login si la sesión está guardada
     if (localStorage.getItem('alcaldia_session')) {
       startApp();
     }
@@ -1393,7 +1416,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
       checkServerHealth();
     }
 
-    // CARGA DE CENSOS (Persistente entre sesiones: local + servidor central)
     async function loadCensosData() {
       const raw = localStorage.getItem('alcaldia_censos');
       if (raw) {
@@ -1402,7 +1424,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
       censusCount.textContent = censos.length;
       renderSavedHouses();
 
-      // Sincronizar predios registrados en el servidor central
       try {
         const res = await fetch(serverBaseUrl + '/api/censo');
         const data = await res.json();
@@ -1460,19 +1481,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
         minZoom: 14
       }).setView(VILLA_ROSARIO, 16);
 
-      // Esri Satelital HD
       satLayer = L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         { maxZoom: 19 }
       );
 
-      // Esri Nombres de Calles y Sectores
       labelsLayer = L.tileLayer(
         'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
         { maxZoom: 19, opacity: 0.95 }
       );
 
-      // Calles OSM
       streetsLayer = L.tileLayer(
         'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         { maxZoom: 19, subdomains: ['a', 'b', 'c'] }
@@ -1481,7 +1499,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
       satLayer.addTo(map);
       labelsLayer.addTo(map);
 
-      // Marcador Operario
       const workerIcon = L.divIcon({
         className: 'worker-marker',
         iconSize: [24, 24],
@@ -1499,9 +1516,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
           lat = VILLA_ROSARIO[0];
           lng = VILLA_ROSARIO[1];
         }
-        selectedLat = lat;
-        selectedLng = lng;
-        setPointMarker(selectedLat, selectedLng);
+        updateExactCoords(lat, lng);
+        setPointMarker(lat, lng);
         openModal();
       });
 
@@ -1517,26 +1533,23 @@ svg.leaflet-image-layer.leaflet-interactive path {
       if (selectedPointMarker && map) map.removeLayer(selectedPointMarker);
       const icon = L.divIcon({
         className: 'selected-marker',
-        iconSize: [22, 22],
-        iconAnchor: [11, 11]
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
       });
       selectedPointMarker = L.marker([lat, lng], { icon: icon }).addTo(map);
     }
 
     function drawRosarioSectors() {
-      // Casco Central
       L.polygon([
         [10.3295, -72.3155], [10.3295, -72.3095], [10.3235, -72.3095], [10.3235, -72.3155]
       ], { color: '#0284c7', fillColor: '#0284c7', fillOpacity: 0.12, weight: 2 })
       .addTo(map).bindPopup('<strong>Sector Casco Central</strong><br>Alcaldía & Plaza Bolívar');
 
-      // Las Colinas
       L.polygon([
         [10.3205, -72.3205], [10.3205, -72.3135], [10.3145, -72.3135], [10.3145, -72.3205]
       ], { color: '#10b981', fillColor: '#10b981', fillOpacity: 0.12, weight: 2 })
       .addTo(map).bindPopup('<strong>Urb. Las Colinas</strong><br>Rosario de Perijá');
 
-      // Eje Vial Av. Bolívar
       L.polyline([
         [10.3150, -72.3125], [10.3200, -72.3125], [10.3267, -72.3125], [10.3350, -72.3125], [10.3420, -72.3125]
       ], { color: '#f59e0b', weight: 4, dashArray: '8, 6', opacity: 0.8 })
@@ -1550,6 +1563,21 @@ svg.leaflet-image-layer.leaflet-interactive path {
       }
       document.getElementById('inmueble-sector').value = name;
       onSectorChange(true);
+    }
+
+    function updateExactCoords(lat, lng, statusText = 'Fijada') {
+      selectedLat = lat;
+      selectedLng = lng;
+      latDisplay.textContent = lat.toFixed(6) + ' N';
+      lngDisplay.textContent = lng.toFixed(6) + ' O';
+      coordsStatusBadge.textContent = statusText;
+      if (statusText.includes('Capturada')) {
+        coordsStatusBadge.style.background = '#0284c7';
+        coordsStatusBadge.style.color = '#ffffff';
+      } else {
+        coordsStatusBadge.style.background = 'rgba(16, 185, 129, 0.2)';
+        coordsStatusBadge.style.color = '#10b981';
+      }
     }
 
     function onSectorChange(clearCalle = true) {
@@ -1573,14 +1601,33 @@ svg.leaflet-image-layer.leaflet-interactive path {
       }
 
       const sc = SECTOR_COORDS[sector] || VILLA_ROSARIO;
-      selectedLat = sc[0];
-      selectedLng = sc[1];
-      setPointMarker(selectedLat, selectedLng);
-      coordsText.textContent = selectedLat.toFixed(6) + ', ' + selectedLng.toFixed(6);
+      updateExactCoords(sc[0], sc[1]);
+      setPointMarker(sc[0], sc[1]);
       if (map && modalOverlay.classList.contains('open')) {
-        map.setView([selectedLat, selectedLng], 17);
+        map.setView([sc[0], sc[1]], 17);
       }
     }
+
+    // BOTÓN DE CAPTURAR COORDENADAS EXACTAS
+    document.getElementById('btn-capture-coords').addEventListener('click', () => {
+      let lat = currentLat;
+      let lng = currentLng;
+      if (map) {
+        const center = map.getCenter();
+        lat = selectedLat || center.lat;
+        lng = selectedLng || center.lng;
+      }
+      if (!isInsideRosario(lat, lng)) {
+        const sectorVal = document.getElementById('inmueble-sector').value;
+        const sc = SECTOR_COORDS[sectorVal] || VILLA_ROSARIO;
+        lat = sc[0];
+        lng = sc[1];
+      }
+
+      updateExactCoords(lat, lng, '✓ Capturada');
+      setPointMarker(lat, lng);
+      if (map) map.setView([lat, lng], 18);
+    });
 
     // CAPAS
     const btnSat = document.getElementById('btn-layer-sat');
@@ -1672,18 +1719,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
         lat = sc[0];
         lng = sc[1];
       }
-      selectedLat = lat;
-      selectedLng = lng;
-      coordsText.textContent = lat.toFixed(6) + ', ' + lng.toFixed(6);
+      updateExactCoords(lat, lng);
       modalOverlay.classList.add('open');
     }
 
     document.getElementById('btn-open-modal').addEventListener('click', () => {
       const sectorVal = document.getElementById('inmueble-sector').value;
       const sc = SECTOR_COORDS[sectorVal] || VILLA_ROSARIO;
-      selectedLat = isInsideRosario(currentLat, currentLng) ? currentLat : sc[0];
-      selectedLng = isInsideRosario(currentLat, currentLng) ? currentLng : sc[1];
-      setPointMarker(selectedLat, selectedLng);
+      const lat = isInsideRosario(currentLat, currentLng) ? currentLat : sc[0];
+      const lng = isInsideRosario(currentLat, currentLng) ? currentLng : sc[1];
+      updateExactCoords(lat, lng);
+      setPointMarker(lat, lng);
       openModal();
     });
 
@@ -1762,13 +1808,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
         synced: false
       };
 
-      // Guardar en array local y localStorage
       censos.unshift(nuevoRegistro);
       localStorage.setItem('alcaldia_censos', JSON.stringify(censos));
       censusCount.textContent = censos.length;
       renderSavedHouses();
 
-      // Guardar en servidor
       let syncOk = false;
       try {
         const response = await fetch(serverBaseUrl + '/api/censo', {
@@ -1796,13 +1840,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
       onSectorChange(false);
 
       if (syncOk) {
-        alert('✅ ¡Vivienda y habitante guardados y sincronizados en la base de datos municipal!');
+        alert('✅ ¡Vivienda y habitante guardados y sincronizados con coordenadas exactas!');
       } else {
-        alert('💾 ¡Guardado en la base de datos de tu teléfono! Se reflejará siempre en el GPS y se subirá al servidor cuando haya conexión.');
+        alert('💾 ¡Guardado en la base de datos de tu teléfono con coordenadas exactas!');
       }
     });
 
-    // PINTAR CASAS EN EL MAPA CON PUNTOS DE REFERENCIA DESTACADOS
+    // PINTAR CASAS EN EL MAPA CON PUNTOS DE REFERENCIA
     function renderSavedHouses() {
       if (!map) return;
       houseMarkers.forEach(m => map.removeLayer(m));
@@ -1810,7 +1854,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
       censos.forEach(c => {
         if (c.lat && c.lng) {
-          // Marcador con ícono de casa visible en satélite
           const houseIcon = L.divIcon({
             className: 'house-pin-wrapper',
             html: '<div class="house-pin ' + (c.synced ? '' : 'house-pin-pending') + '"><span class="house-pin-inner">🏠</span></div>',
@@ -1821,7 +1864,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
           const pin = L.marker([c.lat, c.lng], { icon: houseIcon }).addTo(map);
 
-          // Popup detallado con Punto de Referencia destacado
           const popupHtml = 
             '<div style="min-width: 200px; padding: 2px;">' +
               '<div style="font-weight: 800; color: #38bdf8; font-size: 13px; margin-bottom: 2px;">' +
@@ -1832,7 +1874,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
               '</div>' +
               '<div style="font-size: 11px; color: #cbd5e1; margin-bottom: 6px;">' +
                 '<strong>Habitante:</strong> ' + c.nombre + ' (' + c.cedula + ')<br>' +
-                '<strong>Teléfono:</strong> ' + (c.telefono || 'S/N') +
+                '<strong>Teléfono:</strong> ' + (c.telefono || 'S/N') + '<br>' +
+                '<strong>Coord:</strong> <span style="font-family:monospace;">' + c.lat.toFixed(6) + ', ' + c.lng.toFixed(6) + '</span>' +
               '</div>' +
               '<div style="font-size: 11px; color: #fef08a; background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.4); padding: 5px 8px; border-radius: 8px; margin-bottom: 6px;">' +
                 '<strong>📍 Punto de Referencia:</strong><br>' + (c.referencia || 'Frente a la calle principal') +
@@ -1860,7 +1903,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       document.getElementById('modal-list').classList.remove('open');
     }
 
-    // RENDERIZAR LISTA CON BOTONES "VER EN MAPA" Y "BORRAR CENSO"
+    // LISTA DE CATASTRO PROFESIONAL (ÚNICAMENTE OPCIÓN VER EN MAPA)
     function renderCensusList() {
       const container = document.getElementById('census-list-container');
       const query = (document.getElementById('search-list-input').value || '').toLowerCase();
@@ -1899,36 +1942,28 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <strong>Ref:</strong> ${c.referencia || 'Sin referencia registrada'}
           </div>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; gap:8px;">
-            <span style="font-size:10px; color:#64748b; font-family:monospace;">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</span>
-            <div style="display:flex; gap:6px;">
-              <button onclick="zoomToHouse('${c.id}')" style="padding:6px 12px; border-radius:8px; background:#0284c7; color:#fff; border:none; font-size:11px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:4px;">
-                🗺️ Ver en Mapa
-              </button>
-              <button onclick="deleteCensus('${c.id}')" style="padding:6px 10px; border-radius:8px; background:rgba(239, 68, 68, 0.2); border:1px solid rgba(239, 68, 68, 0.5); color:#ef4444; font-size:11px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:4px;">
-                🗑️ Borrar
-              </button>
-            </div>
+            <span style="font-size:10px; color:#64748b; font-family:monospace;">Lat: ${c.lat.toFixed(6)} | Lng: ${c.lng.toFixed(6)}</span>
+            <button onclick="zoomToHouse('${c.id}')" style="padding:6px 14px; border-radius:10px; background:#0284c7; color:#fff; border:none; font-size:11px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:4px;">
+              🗺️ Ver en Mapa
+            </button>
           </div>
         `;
         container.appendChild(card);
       });
     }
 
-    // NAVEGACIÓN DIRECTA AL CENSO EN EL MAPA CON APERTURA DE POPUP
     function zoomToHouse(id) {
       closeListModal();
       const c = censos.find(item => item.id === id || item.codigoCatastral === id);
       if (!c) return;
 
       if (map) {
-        // Vuelo cinematográfico directo a la casa
         map.flyTo([c.lat, c.lng], 18, {
           animate: true,
           duration: 1.0
         });
         setPointMarker(c.lat, c.lng);
 
-        // Abrir automáticamente el popup de información y referencia
         setTimeout(() => {
           const m = houseMarkers.find(marker => {
             return (marker.censusId === id) || (marker.censusCode === id) ||
@@ -1939,34 +1974,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
           }
         }, 1100);
       }
-    }
-
-    // OPCIÓN DE BORRAR CENSO DEL CATASTRO Y SERVIDOR
-    async function deleteCensus(id) {
-      const c = censos.find(item => item.id === id || item.codigoCatastral === id);
-      if (!c) return;
-
-      const conf = confirm('¿Está seguro de que desea borrar este censo?\n\nHabitante: ' + c.nombre + '\nSector: ' + c.sector + '\nCalle: ' + c.calle + ' #' + c.numero + '\nReferencia: ' + (c.referencia || 'N/A'));
-      if (!conf) return;
-
-      // 1. Eliminar de la base de datos local
-      censos = censos.filter(item => item.id !== id && item.codigoCatastral !== id);
-      localStorage.setItem('alcaldia_censos', JSON.stringify(censos));
-      censusCount.textContent = censos.length;
-
-      // 2. Eliminar del servidor central SQLite
-      try {
-        const delKey = c.codigoCatastral || c.id;
-        fetch(serverBaseUrl + '/api/censo?id=' + encodeURIComponent(delKey), {
-          method: 'DELETE'
-        }).catch(() => {});
-      } catch(e) {}
-
-      // 3. Refrescar interfaz
-      renderSavedHouses();
-      renderCensusList();
-      checkServerHealth();
-      alert('🗑️ Censo eliminado correctamente.');
     }
 
     function exportCensusJson() {
