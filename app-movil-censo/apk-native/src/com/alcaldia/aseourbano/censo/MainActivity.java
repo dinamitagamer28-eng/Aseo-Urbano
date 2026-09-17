@@ -20,11 +20,16 @@ import android.view.WindowManager;
 public class MainActivity extends Activity {
     private WebView webView;
     private LocationManager locationManager;
-    private Location lastPhysicalLocation;
+    private Location lastLocation;
+    private Location deviceLocation;
     private static final int PERMISSION_REQUEST_CODE = 1001;
 
     public static final double ROSARIO_LAT = 10.3267;
     public static final double ROSARIO_LNG = -72.3125;
+
+    public static boolean isInsideRosario(double lat, double lng) {
+        return (lat >= 10.2700 && lat <= 10.3800 && lng >= -72.3700 && lng <= -72.2500);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,9 +51,6 @@ public class MainActivity extends Activity {
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setGeolocationEnabled(true);
-        try {
-            settings.setGeolocationDatabasePath(getFilesDir().getPath());
-        } catch (Exception ignored) {}
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
         settings.setAllowFileAccessFromFileURLs(true);
@@ -56,7 +58,7 @@ public class MainActivity extends Activity {
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; Mobile) AseoUrbanoRosario/3.0");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; Mobile) AseoUrbanoRosario/2.3");
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
@@ -119,8 +121,15 @@ public class MainActivity extends Activity {
             @Override
             public void onLocationChanged(Location loc) {
                 if (loc != null) {
-                    lastPhysicalLocation = loc;
-                    dispatchLocation(loc.getLatitude(), loc.getLongitude(), loc.getAccuracy(), "GPS Satelital Vivo");
+                    deviceLocation = loc;
+                    double lat = loc.getLatitude();
+                    double lng = loc.getLongitude();
+                    if (!isInsideRosario(lat, lng)) {
+                        lat = ROSARIO_LAT;
+                        lng = ROSARIO_LNG;
+                    }
+                    lastLocation = loc;
+                    dispatchLocation(lat, lng, loc.getAccuracy(), "GPS Villa del Rosario");
                 }
             }
             @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
@@ -133,10 +142,10 @@ public class MainActivity extends Activity {
             boolean hasNet = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
 
             if (hasGps) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, listener);
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000, 1, listener);
             }
             if (hasNet) {
-                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0, listener);
+                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 2000, 1, listener);
             }
 
             Location best = null;
@@ -144,10 +153,15 @@ public class MainActivity extends Activity {
             if (best == null && hasNet) best = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
 
             if (best != null) {
-                lastPhysicalLocation = best;
-                dispatchLocation(best.getLatitude(), best.getLongitude(), best.getAccuracy(), "GPS Sensor Hardware");
+                deviceLocation = best;
+                if (isInsideRosario(best.getLatitude(), best.getLongitude())) {
+                    lastLocation = best;
+                    dispatchLocation(best.getLatitude(), best.getLongitude(), best.getAccuracy(), "GPS Fijo");
+                } else {
+                    dispatchLocation(ROSARIO_LAT, ROSARIO_LNG, 5.0f, "Villa del Rosario Centro");
+                }
             } else {
-                dispatchLocation(ROSARIO_LAT, ROSARIO_LNG, 5.0f, "Villa del Rosario");
+                dispatchLocation(ROSARIO_LAT, ROSARIO_LNG, 5.0f, "Villa del Rosario Centro");
             }
         } catch (SecurityException se) {
             dispatchLocation(ROSARIO_LAT, ROSARIO_LNG, 10.0f, "Villa del Rosario");
@@ -182,40 +196,26 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public String getExactPhysicalLocation() {
-            Location best = null;
-            try {
-                if (locationManager != null) {
-                    Location gps = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                    Location net = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                    if (gps != null && net != null) {
-                        best = (gps.getTime() >= net.getTime()) ? gps : net;
-                    } else if (gps != null) {
-                        best = gps;
-                    } else {
-                        best = net;
-                    }
-                }
-            } catch (SecurityException se) {}
-
-            if (best == null) {
-                best = lastPhysicalLocation;
+        public String getLastCoordinates() {
+            if (lastLocation != null && isInsideRosario(lastLocation.getLatitude(), lastLocation.getLongitude())) {
+                return lastLocation.getLatitude() + "," + lastLocation.getLongitude() + "," + lastLocation.getAccuracy();
             }
+            return ROSARIO_LAT + "," + ROSARIO_LNG + ",5.0";
+        }
 
-            if (best != null) {
-                return best.getLatitude() + "," + best.getLongitude() + "," + best.getAccuracy();
+        @JavascriptInterface
+        public String getDeviceCoordinates() {
+            Location loc = deviceLocation;
+            if (loc == null && locationManager != null) {
+                try {
+                    loc = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                    if (loc == null) loc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                } catch (SecurityException ignored) {}
+            }
+            if (loc != null) {
+                return loc.getLatitude() + "," + loc.getLongitude() + "," + loc.getAccuracy();
             }
             return "";
-        }
-
-        @JavascriptInterface
-        public String getLastCoordinates() {
-            return getExactPhysicalLocation();
-        }
-
-        @JavascriptInterface
-        public boolean hasPhysicalLocation() {
-            return lastPhysicalLocation != null;
         }
     }
 
