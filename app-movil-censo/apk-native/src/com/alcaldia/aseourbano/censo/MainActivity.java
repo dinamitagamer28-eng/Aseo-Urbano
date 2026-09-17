@@ -23,7 +23,6 @@ public class MainActivity extends Activity {
     private Location lastLocation;
     private static final int PERMISSION_REQUEST_CODE = 1001;
 
-    // Coordenadas oficiales: Plaza Bolívar / Alcaldía Rosario de Perijá, Zulia
     public static final double ROSARIO_LAT = 10.3267;
     public static final double ROSARIO_LNG = -72.3125;
 
@@ -58,7 +57,7 @@ public class MainActivity extends Activity {
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; Mobile) AseoUrbanoRosario/2.1");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; Mobile) AseoUrbanoRosario/2.2");
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
@@ -123,7 +122,6 @@ public class MainActivity extends Activity {
                 if (loc != null) {
                     double lat = loc.getLatitude();
                     double lng = loc.getLongitude();
-                    // Siempre anclado en La Villa del Rosario de Perijá, sin importar dónde esté el dispositivo físicamente
                     if (!isInsideRosario(lat, lng)) {
                         lat = ROSARIO_LAT;
                         lng = ROSARIO_LNG;

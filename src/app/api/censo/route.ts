@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
@@ -128,8 +128,6 @@ export async function POST(request: Request) {
     const rawNombres = (nombres || nombreAlias || '').toString().trim();
     const refUbic = (referenciaUbic || referenciaAlias || '').toString().trim();
     const tel = (telefonoMovil || telefonoAlias || '').toString().trim();
-    const finalLat = Number(latitud || lat || 10.3267);
-    const finalLng = Number(longitud || lng || -72.3125);
 
     if (!rawCedula || !rawNombres) {
       return NextResponse.json(
@@ -169,6 +167,15 @@ export async function POST(request: Request) {
           activo: true
         }
       });
+    }
+
+    // Garantizar que la coordenada esté dentro de La Villa del Rosario
+    let finalLat = Number(latitud || lat || 10.3267);
+    let finalLng = Number(longitud || lng || -72.3125);
+    const isInsideRosario = (finalLat >= 10.27 && finalLat <= 10.38 && finalLng >= -72.37 && finalLng <= -72.25);
+    if (!isInsideRosario) {
+      finalLat = resolvedSector.centroLat || 10.3267;
+      finalLng = resolvedSector.centroLng || -72.3125;
     }
 
     // 2. Resolver o Crear Calle en el Sector
@@ -302,6 +309,57 @@ export async function POST(request: Request) {
     console.error('Error en API censo POST:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Error al guardar el censo' },
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}
+
+// DELETE /api/censo - Permite borrar un censo o inmueble de la base de datos
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const codigo = searchParams.get('codigo');
+
+    if (!id && !codigo) {
+      return NextResponse.json(
+        { success: false, error: 'Debe especificar el ID o código catastral a eliminar.' },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const inmueble = await prisma.inmuebleCatastro.findFirst({
+      where: {
+        OR: [
+          ...(id ? [{ id: id }] : []),
+          ...(id ? [{ codigoCatastral: id }] : []),
+          ...(codigo ? [{ codigoCatastral: codigo }] : [])
+        ]
+      }
+    });
+
+    if (!inmueble) {
+      return NextResponse.json(
+        { success: true, mensaje: 'Registro ya no existe en la base de datos.' },
+        { headers: corsHeaders }
+      );
+    }
+
+    // Eliminar vínculos
+    await prisma.inmuebleContribuyente.deleteMany({ where: { inmuebleId: inmueble.id } });
+    await prisma.reciboPago.deleteMany({ where: { inmuebleId: inmueble.id } });
+    await prisma.facturaTasa.deleteMany({ where: { inmuebleId: inmueble.id } });
+    await prisma.reporteIncidencia.deleteMany({ where: { inmuebleId: inmueble.id } });
+    await prisma.inmuebleCatastro.delete({ where: { id: inmueble.id } });
+
+    return NextResponse.json(
+      { success: true, mensaje: `Censo ${inmueble.codigoCatastral} eliminado correctamente de la base de datos.` },
+      { headers: corsHeaders }
+    );
+  } catch (error: any) {
+    console.error('Error en API censo DELETE:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Error al eliminar censo' },
       { status: 500, headers: corsHeaders }
     );
   }

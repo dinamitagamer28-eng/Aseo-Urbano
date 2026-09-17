@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Censo Territorial - Rosario de Perijá</title>
+  <title>Censo y Catastro - Rosario de Perijá</title>
   <style>
 /* required styles */
 
@@ -714,13 +714,44 @@ svg.leaflet-image-layer.leaflet-interactive path {
       100% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0); }
     }
 
+    /* PINES DE CASAS EN EL MAPA CON VISIBILIDAD SATELITAL DE ALTO CONTRASTE */
+    .house-pin-wrapper {
+      position: relative;
+      cursor: pointer;
+    }
+    .house-pin {
+      width: 32px;
+      height: 32px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      background: #10b981;
+      border: 2px solid #ffffff;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease;
+    }
+    .house-pin:hover, .house-pin:active {
+      transform: rotate(-45deg) scale(1.2);
+    }
+    .house-pin-inner {
+      transform: rotate(45deg);
+      font-size: 14px;
+      line-height: 1;
+    }
+    .house-pin-pending {
+      background: #f59e0b;
+    }
+
     .selected-marker {
       width: 22px;
       height: 22px;
       background: #ef4444;
       border: 3px solid #ffffff;
       border-radius: 50%;
-      box-shadow: 0 0 14px #ef4444;
+      box-shadow: 0 0 16px #ef4444;
+      animation: pulse-worker 1.5s infinite;
     }
 
     /* HEADER */
@@ -930,7 +961,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
     .house-card {
       background: #1e293b;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 14px;
       padding: 12px;
       display: flex;
@@ -954,6 +985,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
       border-radius: 8px;
       font-size: 10px;
       font-weight: bold;
+    }
+
+    /* POPUP DE LEAFLET PERSONALIZADO */
+    .leaflet-popup-content-wrapper {
+      background: #0f172a !important;
+      color: #f8fafc !important;
+      border-radius: 16px !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8) !important;
+    }
+    .leaflet-popup-tip {
+      background: #0f172a !important;
     }
 
     /* PANTALLA LOGIN */
@@ -1025,7 +1068,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
     </div>
 
     <div style="display: flex; gap: 6px;">
-      <!-- Selector Satélite / Calles -->
       <div class="glass-panel layer-selector">
         <button id="btn-layer-sat" class="layer-btn active">🛰️ Satélite</button>
         <button id="btn-layer-streets" class="layer-btn">🗺️ Calles</button>
@@ -1039,7 +1081,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
       </button>
 
-      <button id="btn-logout" class="btn-icon" style="color: #f43f5e;" title="Cerrar">
+      <button id="btn-logout" class="btn-icon" style="color: #f43f5e;" title="Cerrar Sesión">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
       </button>
     </div>
@@ -1115,7 +1157,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="form-row">
           <div class="form-group">
             <label>Sector de La Villa *</label>
-            <!-- Al cambiar de sector, se borra automáticamente la calle previa y se cargan las del nuevo sector -->
             <select id="inmueble-sector" class="input-field" required onchange="onSectorChange(true)">
               <option value="Casco Central">Casco Central (Plaza Bolívar)</option>
               <option value="Las Colinas">Sector Las Colinas</option>
@@ -1145,7 +1186,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
           </div>
           <div class="form-group">
             <label>Tipo de Inmueble</label>
-            <!-- Sin montos ni precios, únicamente los tipos oficiales -->
             <select id="inmueble-tipo" class="input-field">
               <option value="RESIDENCIAL">Residencial / Vivienda Familiar</option>
               <option value="COMERCIAL_PEQ">Comercio Pequeño / Local</option>
@@ -1157,8 +1197,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
         </div>
 
         <div class="form-group">
-          <label>Punto de Referencia</label>
-          <input type="text" id="inmueble-ref" class="input-field" placeholder="Ej: Frente a la bodega Don Pedro">
+          <label>Punto de Referencia * (Indispensable para ubicar en GPS)</label>
+          <input type="text" id="inmueble-ref" class="input-field" placeholder="Ej: Frente a la bodega Don Pedro / Portón azul diagonal a la iglesia" required>
         </div>
 
         <div style="font-size: 11px; font-weight: 800; color: #10b981; margin-top: 4px;">2. CIUDADANO / HABITANTE</div>
@@ -1211,7 +1251,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     </div>
   </div>
 
-  <!-- MODAL DE LISTA DE CASAS CENSADAS Y RESPALDOS -->
+  <!-- MODAL DE LISTA DE CASAS CENSADAS (CATASTRO) CON OPCIÓN DE VER EN MAPA Y BORRAR -->
   <div id="modal-list" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-header">
@@ -1223,7 +1263,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
       <div class="modal-body">
         <div style="display: flex; gap: 8px;">
-          <input type="text" id="search-list-input" class="input-field" placeholder="Buscar por cédula, nombre o calle..." oninput="renderCensusList()">
+          <input type="text" id="search-list-input" class="input-field" placeholder="Buscar por cédula, habitante, calle o referencia..." oninput="renderCensusList()">
           <button onclick="exportCensusJson()" class="btn-secondary" style="white-space: nowrap;">
             📥 Exportar
           </button>
@@ -1265,7 +1305,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
   <script src="leaflet.js"></script>
   <script>
-    // COORDENADAS OFICIALES: La Villa del Rosario de Perijá, Zulia
     const VILLA_ROSARIO = [10.3267, -72.3125];
     let currentLat = VILLA_ROSARIO[0], currentLng = VILLA_ROSARIO[1];
     let selectedLat = null, selectedLng = null;
@@ -1273,14 +1312,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
     let satLayer = null, labelsLayer = null, streetsLayer = null;
     let houseMarkers = [];
 
-    // SERVIDOR Y BASE DE DATOS
     const DEFAULT_SERVER = 'http://192.168.86.250:5000';
     let serverBaseUrl = localStorage.getItem('alcaldia_server_url') || DEFAULT_SERVER;
 
     // BASE DE DATOS LOCAL
-    let censos = JSON.parse(localStorage.getItem('alcaldia_censos') || '[]');
+    let censos = [];
 
-    // COORDENADAS POR SECTOR DE LA VILLA DEL ROSARIO
     const SECTOR_COORDS = {
       'Casco Central': [10.3267, -72.3125],
       'Las Colinas': [10.3220, -72.3160],
@@ -1296,7 +1333,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
       'El Carmen': [10.3205, -72.3140]
     };
 
-    // CALLES OFICIALES POR SECTOR
     const ROSARIO_STREETS = {
       'Casco Central': ['Av. Bolívar (Eje Principal)', 'Calle Colón', 'Calle Larga', 'Calle Central', 'Calle San Juan', 'Calle Piar'],
       'Las Colinas': ['Calle 1 Av. Principal', 'Calle 2 Los Pinos', 'Calle 3 El Samán', 'Calle 4 Las Flores', 'Sector Cancha Techada'],
@@ -1316,7 +1352,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
       return (lat >= 10.2700 && lat <= 10.3800 && lng >= -72.3700 && lng <= -72.2500);
     }
 
-    // DOM
     const loginOverlay = document.getElementById('login-overlay');
     const loginForm = document.getElementById('login-form');
     const loginKey = document.getElementById('login-key');
@@ -1327,6 +1362,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     const modalOverlay = document.getElementById('modal-overlay');
     const coordsText = document.getElementById('coords-text');
 
+    // Auto-login si la sesión está guardada
     if (localStorage.getItem('alcaldia_session')) {
       startApp();
     }
@@ -1344,24 +1380,77 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
     document.getElementById('btn-logout').addEventListener('click', () => {
       localStorage.removeItem('alcaldia_session');
-      location.reload();
+      loginOverlay.style.display = 'flex';
+      loginKey.value = '';
     });
 
     function startApp() {
       loginOverlay.style.display = 'none';
-      censusCount.textContent = censos.length;
       initMap();
+      loadCensosData();
       requestGpsUpdates();
       onSectorChange(false);
       checkServerHealth();
+    }
+
+    // CARGA DE CENSOS (Persistente entre sesiones: local + servidor central)
+    async function loadCensosData() {
+      const raw = localStorage.getItem('alcaldia_censos');
+      if (raw) {
+        try { censos = JSON.parse(raw); } catch(e) {}
+      }
+      censusCount.textContent = censos.length;
       renderSavedHouses();
+
+      // Sincronizar predios registrados en el servidor central
+      try {
+        const res = await fetch(serverBaseUrl + '/api/censo');
+        const data = await res.json();
+        if (data && data.inmuebles && Array.isArray(data.inmuebles)) {
+          let updated = false;
+          data.inmuebles.forEach(inm => {
+            if (!inm.latitud || !inm.longitud) return;
+            const exists = censos.some(c =>
+              (c.codigoCatastral && c.codigoCatastral === inm.codigoCatastral) ||
+              (c.id && c.id === inm.id) ||
+              (c.cedula && c.cedula === inm.propietarioCedula && c.numero === inm.numeroCasaLocal)
+            );
+            if (!exists) {
+              censos.push({
+                id: inm.id,
+                codigoCatastral: inm.codigoCatastral,
+                sector: inm.sectorNombre || 'Casco Central',
+                calle: inm.calleNombre || 'Calle Principal',
+                numero: inm.numeroCasaLocal || 'S/N',
+                referencia: inm.referenciaUbic || '',
+                tipoInmueble: inm.tipoInmueble || 'RESIDENCIAL',
+                cedula: inm.propietarioCedula || '',
+                nombre: inm.propietarioNombre || '',
+                telefono: inm.telefonoMovil || '',
+                lat: inm.latitud,
+                lng: inm.longitud,
+                synced: true,
+                fecha: inm.createdAt || new Date().toISOString()
+              });
+              updated = true;
+            }
+          });
+          if (updated) {
+            localStorage.setItem('alcaldia_censos', JSON.stringify(censos));
+            censusCount.textContent = censos.length;
+            renderSavedHouses();
+          }
+        }
+      } catch(e) {}
     }
 
     // INICIALIZAR MAPA
     function initMap() {
-      if (map) { map.invalidateSize(); return; }
+      if (map) {
+        setTimeout(() => map.invalidateSize(), 150);
+        return;
+      }
 
-      // Límites geográficos de La Villa del Rosario
       const rosarioBounds = L.latLngBounds([10.2600, -72.3800], [10.3900, -72.2400]);
 
       map = L.map('map', {
@@ -1392,7 +1481,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       satLayer.addTo(map);
       labelsLayer.addTo(map);
 
-      // Marcador Operario en La Villa
+      // Marcador Operario
       const workerIcon = L.divIcon({
         className: 'worker-marker',
         iconSize: [24, 24],
@@ -1403,7 +1492,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
       drawRosarioSectors();
 
-      // Click en el mapa para marcar vivienda
       map.on('click', (e) => {
         let lat = e.latlng.lat;
         let lng = e.latlng.lng;
@@ -1417,11 +1505,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
         openModal();
       });
 
-      setTimeout(() => { if (map) map.invalidateSize(); }, 250);
+      setTimeout(() => {
+        if (map) {
+          map.invalidateSize();
+          renderSavedHouses();
+        }
+      }, 300);
     }
 
     function setPointMarker(lat, lng) {
-      if (selectedPointMarker) map.removeLayer(selectedPointMarker);
+      if (selectedPointMarker && map) map.removeLayer(selectedPointMarker);
       const icon = L.divIcon({
         className: 'selected-marker',
         iconSize: [22, 22],
@@ -1459,13 +1552,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
       onSectorChange(true);
     }
 
-    // CAMBIO DE SECTOR: Borra la calle/avenida previa y carga las del sector elegido
     function onSectorChange(clearCalle = true) {
       const sector = document.getElementById('inmueble-sector').value;
       const calleInput = document.getElementById('inmueble-calle');
 
       if (clearCalle) {
-        calleInput.value = ''; // Se borra la calle si cambió el sector por equivocación
+        calleInput.value = '';
       }
 
       const datalist = document.getElementById('calles-list');
@@ -1480,7 +1572,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
         calleInput.placeholder = 'Ej: ' + calles[0];
       }
 
-      // Reubicar la coordenada en el sector elegido de La Villa del Rosario
       const sc = SECTOR_COORDS[sector] || VILLA_ROSARIO;
       selectedLat = sc[0];
       selectedLng = sc[1];
@@ -1511,7 +1602,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       }
     });
 
-    // PUENTE GPS ANDROID (Siempre anclado en La Villa del Rosario)
+    // PUENTE GPS ANDROID
     window.onNativeGps = function(lat, lng, acc, source) {
       if (!isInsideRosario(lat, lng)) {
         const sectorVal = document.getElementById('inmueble-sector') ? document.getElementById('inmueble-sector').value : 'Casco Central';
@@ -1632,7 +1723,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       alert('Cédula no registrada aún. Ingrese los datos del habitante.');
     });
 
-    // GUARDAR EN BASE DE DATOS LOCAL + SINCRONIZACIÓN CENTRAL
+    // GUARDAR EN BASE DE DATOS LOCAL + CENTRAL
     document.getElementById('census-form').addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -1642,7 +1733,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
       let latGuardar = selectedLat || currentLat;
       let lngGuardar = selectedLng || currentLng;
 
-      // Garantía absoluta de que la coordenada guardada está en La Villa del Rosario
       if (!isInsideRosario(latGuardar, lngGuardar)) {
         latGuardar = sc[0];
         lngGuardar = sc[1];
@@ -1672,13 +1762,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
         synced: false
       };
 
-      // 1. Guardar de forma permanente en base de datos local
+      // Guardar en array local y localStorage
       censos.unshift(nuevoRegistro);
       localStorage.setItem('alcaldia_censos', JSON.stringify(censos));
       censusCount.textContent = censos.length;
       renderSavedHouses();
 
-      // 2. Enviar a la base de datos municipal de la Alcaldía
+      // Guardar en servidor
       let syncOk = false;
       try {
         const response = await fetch(serverBaseUrl + '/api/censo', {
@@ -1692,6 +1782,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
           nuevoRegistro.synced = true;
           if (result.inmueble && result.inmueble.codigoCatastral) {
             nuevoRegistro.codigoCatastral = result.inmueble.codigoCatastral;
+            nuevoRegistro.id = result.inmueble.id || nuevoRegistro.id;
           }
           localStorage.setItem('alcaldia_censos', JSON.stringify(censos));
           renderSavedHouses();
@@ -1705,13 +1796,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
       onSectorChange(false);
 
       if (syncOk) {
-        alert('✅ ¡Vivienda y habitante guardados y sincronizados en la base de datos municipal de La Villa del Rosario!');
+        alert('✅ ¡Vivienda y habitante guardados y sincronizados en la base de datos municipal!');
       } else {
-        alert('💾 ¡Guardado de forma segura en la base de datos del dispositivo! Se enviará a la base de datos central al detectar conexión.');
+        alert('💾 ¡Guardado en la base de datos de tu teléfono! Se reflejará siempre en el GPS y se subirá al servidor cuando haya conexión.');
       }
     });
 
-    // PINTAR CASAS EN EL MAPA
+    // PINTAR CASAS EN EL MAPA CON PUNTOS DE REFERENCIA DESTACADOS
     function renderSavedHouses() {
       if (!map) return;
       houseMarkers.forEach(m => map.removeLayer(m));
@@ -1719,28 +1810,47 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
       censos.forEach(c => {
         if (c.lat && c.lng) {
-          const pin = L.circleMarker([c.lat, c.lng], {
-            radius: 8,
-            fillColor: c.synced ? '#10b981' : '#f59e0b',
-            color: '#ffffff',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.95
-          }).addTo(map);
+          // Marcador con ícono de casa visible en satélite
+          const houseIcon = L.divIcon({
+            className: 'house-pin-wrapper',
+            html: '<div class="house-pin ' + (c.synced ? '' : 'house-pin-pending') + '"><span class="house-pin-inner">🏠</span></div>',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+          });
 
-          pin.bindPopup(
-            '<strong>' + c.sector + '</strong><br>' +
-            c.calle + ' #' + c.numero + '<br>' +
-            'Habitante: ' + c.nombre + ' (' + c.cedula + ')<br>' +
-            '<span style="font-size:10px; color:' + (c.synced ? '#10b981' : '#f59e0b') + ';">' +
-            (c.synced ? '🟢 Sincronizado en DB' : '🟠 Guardado en Dispositivo') + '</span>'
-          );
+          const pin = L.marker([c.lat, c.lng], { icon: houseIcon }).addTo(map);
+
+          // Popup detallado con Punto de Referencia destacado
+          const popupHtml = 
+            '<div style="min-width: 200px; padding: 2px;">' +
+              '<div style="font-weight: 800; color: #38bdf8; font-size: 13px; margin-bottom: 2px;">' +
+                '📍 ' + c.sector +
+              '</div>' +
+              '<div style="font-size: 11px; color: #e2e8f0; font-weight: bold; margin-bottom: 6px;">' +
+                c.calle + ' #' + c.numero +
+              '</div>' +
+              '<div style="font-size: 11px; color: #cbd5e1; margin-bottom: 6px;">' +
+                '<strong>Habitante:</strong> ' + c.nombre + ' (' + c.cedula + ')<br>' +
+                '<strong>Teléfono:</strong> ' + (c.telefono || 'S/N') +
+              '</div>' +
+              '<div style="font-size: 11px; color: #fef08a; background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.4); padding: 5px 8px; border-radius: 8px; margin-bottom: 6px;">' +
+                '<strong>📍 Punto de Referencia:</strong><br>' + (c.referencia || 'Frente a la calle principal') +
+              '</div>' +
+              '<div style="font-size: 10px; color: ' + (c.synced ? '#10b981' : '#f59e0b') + '; font-weight: bold;">' +
+                (c.synced ? '🟢 Sincronizado en Alcaldía' : '🟠 Guardado en Teléfono') +
+              '</div>' +
+            '</div>';
+
+          pin.bindPopup(popupHtml);
+          pin.censusId = c.id;
+          pin.censusCode = c.codigoCatastral;
           houseMarkers.push(pin);
         }
       });
     }
 
-    // LISTA DE CENSOS GUARDADOS
+    // ABRIR LISTA DE CATASTRO
     document.getElementById('btn-view-list').addEventListener('click', () => {
       renderCensusList();
       document.getElementById('modal-list').classList.add('open');
@@ -1750,20 +1860,22 @@ svg.leaflet-image-layer.leaflet-interactive path {
       document.getElementById('modal-list').classList.remove('open');
     }
 
+    // RENDERIZAR LISTA CON BOTONES "VER EN MAPA" Y "BORRAR CENSO"
     function renderCensusList() {
       const container = document.getElementById('census-list-container');
       const query = (document.getElementById('search-list-input').value || '').toLowerCase();
       container.innerHTML = '';
 
       const filtrados = censos.filter(c => {
-        return c.nombre.toLowerCase().includes(query) ||
-               c.cedula.toLowerCase().includes(query) ||
-               c.calle.toLowerCase().includes(query) ||
-               c.sector.toLowerCase().includes(query);
+        return (c.nombre && c.nombre.toLowerCase().includes(query)) ||
+               (c.cedula && c.cedula.toLowerCase().includes(query)) ||
+               (c.calle && c.calle.toLowerCase().includes(query)) ||
+               (c.sector && c.sector.toLowerCase().includes(query)) ||
+               (c.referencia && c.referencia.toLowerCase().includes(query));
       });
 
       if (filtrados.length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No se encontraron registros de censo.</div>';
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b; font-size:12px;">No se encontraron censos registrados.</div>';
         return;
       }
 
@@ -1774,7 +1886,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <strong style="font-size:13px; color:#ffffff;">${c.nombre}</strong>
             <span class="${c.synced ? 'house-badge-synced' : 'house-badge-pending'}">
-              ${c.synced ? '🟢 Sincronizado' : '🟠 Pendiente'}
+              ${c.synced ? '🟢 Sincronizado' : '🟠 En Teléfono'}
             </span>
           </div>
           <div style="font-size:11px; color:#94a3b8;">
@@ -1783,23 +1895,78 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <div style="font-size:11px; color:#38bdf8;">
             📍 ${c.sector} &bull; ${c.calle} #${c.numero}
           </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+          <div style="font-size:11px; color:#fef08a; background: rgba(234, 179, 8, 0.12); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(234, 179, 8, 0.3);">
+            <strong>Ref:</strong> ${c.referencia || 'Sin referencia registrada'}
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; gap:8px;">
             <span style="font-size:10px; color:#64748b; font-family:monospace;">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</span>
-            <button onclick="zoomToHouse(${c.lat}, ${c.lng})" style="padding:4px 8px; border-radius:8px; background:#0284c7; color:#fff; border:none; font-size:11px; cursor:pointer;">
-              Ver en Mapa
-            </button>
+            <div style="display:flex; gap:6px;">
+              <button onclick="zoomToHouse('${c.id}')" style="padding:6px 12px; border-radius:8px; background:#0284c7; color:#fff; border:none; font-size:11px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                🗺️ Ver en Mapa
+              </button>
+              <button onclick="deleteCensus('${c.id}')" style="padding:6px 10px; border-radius:8px; background:rgba(239, 68, 68, 0.2); border:1px solid rgba(239, 68, 68, 0.5); color:#ef4444; font-size:11px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                🗑️ Borrar
+              </button>
+            </div>
           </div>
         `;
         container.appendChild(card);
       });
     }
 
-    function zoomToHouse(lat, lng) {
+    // NAVEGACIÓN DIRECTA AL CENSO EN EL MAPA CON APERTURA DE POPUP
+    function zoomToHouse(id) {
       closeListModal();
+      const c = censos.find(item => item.id === id || item.codigoCatastral === id);
+      if (!c) return;
+
       if (map) {
-        map.setView([lat, lng], 18);
-        setPointMarker(lat, lng);
+        // Vuelo cinematográfico directo a la casa
+        map.flyTo([c.lat, c.lng], 18, {
+          animate: true,
+          duration: 1.0
+        });
+        setPointMarker(c.lat, c.lng);
+
+        // Abrir automáticamente el popup de información y referencia
+        setTimeout(() => {
+          const m = houseMarkers.find(marker => {
+            return (marker.censusId === id) || (marker.censusCode === id) ||
+                   (Math.abs(marker.getLatLng().lat - c.lat) < 0.0001 && Math.abs(marker.getLatLng().lng - c.lng) < 0.0001);
+          });
+          if (m) {
+            m.openPopup();
+          }
+        }, 1100);
       }
+    }
+
+    // OPCIÓN DE BORRAR CENSO DEL CATASTRO Y SERVIDOR
+    async function deleteCensus(id) {
+      const c = censos.find(item => item.id === id || item.codigoCatastral === id);
+      if (!c) return;
+
+      const conf = confirm('¿Está seguro de que desea borrar este censo?\n\nHabitante: ' + c.nombre + '\nSector: ' + c.sector + '\nCalle: ' + c.calle + ' #' + c.numero + '\nReferencia: ' + (c.referencia || 'N/A'));
+      if (!conf) return;
+
+      // 1. Eliminar de la base de datos local
+      censos = censos.filter(item => item.id !== id && item.codigoCatastral !== id);
+      localStorage.setItem('alcaldia_censos', JSON.stringify(censos));
+      censusCount.textContent = censos.length;
+
+      // 2. Eliminar del servidor central SQLite
+      try {
+        const delKey = c.codigoCatastral || c.id;
+        fetch(serverBaseUrl + '/api/censo?id=' + encodeURIComponent(delKey), {
+          method: 'DELETE'
+        }).catch(() => {});
+      } catch(e) {}
+
+      // 3. Refrescar interfaz
+      renderSavedHouses();
+      renderCensusList();
+      checkServerHealth();
+      alert('🗑️ Censo eliminado correctamente.');
     }
 
     function exportCensusJson() {
@@ -1864,6 +2031,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         localStorage.setItem('alcaldia_server_url', serverBaseUrl);
         closeSettingsModal();
         checkServerHealth();
+        loadCensosData();
         alert('Servidor guardado: ' + serverBaseUrl);
       }
     }
