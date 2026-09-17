@@ -1477,8 +1477,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
       map = L.map('map', {
         zoomControl: false,
         attributionControl: false,
-        maxBounds: rosarioBounds,
-        minZoom: 14
+        // maxBounds: rosarioBounds,
+        minZoom: 4
       }).setView(VILLA_ROSARIO, 16);
 
       satLayer = L.tileLayer(
@@ -1512,10 +1512,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       map.on('click', (e) => {
         let lat = e.latlng.lat;
         let lng = e.latlng.lng;
-        if (!isInsideRosario(lat, lng)) {
-          lat = VILLA_ROSARIO[0];
-          lng = VILLA_ROSARIO[1];
-        }
+// click libre en mapa
         updateExactCoords(lat, lng);
         setPointMarker(lat, lng);
         openModal();
@@ -1612,67 +1609,57 @@ svg.leaflet-image-layer.leaflet-interactive path {
     document.getElementById('btn-capture-coords').addEventListener('click', () => {
       const btn = document.getElementById('btn-capture-coords');
       const prevHtml = btn.innerHTML;
-      btn.innerHTML = '<span>📡 Obteniendo ubicación del teléfono...</span>';
+      btn.innerHTML = '<span>📡 Obteniendo ubicación del teléfono en tus manos...</span>';
 
-      function applyCapturedPoint(lat, lng) {
+      function applyCapturedPoint(lat, lng, acc) {
         selectedLat = lat;
         selectedLng = lng;
         currentLat = lat;
         currentLng = lng;
-        updateExactCoords(lat, lng, '✓ Capturada');
+        updateExactCoords(lat, lng, '✓ En tus Manos (±' + Math.round(acc || 5) + 'm)');
         setPointMarker(lat, lng);
         if (map) {
-          map.setView([lat, lng], 18);
+          map.setView([lat, lng], 18, { animate: true });
           map.invalidateSize();
         }
         btn.innerHTML = '<span>✓ ¡Punto Marcado en tus Manos!</span>';
-        setTimeout(() => { btn.innerHTML = prevHtml; }, 2000);
+        setTimeout(() => { btn.innerHTML = prevHtml; }, 2500);
       }
 
-      // 1. Si tenemos AndroidGPS nativo con la posición real del dispositivo
-      if (window.AndroidGPS && typeof window.AndroidGPS.getDeviceCoordinates === 'function') {
+      // 1. Si tenemos AndroidGPS nativo (hardware satelital / antenas)
+      if (window.AndroidGPS) {
         try {
-          const raw = window.AndroidGPS.getDeviceCoordinates();
+          if (typeof window.AndroidGPS.refreshGps === 'function') window.AndroidGPS.refreshGps();
+          const raw = window.AndroidGPS.getLastCoordinates ? window.AndroidGPS.getLastCoordinates() : '';
           if (raw && raw.includes(',')) {
             const p = raw.split(',');
             const dLat = parseFloat(p[0]);
             const dLng = parseFloat(p[1]);
+            const dAcc = parseFloat(p[2] || 5);
             if (!isNaN(dLat) && !isNaN(dLng) && (dLat !== 0 || dLng !== 0)) {
-              applyCapturedPoint(dLat, dLng);
+              applyCapturedPoint(dLat, dLng, dAcc);
               return;
             }
           }
         } catch(e) {}
       }
 
-      // 2. Consulta del sensor GPS del navegador/WebView
+      // 2. Intentar con sensor GPS del navegador/WebView
       if ('geolocation' in navigator) {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
-            applyCapturedPoint(pos.coords.latitude, pos.coords.longitude);
+            applyCapturedPoint(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
           },
           (err) => {
-            // Si el sensor tarda o falla, usar última posición registrada
+            // Si hay error o demora, usar la última coordenada disponible del teléfono
             let lat = currentLat;
             let lng = currentLng;
-            if (window.AndroidGPS && typeof window.AndroidGPS.getLastCoordinates === 'function') {
-              try {
-                const raw = window.AndroidGPS.getLastCoordinates();
-                if (raw) {
-                  const p = raw.split(',');
-                  if (p.length >= 2) {
-                    lat = parseFloat(p[0]);
-                    lng = parseFloat(p[1]);
-                  }
-                }
-              } catch(e) {}
-            }
-            applyCapturedPoint(lat, lng);
+            applyCapturedPoint(lat, lng, 5);
           },
-          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+          { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
         );
       } else {
-        applyCapturedPoint(currentLat, currentLng);
+        applyCapturedPoint(currentLat, currentLng, 5);
       }
     });
 
@@ -1698,17 +1685,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
     // PUENTE GPS ANDROID
     window.onNativeGps = function(lat, lng, acc, source) {
-      if (!isInsideRosario(lat, lng)) {
-        const sectorVal = document.getElementById('inmueble-sector') ? document.getElementById('inmueble-sector').value : 'Casco Central';
-        const sc = SECTOR_COORDS[sectorVal] || VILLA_ROSARIO;
-        lat = sc[0];
-        lng = sc[1];
-        source = 'GPS Villa del Rosario';
+      if (typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng)) {
+        currentLat = lat;
+        currentLng = lng;
+        gpsAccuracy.textContent = '±' + Math.round(acc || 5) + 'm';
+        if (workerMarker) workerMarker.setLatLng([currentLat, currentLng]);
       }
-      currentLat = lat;
-      currentLng = lng;
-      gpsAccuracy.textContent = '±' + Math.round(acc || 5) + 'm';
-      if (workerMarker) workerMarker.setLatLng([currentLat, currentLng]);
     };
 
     function requestGpsUpdates() {
@@ -1721,7 +1703,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
             if (p.length >= 2) {
               let lt = parseFloat(p[0]);
               let ln = parseFloat(p[1]);
-              if (!isInsideRosario(lt, ln)) { lt = VILLA_ROSARIO[0]; ln = VILLA_ROSARIO[1]; }
+              // sin forzar clamp
               window.onNativeGps(lt, ln, parseFloat(p[2] || 5), 'GPS Hardware');
               return;
             }
@@ -1733,7 +1715,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
           (pos) => {
             let lt = pos.coords.latitude;
             let ln = pos.coords.longitude;
-            if (!isInsideRosario(lt, ln)) { lt = VILLA_ROSARIO[0]; ln = VILLA_ROSARIO[1]; }
+            // sin forzar clamp
             window.onNativeGps(lt, ln, pos.coords.accuracy, 'GPS Web');
           },
           () => window.onNativeGps(VILLA_ROSARIO[0], VILLA_ROSARIO[1], 5, 'Villa del Rosario'),
@@ -1745,10 +1727,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
     }
 
     document.getElementById('btn-locate-me').addEventListener('click', () => {
-      if (!isInsideRosario(currentLat, currentLng)) {
-        currentLat = VILLA_ROSARIO[0];
-        currentLng = VILLA_ROSARIO[1];
-      }
       if (map) {
         map.setView([currentLat, currentLng], 17);
         map.invalidateSize();
@@ -1760,21 +1738,21 @@ svg.leaflet-image-layer.leaflet-interactive path {
     function openModal() {
       let lat = selectedLat || currentLat;
       let lng = selectedLng || currentLng;
-      if (!isInsideRosario(lat, lng)) {
+      if (!lat || !lng) {
         const sectorVal = document.getElementById('inmueble-sector').value;
         const sc = SECTOR_COORDS[sectorVal] || VILLA_ROSARIO;
         lat = sc[0];
         lng = sc[1];
       }
-      updateExactCoords(lat, lng);
+      updateExactCoords(lat, lng, selectedLat ? '✓ Capturada' : 'Fijada');
       modalOverlay.classList.add('open');
     }
 
     document.getElementById('btn-open-modal').addEventListener('click', () => {
       const sectorVal = document.getElementById('inmueble-sector').value;
       const sc = SECTOR_COORDS[sectorVal] || VILLA_ROSARIO;
-      const lat = isInsideRosario(currentLat, currentLng) ? currentLat : sc[0];
-      const lng = isInsideRosario(currentLat, currentLng) ? currentLng : sc[1];
+      const lat = selectedLat || currentLat || sc[0];
+      const lng = selectedLng || currentLng || sc[1];
       updateExactCoords(lat, lng);
       setPointMarker(lat, lng);
       openModal();
