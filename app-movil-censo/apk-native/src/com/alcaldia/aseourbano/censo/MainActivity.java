@@ -27,6 +27,10 @@ public class MainActivity extends Activity {
     public static final double ROSARIO_LAT = 10.3267;
     public static final double ROSARIO_LNG = -72.3125;
 
+    public static boolean isInsideRosario(double lat, double lng) {
+        return (lat >= 10.2700 && lat <= 10.3800 && lng >= -72.3700 && lng <= -72.2500);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -54,7 +58,7 @@ public class MainActivity extends Activity {
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; Mobile) AseoUrbanoRosario/2.0");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; Mobile) AseoUrbanoRosario/2.1");
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
@@ -117,8 +121,15 @@ public class MainActivity extends Activity {
             @Override
             public void onLocationChanged(Location loc) {
                 if (loc != null) {
+                    double lat = loc.getLatitude();
+                    double lng = loc.getLongitude();
+                    // Siempre anclado en La Villa del Rosario de Perijá, sin importar dónde esté el dispositivo físicamente
+                    if (!isInsideRosario(lat, lng)) {
+                        lat = ROSARIO_LAT;
+                        lng = ROSARIO_LNG;
+                    }
                     lastLocation = loc;
-                    dispatchLocation(loc.getLatitude(), loc.getLongitude(), loc.getAccuracy(), "GPS Satelital Rosario");
+                    dispatchLocation(lat, lng, loc.getAccuracy(), "GPS Villa del Rosario");
                 }
             }
             @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
@@ -141,7 +152,7 @@ public class MainActivity extends Activity {
             if (hasGps) best = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
             if (best == null && hasNet) best = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
 
-            if (best != null) {
+            if (best != null && isInsideRosario(best.getLatitude(), best.getLongitude())) {
                 lastLocation = best;
                 dispatchLocation(best.getLatitude(), best.getLongitude(), best.getAccuracy(), "GPS Fijo");
             } else {
@@ -181,7 +192,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String getLastCoordinates() {
-            if (lastLocation != null) {
+            if (lastLocation != null && isInsideRosario(lastLocation.getLatitude(), lastLocation.getLongitude())) {
                 return lastLocation.getLatitude() + "," + lastLocation.getLongitude() + "," + lastLocation.getAccuracy();
             }
             return ROSARIO_LAT + "," + ROSARIO_LNG + ",5.0";
