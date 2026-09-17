@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Censo Territorial Alcaldia</title>
+  <link rel="stylesheet" href="leaflet/leaflet.css" />
+  <script src="leaflet/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      background-color: #070b14;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #map-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      background-color: #0d1527;
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(2, 132, 199, 0.12) 0%, transparent 80%),
+        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 100% 100%, 40px 40px, 40px 40px;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .glass-bar {
+      background: rgba(11, 18, 32, 0.95);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    }
+
+    .worker-marker {
+      width: 22px;
+      height: 22px;
+      background: #0284c7;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 15px #0284c7;
+      animation: pulse-worker 2s infinite;
+    }
+    @keyframes pulse-worker {
+      0% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.7); }
+      70% { box-shadow: 0 0 0 16px rgba(2, 132, 199, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0); }
+    }
+
+    #login-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: #070b14;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px 20px;
+    }
+
+    .login-box {
+      width: 100%;
+      max-width: 360px;
+      margin: auto;
+      text-align: center;
+    }
+
+    .badge-municipal {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(2, 132, 199, 0.15);
+      border: 1px solid rgba(2, 132, 199, 0.3);
+      color: #38bdf8;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #ffffff;
+      font-size: 14px;
+      outline: none;
+      margin-bottom: 12px;
+    }
+    .input-field:focus {
+      border-color: #0284c7;
+      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 15px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary:active { transform: scale(0.98); }
+
+    .btn-success {
+      width: 100%;
+      padding: 15px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #059669, #0284c7);
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+    }
+
+    .top-header {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+    .top-header > * { pointer-events: auto; }
+
+    .header-pill {
+      padding: 8px 14px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .icon-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(11, 18, 32, 0.9);
+      color: #94a3b8;
+      cursor: pointer;
+    }
+    .icon-btn:active { transform: scale(0.95); }
+
+    .bottom-dock {
+      position: absolute;
+      bottom: 16px;
+      left: 12px;
+      right: 12px;
+      z-index: 100;
+      border-radius: 24px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .dock-stats {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    #form-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      align-items: flex-end;
+      justify-content: center;
+    }
+    #form-modal.open { display: flex; }
+
+    .modal-content {
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      background: #0f172a;
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-body {
+      padding: 16px 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-group label { font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  </style>
+</head>
+<body>
+
+  <!-- PANTALLA 1: LOGIN -->
+  <div id="login-screen">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="badge-municipal">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+        <span>Alcaldia Conectada</span>
+      </div>
+      <span style="font-size: 11px; color: #64748b; font-family: monospace;">v1.0.3 Offline-Ready</span>
+    </div>
+
+    <div class="login-box">
+      <div style="width: 64px; height: 64px; border-radius: 20px; background: linear-gradient(135deg, #0284c7, #10b981); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+      </div>
+
+      <h1 style="font-size: 22px; font-weight: bold; margin-bottom: 6px;">Censo Territorial</h1>
+      <p style="font-size: 12px; color: #94a3b8; margin-bottom: 24px;">Direccion de Aseo Urbano y Catastro</p>
+
+      <form id="login-form">
+        <input type="password" id="login-key" class="input-field" placeholder="Clave Municipal (ADMIN2026)" required autofocus>
+        <div id="login-error" style="display: none; color: #f43f5e; font-size: 12px; margin-bottom: 12px;">Clave incorrecta. Usa ADMIN2026 o CUADRILLA2026</div>
+        <button type="submit" class="btn-primary">
+          <span>Ingresar a Jornada</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </form>
+    </div>
+
+    <div style="text-align: center; font-size: 11px; color: #475569;">
+      Acceso Exclusivo Personal Municipal - 2026
+    </div>
+  </div>
+
+  <!-- PANTALLA 2: MAPA Y DOCK -->
+  <div id="app-screen" style="display: none; width: 100%; height: 100%; position: relative; flex-direction: column;">
+    
+    <!-- Header Superior -->
+    <div class="top-header">
+      <div class="glass-bar header-pill">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+        <div>
+          <div style="color: #ffffff; font-size: 12px;">Censo Urbano</div>
+          <div id="gps-source" style="color: #38bdf8; font-size: 10px; font-family: monospace;">GPS Fijo</div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <button id="btn-toggle-layer" class="icon-btn" title="Alternar Satelite">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </button>
+        <button id="btn-recenter" class="icon-btn" style="color: #38bdf8;" title="Centrar GPS">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+        </button>
+        <button id="btn-logout" class="icon-btn" style="color: #f43f5e;" title="Salir">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mapa con Rejilla Anti-Negro -->
+    <div id="map-container">
+      <div id="map"></div>
+    </div>
+
+    <!-- Dock Inferior -->
+    <div class="glass-bar bottom-dock">
+      <div class="dock-stats">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: #38bdf8;"></span>
+          <span style="color: #94a3b8;">Precision GPS: <strong id="gps-acc" style="color: #38bdf8; font-family: monospace;">+-5m</strong></span>
+        </div>
+        <div style="color: #94a3b8;">
+          Censadas: <strong id="census-count" style="color: #10b981; background: rgba(16, 185, 129, 0.15); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.3);">0</strong>
+        </div>
+      </div>
+
+      <button id="btn-open-modal" class="btn-primary" style="background: linear-gradient(135deg, #0284c7, #10b981);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        <span>+ Censar Casa y Ciudadano</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL BOTTOM SHEET -->
+  <div id="form-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 32px; height: 32px; border-radius: 10px; background: rgba(2, 132, 199, 0.2); display: flex; align-items: center; justify-content: center; color: #38bdf8;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+          </div>
+          <div>
+            <div style="font-weight: bold; font-size: 14px;">Registro de Censo</div>
+            <div style="font-size: 11px; color: #94a3b8;">Inmueble y Habitante</div>
+          </div>
+        </div>
+        <button id="btn-close-modal" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 4px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form id="census-form" class="modal-body">
+        <div style="background: #1e293b; padding: 10px 14px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; color: #94a3b8;">Coordenada GPS Fijada:</span>
+          <span id="coords-display" style="font-size: 12px; font-family: monospace; color: #38bdf8; font-weight: bold;">-- , --</span>
+        </div>
+
+        <div style="font-size: 11px; font-weight: bold; color: #38bdf8; margin-top: 4px;">1. DATOS DEL INMUEBLE</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Sector / Barrio *</label>
+            <input type="text" id="inmueble-sector" class="input-field" placeholder="Ej: Centro" required>
+          </div>
+          <div class="form-group">
+            <label>Calle / Avenida *</label>
+            <input type="text" id="inmueble-calle" class="input-field" placeholder="Ej: Av. Bolivar" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>N Casa / Local *</label>
+            <input type="text" id="inmueble-numero" class="input-field" placeholder="Ej: 14-B" required>
+          </div>
+          <div class="form-group">
+            <label>Tipo Inmueble</label>
+            <select id="inmueble-tipo" class="input-field" style="background: #0f172a;">
+              <option value="RESIDENCIAL">Residencial ($2.00)</option>
+              <option value="COMERCIAL_PEQUENO">Comercial Pequeno ($5.00)</option>
+              <option value="COMERCIAL_GRANDE">Comercial Grande ($12.00)</option>
+              <option value="INDUSTRIAL">Industrial ($25.00)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Punto de Referencia</label>
+          <input type="text" id="inmueble-ref" class="input-field" placeholder="Ej: Frente a la plaza">
+        </div>
+
+        <div style="font-size: 11px; font-weight: bold; color: #10b981; margin-top: 8px;">2. DATOS DEL CIUDADANO</div>
+        <div class="form-group">
+          <label>Cedula de Identidad *</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="ciudadano-cedula" class="input-field" placeholder="Ej: 18456789" required style="margin-bottom: 0;">
+            <button type="button" id="btn-search-cedula" style="padding: 0 16px; border-radius: 12px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #10b981; cursor: pointer;">
+              Buscar
+            </button>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nombres y Apellidos *</label>
+            <input type="text" id="ciudadano-nombre" class="input-field" placeholder="Ej: Juan Perez" required>
+          </div>
+          <div class="form-group">
+            <label>Telefono WhatsApp</label>
+            <input type="tel" id="ciudadano-telefono" class="input-field" placeholder="Ej: 04141234567">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Parentesco / Condicion</label>
+            <select id="ciudadano-parentesco" class="input-field" style="background: #0f172a;">
+              <option value="PROPIETARIO">Propietario</option>
+              <option value="ARRENDATARIO">Inquilino</option>
+              <option value="FAMILIAR">Familiar</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>N Habitantes</label>
+            <input type="number" id="ciudadano-hab" class="input-field" value="3" min="1">
+          </div>
+        </div>
+
+        <button type="submit" class="btn-success" style="margin-top: 8px; margin-bottom: 12px;">
+          Guardar y Enviar Registro
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let map = null, workerMarker = null;
+    let currentLat = 10.3705, currentLng = -71.4385, currentAcc = 5;
+    let selectedLat = null, selectedLng = null;
+    let streetLayer = null, satLayer = null, isSatellite = false;
+    let houseMarkers = [];
+    let censos = JSON.parse(localStorage.getItem('alcaldia_censos') || '[]');
+
+    const loginScreen = document.getElementById('login-screen');
+    const appScreen = document.getElementById('app-screen');
+    const loginForm = document.getElementById('login-form');
+    const loginKey = document.getElementById('login-key');
+    const loginError = document.getElementById('login-error');
+    const gpsAcc = document.getElementById('gps-acc');
+    const gpsSource = document.getElementById('gps-source');
+    const censusCount = document.getElementById('census-count');
+    const formModal = document.getElementById('form-modal');
+    const coordsDisplay = document.getElementById('coords-display');
+
+    if (localStorage.getItem('alcaldia_session')) {
+      showApp();
+    }
+
+    loginForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var val = loginKey.value.trim().toUpperCase();
+      if (val === 'ADMIN2026' || val === 'CUADRILLA2026') {
+        localStorage.setItem('alcaldia_session', val);
+        loginError.style.display = 'none';
+        showApp();
+      } else {
+        loginError.style.display = 'block';
+      }
+    });
+
+    document.getElementById('btn-logout').addEventListener('click', function() {
+      localStorage.removeItem('alcaldia_session');
+      location.reload();
+    });
+
+    function showApp() {
+      loginScreen.style.display = 'none';
+      appScreen.style.display = 'flex';
+      censusCount.textContent = censos.length;
+
+      setTimeout(function() {
+        initMap();
+        requestGpsFromHardware();
+      }, 150);
+    }
+
+    function initMap() {
+      if (map) {
+        map.invalidateSize();
+        return;
+      }
+
+      try {
+        map = L.map('map', {
+          zoomControl: false,
+          attributionControl: false
+        }).setView([currentLat, currentLng], 17);
+
+        streetLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          subdomains: ['a', 'b', 'c']
+        });
+
+        satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          maxZoom: 19
+        });
+
+        streetLayer.addTo(map);
+
+        var icon = L.divIcon({
+          className: 'worker-marker',
+          iconSize: [22, 22],
+          iconAnchor: [11, 11]
+        });
+        workerMarker = L.marker([currentLat, currentLng], { icon: icon }).addTo(map);
+
+        map.on('click', function(e) {
+          selectedLat = e.latlng.lat;
+          selectedLng = e.latlng.lng;
+          openCensusModal();
+        });
+
+        renderPins();
+
+        setTimeout(function() {
+          if (map) map.invalidateSize();
+        }, 300);
+
+      } catch (err) {
+        console.error('Error iniciando mapa Leaflet:', err);
+      }
+    }
+
+    window.onNativeGps = function(lat, lng, acc, source) {
+      currentLat = lat;
+      currentLng = lng;
+      currentAcc = Math.round(acc || 5);
+
+      gpsAcc.textContent = '+-' + currentAcc + 'm';
+      gpsSource.textContent = source || 'GPS Activo';
+
+      if (workerMarker) {
+        workerMarker.setLatLng([currentLat, currentLng]);
+      }
+      if (map) {
+        map.setView([currentLat, currentLng], 17);
+      }
+    };
+
+    function requestGpsFromHardware() {
+      if (window.AndroidGPS && typeof window.AndroidGPS.refreshGps === 'function') {
+        window.AndroidGPS.refreshGps();
+        try {
+          var raw = window.AndroidGPS.getLastCoordinates();
+          if (raw) {
+            var parts = raw.split(',');
+            if (parts.length >= 2) {
+              window.onNativeGps(parseFloat(parts[0]), parseFloat(parts[1]), parseFloat(parts[2] || 5), 'GPS Hardware');
+              return;
+            }
+          }
+        } catch (e) {}
+      }
+
+      if ('geolocation' in navigator) {
+        navigator.geolocation.watchPosition(
+          function(pos) {
+            window.onNativeGps(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, 'GPS Web');
+          },
+          function(err) {
+            window.onNativeGps(10.3705, -71.4385, 8, 'GPS Emulador');
+          },
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 3000 }
+        );
+      } else {
+        window.onNativeGps(10.3705, -71.4385, 8, 'GPS Emulador');
+      }
+    }
+
+    document.getElementById('btn-toggle-layer').addEventListener('click', function() {
+      if (!map) return;
+      isSatellite = !isSatellite;
+      if (isSatellite) {
+        map.removeLayer(streetLayer);
+        map.addLayer(satLayer);
+      } else {
+        map.removeLayer(satLayer);
+        map.addLayer(streetLayer);
+      }
+    });
+
+    document.getElementById('btn-recenter').addEventListener('click', function() {
+      if (map) {
+        map.setView([currentLat, currentLng], 18);
+        map.invalidateSize();
+      }
+      requestGpsFromHardware();
+    });
+
+    function openCensusModal() {
+      var lat = selectedLat || currentLat;
+      var lng = selectedLng || currentLng;
+      coordsDisplay.textContent = lat.toFixed(6) + ', ' + lng.toFixed(6);
+      formModal.classList.add('open');
+    }
+
+    document.getElementById('btn-open-modal').addEventListener('click', function() {
+      selectedLat = currentLat;
+      selectedLng = currentLng;
+      openCensusModal();
+    });
+
+    document.getElementById('btn-close-modal').addEventListener('click', function() {
+      formModal.classList.remove('open');
+    });
+
+    document.getElementById('btn-search-cedula').addEventListener('click', function() {
+      var ced = document.getElementById('ciudadano-cedula').value.trim();
+      if (!ced) return;
+      var found = censos.find(function(c) { return c.cedula === ced; });
+      if (found) {
+        document.getElementById('ciudadano-nombre').value = found.nombre || '';
+        document.getElementById('ciudadano-telefono').value = found.telefono || '';
+        alert('Datos autocompletados desde registro existente.');
+      } else {
+        alert('Cedula no registrada previamente. Ingrese los datos manualmente.');
+      }
+    });
+
+    document.getElementById('census-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var lat = selectedLat || currentLat;
+      var lng = selectedLng || currentLng;
+
+      var record = {
+        id: Date.now().toString(),
+        sector: document.getElementById('inmueble-sector').value.trim(),
+        calle: document.getElementById('inmueble-calle').value.trim(),
+        numero: document.getElementById('inmueble-numero').value.trim(),
+        tipo: document.getElementById('inmueble-tipo').value,
+        referencia: document.getElementById('inmueble-ref').value.trim(),
+        cedula: document.getElementById('ciudadano-cedula').value.trim(),
+        nombre: document.getElementById('ciudadano-nombre').value.trim(),
+        telefono: document.getElementById('ciudadano-telefono').value.trim(),
+        parentesco: document.getElementById('ciudadano-parentesco').value,
+        habitantes: parseInt(document.getElementById('ciudadano-hab').value) || 1,
+        lat: lat,
+        lng: lng,
+        timestamp: new Date().toISOString()
+      };
+
+      censos.push(record);
+      localStorage.setItem('alcaldia_censos', JSON.stringify(censos));
+      censusCount.textContent = censos.length;
+      renderPins();
+
+      try {
+        fetch('http://localhost:5000/api/censo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(record)
+        }).catch(function() {});
+      } catch (err) {}
+
+      formModal.classList.remove('open');
+      document.getElementById('census-form').reset();
+      alert('Vivienda y habitante censados con exito!');
+    });
+
+    function renderPins() {
+      if (!map) return;
+      houseMarkers.forEach(function(m) { map.removeLayer(m); });
+      houseMarkers = [];
+
+      censos.forEach(function(c) {
+        if (c.lat && c.lng) {
+          var pin = L.circleMarker([c.lat, c.lng], {
+            radius: 8,
+            fillColor: '#10b981',
+            color: '#ffffff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.95
+          }).addTo(map);
+
+          pin.bindPopup('<div style="font-size: 12px; color: #0f172a; padding: 2px;"><strong>' + c.sector + ', ' + c.calle + ' #' + c.numero + '</strong><br>Habitante: ' + c.nombre + ' (' + c.cedula + ')</div>');
+          houseMarkers.push(pin);
+        }
+      });
+    }
+  </script>
+</body>
+</html>
