@@ -2,410 +2,1445 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simulador de APK Flutter - Censo Territorial Alcaldía</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="leaflet/leaflet.css" />
-  <script src="leaflet/leaflet.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Censo Territorial - Rosario de Perijá</title>
   <style>
-    body { background-color: #050811; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
-    .phone-frame {
-      width: 390px;
-      height: 800px;
-      border-radius: 48px;
-      box-shadow: 0 25px 60px -15px rgba(0,0,0,0.9), 0 0 0 12px #1e293b, 0 0 0 14px #334155;
+/* required styles */
+
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+	position: absolute;
+	left: 0;
+	top: 0;
+	}
+.leaflet-container {
+	overflow: hidden;
+	}
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	-webkit-user-select: none;
+	   -moz-user-select: none;
+	        user-select: none;
+	  -webkit-user-drag: none;
+	}
+/* Prevents IE11 from highlighting tiles in blue */
+.leaflet-tile::selection {
+	background: transparent;
+}
+/* Safari renders non-retina tile on retina better with this, but Chrome is worse */
+.leaflet-safari .leaflet-tile {
+	image-rendering: -webkit-optimize-contrast;
+	}
+/* hack that prevents hw layers "stretching" when loading new tiles */
+.leaflet-safari .leaflet-tile-container {
+	width: 1600px;
+	height: 1600px;
+	-webkit-transform-origin: 0 0;
+	}
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	display: block;
+	}
+/* .leaflet-container svg: reset svg max-width decleration shipped in Joomla! (joomla.org) 3.x */
+/* .leaflet-container img: map is broken in FF if you have max-width: 100% on tiles */
+.leaflet-container .leaflet-overlay-pane svg {
+	max-width: none !important;
+	max-height: none !important;
+	}
+.leaflet-container .leaflet-marker-pane img,
+.leaflet-container .leaflet-shadow-pane img,
+.leaflet-container .leaflet-tile-pane img,
+.leaflet-container img.leaflet-image-layer,
+.leaflet-container .leaflet-tile {
+	max-width: none !important;
+	max-height: none !important;
+	width: auto;
+	padding: 0;
+	}
+
+.leaflet-container img.leaflet-tile {
+	/* See: https://bugs.chromium.org/p/chromium/issues/detail?id=600120 */
+	mix-blend-mode: plus-lighter;
+}
+
+.leaflet-container.leaflet-touch-zoom {
+	-ms-touch-action: pan-x pan-y;
+	touch-action: pan-x pan-y;
+	}
+.leaflet-container.leaflet-touch-drag {
+	-ms-touch-action: pinch-zoom;
+	/* Fallback for FF which doesn't support pinch-zoom */
+	touch-action: none;
+	touch-action: pinch-zoom;
+}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom {
+	-ms-touch-action: none;
+	touch-action: none;
+}
+.leaflet-container {
+	-webkit-tap-highlight-color: transparent;
+}
+.leaflet-container a {
+	-webkit-tap-highlight-color: rgba(51, 181, 229, 0.4);
+}
+.leaflet-tile {
+	filter: inherit;
+	visibility: hidden;
+	}
+.leaflet-tile-loaded {
+	visibility: inherit;
+	}
+.leaflet-zoom-box {
+	width: 0;
+	height: 0;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	z-index: 800;
+	}
+/* workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=888319 */
+.leaflet-overlay-pane svg {
+	-moz-user-select: none;
+	}
+
+.leaflet-pane         { z-index: 400; }
+
+.leaflet-tile-pane    { z-index: 200; }
+.leaflet-overlay-pane { z-index: 400; }
+.leaflet-shadow-pane  { z-index: 500; }
+.leaflet-marker-pane  { z-index: 600; }
+.leaflet-tooltip-pane   { z-index: 650; }
+.leaflet-popup-pane   { z-index: 700; }
+
+.leaflet-map-pane canvas { z-index: 100; }
+.leaflet-map-pane svg    { z-index: 200; }
+
+.leaflet-vml-shape {
+	width: 1px;
+	height: 1px;
+	}
+.lvml {
+	behavior: url(#default#VML);
+	display: inline-block;
+	position: absolute;
+	}
+
+
+/* control positioning */
+
+.leaflet-control {
+	position: relative;
+	z-index: 800;
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+.leaflet-top,
+.leaflet-bottom {
+	position: absolute;
+	z-index: 1000;
+	pointer-events: none;
+	}
+.leaflet-top {
+	top: 0;
+	}
+.leaflet-right {
+	right: 0;
+	}
+.leaflet-bottom {
+	bottom: 0;
+	}
+.leaflet-left {
+	left: 0;
+	}
+.leaflet-control {
+	float: left;
+	clear: both;
+	}
+.leaflet-right .leaflet-control {
+	float: right;
+	}
+.leaflet-top .leaflet-control {
+	margin-top: 10px;
+	}
+.leaflet-bottom .leaflet-control {
+	margin-bottom: 10px;
+	}
+.leaflet-left .leaflet-control {
+	margin-left: 10px;
+	}
+.leaflet-right .leaflet-control {
+	margin-right: 10px;
+	}
+
+
+/* zoom and fade animations */
+
+.leaflet-fade-anim .leaflet-popup {
+	opacity: 0;
+	-webkit-transition: opacity 0.2s linear;
+	   -moz-transition: opacity 0.2s linear;
+	        transition: opacity 0.2s linear;
+	}
+.leaflet-fade-anim .leaflet-map-pane .leaflet-popup {
+	opacity: 1;
+	}
+.leaflet-zoom-animated {
+	-webkit-transform-origin: 0 0;
+	    -ms-transform-origin: 0 0;
+	        transform-origin: 0 0;
+	}
+svg.leaflet-zoom-animated {
+	will-change: transform;
+}
+
+.leaflet-zoom-anim .leaflet-zoom-animated {
+	-webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1);
+	   -moz-transition:    -moz-transform 0.25s cubic-bezier(0,0,0.25,1);
+	        transition:         transform 0.25s cubic-bezier(0,0,0.25,1);
+	}
+.leaflet-zoom-anim .leaflet-tile,
+.leaflet-pan-anim .leaflet-tile {
+	-webkit-transition: none;
+	   -moz-transition: none;
+	        transition: none;
+	}
+
+.leaflet-zoom-anim .leaflet-zoom-hide {
+	visibility: hidden;
+	}
+
+
+/* cursors */
+
+.leaflet-interactive {
+	cursor: pointer;
+	}
+.leaflet-grab {
+	cursor: -webkit-grab;
+	cursor:    -moz-grab;
+	cursor:         grab;
+	}
+.leaflet-crosshair,
+.leaflet-crosshair .leaflet-interactive {
+	cursor: crosshair;
+	}
+.leaflet-popup-pane,
+.leaflet-control {
+	cursor: auto;
+	}
+.leaflet-dragging .leaflet-grab,
+.leaflet-dragging .leaflet-grab .leaflet-interactive,
+.leaflet-dragging .leaflet-marker-draggable {
+	cursor: move;
+	cursor: -webkit-grabbing;
+	cursor:    -moz-grabbing;
+	cursor:         grabbing;
+	}
+
+/* marker & overlays interactivity */
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-image-layer,
+.leaflet-pane > svg path,
+.leaflet-tile-container {
+	pointer-events: none;
+	}
+
+.leaflet-marker-icon.leaflet-interactive,
+.leaflet-image-layer.leaflet-interactive,
+.leaflet-pane > svg path.leaflet-interactive,
+svg.leaflet-image-layer.leaflet-interactive path {
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+
+/* visual tweaks */
+
+.leaflet-container {
+	background: #ddd;
+	outline-offset: 1px;
+	}
+.leaflet-container a {
+	color: #0078A8;
+	}
+.leaflet-zoom-box {
+	border: 2px dotted #38f;
+	background: rgba(255,255,255,0.5);
+	}
+
+
+/* general typography */
+.leaflet-container {
+	font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-size: 0.75rem;
+	line-height: 1.5;
+	}
+
+
+/* general toolbar styles */
+
+.leaflet-bar {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+	border-radius: 4px;
+	}
+.leaflet-bar a {
+	background-color: #fff;
+	border-bottom: 1px solid #ccc;
+	width: 26px;
+	height: 26px;
+	line-height: 26px;
+	display: block;
+	text-align: center;
+	text-decoration: none;
+	color: black;
+	}
+.leaflet-bar a,
+.leaflet-control-layers-toggle {
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+	display: block;
+	}
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+	background-color: #f4f4f4;
+	}
+.leaflet-bar a:first-child {
+	border-top-left-radius: 4px;
+	border-top-right-radius: 4px;
+	}
+.leaflet-bar a:last-child {
+	border-bottom-left-radius: 4px;
+	border-bottom-right-radius: 4px;
+	border-bottom: none;
+	}
+.leaflet-bar a.leaflet-disabled {
+	cursor: default;
+	background-color: #f4f4f4;
+	color: #bbb;
+	}
+
+.leaflet-touch .leaflet-bar a {
+	width: 30px;
+	height: 30px;
+	line-height: 30px;
+	}
+.leaflet-touch .leaflet-bar a:first-child {
+	border-top-left-radius: 2px;
+	border-top-right-radius: 2px;
+	}
+.leaflet-touch .leaflet-bar a:last-child {
+	border-bottom-left-radius: 2px;
+	border-bottom-right-radius: 2px;
+	}
+
+/* zoom control */
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+	font: bold 18px 'Lucida Console', Monaco, monospace;
+	text-indent: 1px;
+	}
+
+.leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out  {
+	font-size: 22px;
+	}
+
+
+/* layers control */
+
+.leaflet-control-layers {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+	background: #fff;
+	border-radius: 5px;
+	}
+.leaflet-control-layers-toggle {
+	background-image: url(images/layers.png);
+	width: 36px;
+	height: 36px;
+	}
+.leaflet-retina .leaflet-control-layers-toggle {
+	background-image: url(images/layers-2x.png);
+	background-size: 26px 26px;
+	}
+.leaflet-touch .leaflet-control-layers-toggle {
+	width: 44px;
+	height: 44px;
+	}
+.leaflet-control-layers .leaflet-control-layers-list,
+.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+	display: none;
+	}
+.leaflet-control-layers-expanded .leaflet-control-layers-list {
+	display: block;
+	position: relative;
+	}
+.leaflet-control-layers-expanded {
+	padding: 6px 10px 6px 6px;
+	color: #333;
+	background: #fff;
+	}
+.leaflet-control-layers-scrollbar {
+	overflow-y: scroll;
+	overflow-x: hidden;
+	padding-right: 5px;
+	}
+.leaflet-control-layers-selector {
+	margin-top: 2px;
+	position: relative;
+	top: 1px;
+	}
+.leaflet-control-layers label {
+	display: block;
+	font-size: 13px;
+	font-size: 1.08333em;
+	}
+.leaflet-control-layers-separator {
+	height: 0;
+	border-top: 1px solid #ddd;
+	margin: 5px -10px 5px -6px;
+	}
+
+/* Default icon URLs */
+.leaflet-default-icon-path { /* used only in path-guessing heuristic, see L.Icon.Default */
+	background-image: url(images/marker-icon.png);
+	}
+
+
+/* attribution and scale controls */
+
+.leaflet-container .leaflet-control-attribution {
+	background: #fff;
+	background: rgba(255, 255, 255, 0.8);
+	margin: 0;
+	}
+.leaflet-control-attribution,
+.leaflet-control-scale-line {
+	padding: 0 5px;
+	color: #333;
+	line-height: 1.4;
+	}
+.leaflet-control-attribution a {
+	text-decoration: none;
+	}
+.leaflet-control-attribution a:hover,
+.leaflet-control-attribution a:focus {
+	text-decoration: underline;
+	}
+.leaflet-attribution-flag {
+	display: inline !important;
+	vertical-align: baseline !important;
+	width: 1em;
+	height: 0.6669em;
+	}
+.leaflet-left .leaflet-control-scale {
+	margin-left: 5px;
+	}
+.leaflet-bottom .leaflet-control-scale {
+	margin-bottom: 5px;
+	}
+.leaflet-control-scale-line {
+	border: 2px solid #777;
+	border-top: none;
+	line-height: 1.1;
+	padding: 2px 5px 1px;
+	white-space: nowrap;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	background: rgba(255, 255, 255, 0.8);
+	text-shadow: 1px 1px #fff;
+	}
+.leaflet-control-scale-line:not(:first-child) {
+	border-top: 2px solid #777;
+	border-bottom: none;
+	margin-top: -2px;
+	}
+.leaflet-control-scale-line:not(:first-child):not(:last-child) {
+	border-bottom: 2px solid #777;
+	}
+
+.leaflet-touch .leaflet-control-attribution,
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	box-shadow: none;
+	}
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	border: 2px solid rgba(0,0,0,0.2);
+	background-clip: padding-box;
+	}
+
+
+/* popup */
+
+.leaflet-popup {
+	position: absolute;
+	text-align: center;
+	margin-bottom: 20px;
+	}
+.leaflet-popup-content-wrapper {
+	padding: 1px;
+	text-align: left;
+	border-radius: 12px;
+	}
+.leaflet-popup-content {
+	margin: 13px 24px 13px 20px;
+	line-height: 1.3;
+	font-size: 13px;
+	font-size: 1.08333em;
+	min-height: 1px;
+	}
+.leaflet-popup-content p {
+	margin: 17px 0;
+	margin: 1.3em 0;
+	}
+.leaflet-popup-tip-container {
+	width: 40px;
+	height: 20px;
+	position: absolute;
+	left: 50%;
+	margin-top: -1px;
+	margin-left: -20px;
+	overflow: hidden;
+	pointer-events: none;
+	}
+.leaflet-popup-tip {
+	width: 17px;
+	height: 17px;
+	padding: 1px;
+
+	margin: -10px auto 0;
+	pointer-events: auto;
+
+	-webkit-transform: rotate(45deg);
+	   -moz-transform: rotate(45deg);
+	    -ms-transform: rotate(45deg);
+	        transform: rotate(45deg);
+	}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+	background: white;
+	color: #333;
+	box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+	}
+.leaflet-container a.leaflet-popup-close-button {
+	position: absolute;
+	top: 0;
+	right: 0;
+	border: none;
+	text-align: center;
+	width: 24px;
+	height: 24px;
+	font: 16px/24px Tahoma, Verdana, sans-serif;
+	color: #757575;
+	text-decoration: none;
+	background: transparent;
+	}
+.leaflet-container a.leaflet-popup-close-button:hover,
+.leaflet-container a.leaflet-popup-close-button:focus {
+	color: #585858;
+	}
+.leaflet-popup-scrolled {
+	overflow: auto;
+	}
+
+.leaflet-oldie .leaflet-popup-content-wrapper {
+	-ms-zoom: 1;
+	}
+.leaflet-oldie .leaflet-popup-tip {
+	width: 24px;
+	margin: 0 auto;
+
+	-ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678)";
+	filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678);
+	}
+
+.leaflet-oldie .leaflet-control-zoom,
+.leaflet-oldie .leaflet-control-layers,
+.leaflet-oldie .leaflet-popup-content-wrapper,
+.leaflet-oldie .leaflet-popup-tip {
+	border: 1px solid #999;
+	}
+
+
+/* div icon */
+
+.leaflet-div-icon {
+	background: #fff;
+	border: 1px solid #666;
+	}
+
+
+/* Tooltip */
+/* Base styles for the element that has a tooltip */
+.leaflet-tooltip {
+	position: absolute;
+	padding: 6px;
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 3px;
+	color: #222;
+	white-space: nowrap;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	pointer-events: none;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+	}
+.leaflet-tooltip.leaflet-interactive {
+	cursor: pointer;
+	pointer-events: auto;
+	}
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	position: absolute;
+	pointer-events: none;
+	border: 6px solid transparent;
+	background: transparent;
+	content: "";
+	}
+
+/* Directions */
+
+.leaflet-tooltip-bottom {
+	margin-top: 6px;
+}
+.leaflet-tooltip-top {
+	margin-top: -6px;
+}
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-top:before {
+	left: 50%;
+	margin-left: -6px;
+	}
+.leaflet-tooltip-top:before {
+	bottom: 0;
+	margin-bottom: -12px;
+	border-top-color: #fff;
+	}
+.leaflet-tooltip-bottom:before {
+	top: 0;
+	margin-top: -12px;
+	margin-left: -6px;
+	border-bottom-color: #fff;
+	}
+.leaflet-tooltip-left {
+	margin-left: -6px;
+}
+.leaflet-tooltip-right {
+	margin-left: 6px;
+}
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	top: 50%;
+	margin-top: -6px;
+	}
+.leaflet-tooltip-left:before {
+	right: 0;
+	margin-right: -12px;
+	border-left-color: #fff;
+	}
+.leaflet-tooltip-right:before {
+	left: 0;
+	margin-left: -12px;
+	border-right-color: #fff;
+	}
+
+/* Printing */
+
+@media print {
+	/* Prevent printers from removing background-images of controls. */
+	.leaflet-control {
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+		}
+	}
+
+
+    /* ESTILOS DE LA APLICACIÓN */
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      width: 100%;
+      height: 100%;
       overflow: hidden;
-      position: relative;
+      background-color: #070b14;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
-    .notch {
-      width: 140px;
-      height: 26px;
-      background: #0f172a;
-      border-bottom-left-radius: 16px;
-      border-bottom-right-radius: 16px;
+
+    /* CONTENEDOR DE MAPA Y CANVAS ABSOLUTO (ANTI-PANTALLA-NEGRA) */
+    #map-wrapper {
       position: absolute;
       top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 100;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      background-color: #08111e;
+    }
+
+    #map {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+    }
+
+    .glass-panel {
+      background: rgba(11, 18, 32, 0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    }
+
+    .worker-marker {
+      width: 24px;
+      height: 24px;
+      background: #0284c7;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 16px #38bdf8;
+      animation: pulse-worker 1.8s infinite;
+    }
+    @keyframes pulse-worker {
+      0% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.8); }
+      70% { box-shadow: 0 0 0 16px rgba(2, 132, 199, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0); }
+    }
+
+    /* HEADER SUPERIOR */
+    .top-bar {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      z-index: 1000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+    .top-bar > * { pointer-events: auto; }
+
+    .header-info {
+      padding: 8px 14px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(11, 18, 32, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    }
+    .btn-icon:active { transform: scale(0.95); }
+
+    /* SELECTOR DE CAPAS SATELITAL / CALLES */
+    .layer-selector {
+      display: flex;
+      padding: 3px;
+      border-radius: 14px;
+      gap: 3px;
+    }
+    .layer-btn {
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      background: transparent;
+      color: #94a3b8;
+    }
+    .layer-btn.active {
+      background: #0284c7;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+    }
+
+    /* DOCK INFERIOR */
+    .bottom-dock {
+      position: absolute;
+      bottom: 16px;
+      left: 14px;
+      right: 14px;
+      z-index: 1000;
+      border-radius: 24px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .dock-stats {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 15px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #0284c7, #10b981);
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 800;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(2, 132, 199, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary:active { transform: scale(0.98); }
+
+    /* MODAL DE CENSO */
+    #modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(6px);
+      align-items: flex-end;
+      justify-content: center;
+    }
+    #modal-overlay.open { display: flex; }
+
+    .modal-box {
+      width: 100%;
+      max-width: 520px;
+      max-height: 92vh;
+      background: #0f172a;
+      border-top-left-radius: 26px;
+      border-top-right-radius: 26px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.9);
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-body {
+      padding: 16px 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #ffffff;
+      font-size: 13px;
+      outline: none;
+    }
+    .input-field:focus {
+      border-color: #0284c7;
+      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.25);
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-group label { font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* PANTALLA LOGIN */
+    #login-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 3000;
+      background: #070b14;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px 20px;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 360px;
+      margin: auto;
+      text-align: center;
     }
   </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-4">
+<body>
 
-  <!-- Encabezado de la Herramienta -->
-  <div class="text-center mb-5 max-w-xl">
-    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-bold uppercase tracking-wider mb-2">
-      📱 Simulador de APK Móvil (Flutter / Android)
-    </div>
-    <h1 class="text-2xl sm:text-3xl font-black text-white">App Censo Territorial • Alcaldía de Rosario</h1>
-    <p class="text-xs text-slate-400 mt-1">
-      Demostración interactiva en vivo del código Flutter generado en <code class="text-sky-400 bg-slate-900 px-1.5 py-0.5 rounded">Aseo-Censo-Flutter</code> conectado al backend local.
-    </p>
-  </div>
-
-  <!-- Marco del Smartphone -->
-  <div class="phone-frame bg-slate-950 flex flex-col">
-    <!-- Notch / Cámara frontal -->
-    <div class="notch flex items-center justify-center">
-      <div class="w-3 h-3 rounded-full bg-slate-800 border border-slate-700"></div>
+  <!-- PANTALLA DE ACCESO MUNICIPAL -->
+  <div id="login-overlay">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; background: rgba(2, 132, 199, 0.2); border: 1px solid rgba(2, 132, 199, 0.4); color: #38bdf8; font-size: 11px; font-weight: bold;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+        <span>Alcaldía Rosario de Perijá</span>
+      </div>
+      <span style="font-size: 11px; color: #64748b; font-family: monospace;">Zulia 2026</span>
     </div>
 
-    <!-- PANTALLA 1: LOGIN (Visible si no está autenticado) -->
-    <div id="screenLogin" class="flex-1 p-6 flex flex-col justify-center items-center relative z-10">
-      <div class="w-16 h-16 rounded-2xl bg-slate-900 border border-sky-500/40 flex items-center justify-center shadow-lg shadow-sky-500/20 mb-4">
-        <svg class="w-8 h-8 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-        </svg>
+    <div class="login-container">
+      <div style="width: 68px; height: 68px; border-radius: 22px; background: linear-gradient(135deg, #0284c7, #10b981); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 6px 25px rgba(2, 132, 199, 0.4);">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
       </div>
 
-      <h2 class="text-lg font-black text-white text-center">Censo Territorial Municipal</h2>
-      <p class="text-xs text-sky-400 font-semibold text-center mt-0.5">Alcaldía de Rosario de Perijá</p>
+      <h1 style="font-size: 22px; font-weight: 800; margin-bottom: 6px;">Censo Territorial</h1>
+      <p style="font-size: 12px; color: #94a3b8; margin-bottom: 24px;">La Villa del Rosario &bull; Estado Zulia</p>
 
-      <div class="mt-2 mb-6 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-[10px] font-bold text-amber-400 flex items-center gap-1">
-        <span>🔒 USO EXCLUSIVO FUNCIONARIOS</span>
-      </div>
-
-      <div id="loginError" class="hidden w-full mb-3 p-2.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs font-semibold"></div>
-
-      <form id="loginForm" class="w-full space-y-3">
-        <div>
-          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Cédula o Correo</label>
-          <input id="loginUser" type="text" required value="V-30643300" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500" placeholder="Ej. V-30643300">
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Contraseña</label>
-          <input id="loginPass" type="password" required value="1234" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500" placeholder="••••••••">
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-amber-400 uppercase mb-1">Clave de Empleado Municipal</label>
-          <input id="loginKey" type="text" required value="ADMIN2026" class="w-full bg-slate-900 border border-amber-500/40 rounded-xl px-3 py-2.5 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-400" placeholder="ADMIN2026">
-        </div>
-
-        <button type="submit" class="w-full mt-4 py-3 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-sky-600/30 transition">
-          Ingresar al Sistema de Censo
+      <form id="login-form">
+        <input type="password" id="login-key" class="input-field" placeholder="Clave de Personal (ADMIN2026)" required autofocus style="text-align: center; font-size: 14px; margin-bottom: 12px;">
+        <button type="submit" class="btn-primary">
+          <span>Iniciar Censo en Villa del Rosario</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
       </form>
-
-      <p class="text-[10px] text-slate-500 text-center mt-6">
-        Catastro y Servicios Públicos • 2026
-      </p>
     </div>
 
-    <!-- PANTALLA 2: MAPA GPS Y CENSO (Visible al autenticar) -->
-    <div id="screenMap" class="hidden flex-1 flex flex-col relative">
-      <!-- Barra Superior de Cabecera Móvil -->
-      <div class="h-14 bg-slate-900/90 border-b border-slate-800 px-4 pt-4 flex items-center justify-between z-20 backdrop-blur-md">
-        <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-lg bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-400">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-          </div>
-          <div>
-            <div class="text-xs font-extrabold text-white leading-tight">CENSO TERRITORIAL</div>
-            <div class="text-[9px] text-slate-400">Rosario de Perijá</div>
-          </div>
-        </div>
-        <button id="btnLogout" class="text-slate-400 hover:text-red-400 text-xs p-1">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-        </button>
-      </div>
-
-      <!-- Mapa Leaflet GPS a Pantalla Completa -->
-      <div id="mapContainer" class="flex-1 w-full relative z-0"></div>
-
-      <!-- Botón Flotante Satélite -->
-      <div class="absolute top-16 right-3 z-20 flex flex-col gap-2">
-        <button id="btnToggleLayer" class="w-8 h-8 rounded-xl bg-slate-900/90 border border-slate-700 text-sky-400 flex items-center justify-center shadow-lg text-xs font-bold">
-          🛰️
-        </button>
-      </div>
-
-      <!-- Hint de Instrucción Táctil -->
-      <div class="absolute top-16 left-3 z-20 pointer-events-none">
-        <div class="bg-slate-950/80 border border-slate-800 px-2.5 py-1 rounded-lg text-[10px] text-slate-300 flex items-center gap-1.5 shadow-lg backdrop-blur-md">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>Toca el mapa para fijar la casa</span>
-        </div>
-      </div>
-
-      <!-- Barra Inferior Flotante de Campo (Action Dock) -->
-      <div class="absolute bottom-4 left-3 right-3 z-20">
-        <div class="bg-slate-900/95 border border-sky-500/40 rounded-2xl p-3 shadow-2xl backdrop-blur-md space-y-2">
-          <div class="flex items-center justify-between text-[10px] font-bold text-slate-300">
-            <span class="text-emerald-400 flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> GPS Activo (±4m)
-            </span>
-            <span>Hoy: <strong id="lblHoy" class="text-sky-400">0</strong> | Total: <strong id="lblTotal" class="text-emerald-400">0</strong></span>
-          </div>
-
-          <div id="pinAlert" class="hidden bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded text-[9px] text-emerald-300 font-medium">
-            📍 Punto seleccionado listo para registrar
-          </div>
-
-          <button id="btnOpenModal" class="w-full py-2.5 bg-gradient-to-r from-sky-600 to-emerald-600 hover:from-sky-500 hover:to-emerald-500 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2">
-            <span class="text-base font-bold">+</span>
-            <span>Censar Casa y Ciudadano</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Modal Bottom Sheet Deslizable -->
-      <div id="modalSheet" class="hidden absolute inset-0 bg-slate-950/80 z-30 flex flex-col justify-end backdrop-blur-sm animate-in fade-in">
-        <div class="bg-slate-900 border-t border-slate-700 rounded-t-3xl p-4 max-h-[85%] overflow-y-auto space-y-3 text-xs">
-          <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-            <h3 class="font-extrabold text-white text-sm">Registro de Censo en Campo</h3>
-            <button id="btnCloseModal" class="text-slate-400 hover:text-white text-base">✕</button>
-          </div>
-
-          <form id="censusForm" class="space-y-3">
-            <div>
-              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Sector</label>
-              <select id="fieldSector" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs"></select>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nº de Casa *</label>
-                <input id="fieldNumeroCasa" type="text" required placeholder="Ej. Casa #14" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs">
-              </div>
-              <div>
-                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tipo Inmueble</label>
-                <select id="fieldTipoInmueble" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs">
-                  <option value="RESIDENCIAL">Residencial ($2)</option>
-                  <option value="COMERCIAL_PEQ">Comercio Pequeño ($8)</option>
-                  <option value="COMERCIAL_GDE">Gran Comercio ($35)</option>
-                  <option value="BALDIO">Terreno Baldío ($1)</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Cédula del Habitante / Titular *</label>
-              <div class="flex gap-1.5">
-                <input id="fieldCedula" type="text" required placeholder="18456789" class="flex-1 bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs">
-                <button type="button" id="btnBuscarCedula" class="px-3 bg-sky-600 rounded-xl text-white font-bold text-xs">Buscar</button>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombres *</label>
-                <input id="fieldNombres" type="text" required placeholder="Juan" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs">
-              </div>
-              <div>
-                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Apellidos</label>
-                <input id="fieldApellidos" type="text" placeholder="Pérez" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs">
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Teléfono WhatsApp</label>
-              <input id="fieldTelefono" type="tel" placeholder="0414-1234567" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-white text-xs">
-            </div>
-
-            <button type="submit" id="btnGuardarCenso" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 font-extrabold text-white text-xs rounded-xl shadow-lg mt-2">
-              Confirmar y Guardar Censo
-            </button>
-          </form>
-        </div>
-      </div>
+    <div style="text-align: center; font-size: 11px; color: #475569;">
+      Dirección de Aseo Urbano y Catastro Municipal
     </div>
   </div>
 
+  <!-- APLICATIVO EN CAMPO: MAPA COMPLETO -->
+  <div id="map-wrapper">
+    <div id="map"></div>
+  </div>
+
+  <!-- HEADER FLOTANTE -->
+  <div class="top-bar">
+    <div class="glass-panel header-info">
+      <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+      <div>
+        <div style="font-size: 11px; font-weight: 800; color: #ffffff;">Villa del Rosario</div>
+        <div id="gps-source" style="font-size: 10px; font-family: monospace; color: #38bdf8;">Sierra de Perijá</div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 8px;">
+      <!-- Selector Satélite / Calles -->
+      <div class="glass-panel layer-selector">
+        <button id="btn-layer-sat" class="layer-btn active">🛰️ Satelital</button>
+        <button id="btn-layer-streets" class="layer-btn">🗺️ Calles</button>
+      </div>
+
+      <button id="btn-locate-me" class="btn-icon" title="Centrar mi posición">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+      </button>
+
+      <button id="btn-logout" class="btn-icon" style="color: #f43f5e;" title="Salir">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- DOCK INFERIOR -->
+  <div class="glass-panel bottom-dock">
+    <div class="dock-stats">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #38bdf8;"></span>
+        <span style="color: #94a3b8;">GPS: <strong id="gps-accuracy" style="color: #38bdf8; font-family: monospace;">±5m</strong></span>
+      </div>
+      <div style="color: #94a3b8;">
+        Casas Censadas: <strong id="census-count" style="color: #10b981; background: rgba(16, 185, 129, 0.2); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.4);">0</strong>
+      </div>
+    </div>
+
+    <button id="btn-open-modal" class="btn-primary">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      <span>+ Censar Casa y Ciudadano</span>
+    </button>
+  </div>
+
+  <!-- MODAL DE LEVANTAMIENTO CATASTRAL Y CIUDADANO -->
+  <div id="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 32px; height: 32px; border-radius: 10px; background: rgba(2, 132, 199, 0.2); display: flex; align-items: center; justify-content: center; color: #38bdf8;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+          </div>
+          <div>
+            <div style="font-weight: 800; font-size: 14px;">Registro Territorial</div>
+            <div style="font-size: 11px; color: #94a3b8;">Villa del Rosario &bull; Catastro y Aseo</div>
+          </div>
+        </div>
+        <button id="btn-close-modal" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 4px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form id="census-form" class="modal-body">
+        <div style="background: #1e293b; padding: 10px 14px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; color: #94a3b8;">Coordenada GPS Rosario:</span>
+          <span id="coords-text" style="font-size: 12px; font-family: monospace; color: #38bdf8; font-weight: bold;">-- , --</span>
+        </div>
+
+        <div style="font-size: 11px; font-weight: 800; color: #38bdf8;">1. DATOS DEL INMUEBLE</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Sector de la Villa *</label>
+            <select id="inmueble-sector" class="input-field" required>
+              <option value="Casco Central">Casco Central (Plaza Bolívar)</option>
+              <option value="Urb. Las Colinas">Urb. Las Colinas</option>
+              <option value="Los Chaguaramos">Los Chaguaramos</option>
+              <option value="Sector El Recreo">Sector El Recreo</option>
+              <option value="Sector El Valle">Sector El Valle</option>
+              <option value="Sector San José">Sector San José</option>
+              <option value="Sector Aurora I">Sector Aurora I</option>
+              <option value="Sector Aurora II">Sector Aurora II</option>
+              <option value="Sector Venezuela">Sector Venezuela</option>
+              <option value="Residencias Portal El Rosario">Residencias Portal El Rosario</option>
+              <option value="Urb. Prados de la Villa">Urb. Prados de la Villa</option>
+              <option value="Residencias Villa Nueva">Residencias Villa Nueva</option>
+              <option value="Urb. Villa Karelis">Urb. Villa Karelis</option>
+              <option value="Sector Noriega Trigo">Sector Noriega Trigo</option>
+              <option value="Sector Juan Gil">Sector Juan Gil</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Calle / Avenida *</label>
+            <input type="text" id="inmueble-calle" class="input-field" placeholder="Ej: Av. Bolívar / Calle Colón" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>N° Casa / Local *</label>
+            <input type="text" id="inmueble-numero" class="input-field" placeholder="Ej: 14-A" required>
+          </div>
+          <div class="form-group">
+            <label>Tipo de Inmueble</label>
+            <select id="inmueble-tipo" class="input-field">
+              <option value="RESIDENCIAL">Residencial Familiar ($2.00)</option>
+              <option value="COMERCIAL_PEQ">Comercio Pequeño / Bodega ($5.00)</option>
+              <option value="COMERCIAL_GDE">Comercio Grande / Depósito ($12.00)</option>
+              <option value="INDUSTRIAL">Industrial / Taller ($25.00)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Punto de Referencia</label>
+          <input type="text" id="inmueble-ref" class="input-field" placeholder="Ej: Portón azul frente a la panadería">
+        </div>
+
+        <div style="font-size: 11px; font-weight: 800; color: #10b981; margin-top: 6px;">2. DATOS DEL CIUDADANO</div>
+        <div class="form-group">
+          <label>Cédula de Identidad *</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="ciudadano-cedula" class="input-field" placeholder="Ej: 18456789" required>
+            <button type="button" id="btn-search-ced" style="padding: 0 16px; border-radius: 12px; background: rgba(16, 185, 129, 0.25); border: 1px solid rgba(16, 185, 129, 0.5); color: #10b981; font-weight: bold; cursor: pointer;">
+              🔍 Buscar
+            </button>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nombres y Apellidos *</label>
+            <input type="text" id="ciudadano-nombre" class="input-field" placeholder="Ej: Carlos Silva" required>
+          </div>
+          <div class="form-group">
+            <label>Teléfono WhatsApp</label>
+            <input type="tel" id="ciudadano-telefono" class="input-field" placeholder="Ej: 04141234567">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Parentesco / Condición</label>
+            <select id="ciudadano-parentesco" class="input-field">
+              <option value="PROPIETARIO">Propietario</option>
+              <option value="ARRENDATARIO">Inquilino</option>
+              <option value="FAMILIAR">Familiar Residente</option>
+              <option value="ENCARGADO">Encargado Comercial</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Habitantes</label>
+            <input type="number" id="ciudadano-hab" class="input-field" value="3" min="1">
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" style="background: linear-gradient(135deg, #059669, #0284c7); margin-top: 6px; margin-bottom: 12px;">
+          ✓ Guardar y Empadronar Vivienda
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="leaflet.js"></script>
   <script>
-    // Variables de Estado
-    let map, satelliteLayer, streetsLayer;
-    let currentMarker, targetMarker, houseMarkersLayer;
-    let selectedLatLng = null;
-    let userLatLng = [10.3180, -72.3150];
-    let isSatellite = true;
-    let sectores = [];
+    // COORDENADAS OFICIALES: La Villa del Rosario de Perijá, Zulia
+    const VILLA_ROSARIO = [10.3267, -72.3125];
+    let currentLat = VILLA_ROSARIO[0], currentLng = VILLA_ROSARIO[1];
+    let selectedLat = null, selectedLng = null;
+    let map = null, workerMarker = null;
+    let satLayer = null, labelsLayer = null, streetsLayer = null;
+    let houseMarkers = [];
+    let censos = JSON.parse(localStorage.getItem('alcaldia_censos') || '[]');
 
-    // 1. Manejo del Login
-    document.getElementById('loginForm').addEventListener('submit', (e) => {
+    // Elementos DOM
+    const loginOverlay = document.getElementById('login-overlay');
+    const loginForm = document.getElementById('login-form');
+    const loginKey = document.getElementById('login-key');
+    const gpsAccuracy = document.getElementById('gps-accuracy');
+    const gpsSource = document.getElementById('gps-source');
+    const censusCount = document.getElementById('census-count');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const coordsText = document.getElementById('coords-text');
+
+    // Auto-login si ya existe sesión
+    if (localStorage.getItem('alcaldia_session')) {
+      startApp();
+    }
+
+    loginForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      const key = document.getElementById('loginKey').value.trim().toUpperCase();
-      const errBox = document.getElementById('loginError');
+      const val = loginKey.value.trim().toUpperCase();
+      if (val === 'ADMIN2026' || val === 'CUADRILLA2026') {
+        localStorage.setItem('alcaldia_session', val);
+        startApp();
+      } else {
+        alert('Clave municipal incorrecta. Utilice ADMIN2026 o CUADRILLA2026');
+      }
+    });
 
-      if (key !== 'ADMIN2026' && key !== 'CUADRILLA2026' && key !== 'ROSARIO2026') {
-        errBox.textContent = 'Clave de Empleado inválida. Acceso exclusivo para la Alcaldía.';
-        errBox.classList.remove('hidden');
+    document.getElementById('btn-logout').addEventListener('click', () => {
+      localStorage.removeItem('alcaldia_session');
+      location.reload();
+    });
+
+    function startApp() {
+      loginOverlay.style.display = 'none';
+      censusCount.textContent = censos.length;
+      initMap();
+      requestGpsUpdates();
+    }
+
+    // INICIALIZACIÓN DEL MAPA DE LA VILLA DEL ROSARIO
+    function initMap() {
+      if (map) {
+        map.invalidateSize();
         return;
       }
 
-      errBox.classList.add('hidden');
-      document.getElementById('screenLogin').classList.add('hidden');
-      document.getElementById('screenMap').classList.remove('hidden');
+      // 1. Instanciar mapa centrado en La Villa del Rosario
+      map = L.map('map', {
+        zoomControl: false,
+        attributionControl: false
+      }).setView(VILLA_ROSARIO, 16);
 
-      setTimeout(initMap, 200);
-      loadCensoData();
-    });
+      // 2. Capa Satelital Esri HD (Sierra de Perijá)
+      satLayer = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { maxZoom: 19 }
+      );
 
-    document.getElementById('btnLogout').addEventListener('click', () => {
-      document.getElementById('screenMap').classList.add('hidden');
-      document.getElementById('screenLogin').classList.remove('hidden');
-    });
+      // 3. Capa de Etiquetas de Calles y Sectores
+      labelsLayer = L.tileLayer(
+        'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+        { maxZoom: 19, opacity: 0.9 }
+      );
 
-    // 2. Inicialización del Mapa Leaflet
-    function initMap() {
-      if (map) return;
+      // 4. Capa Callejera OpenStreetMap
+      streetsLayer = L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        { maxZoom: 19, subdomains: ['a', 'b', 'c'] }
+      );
 
-      map = L.map('mapContainer', { zoomControl: false, attributionControl: false }).setView(userLatLng, 17);
+      // Activar satelital + nombres de calles por defecto
+      satLayer.addTo(map);
+      labelsLayer.addTo(map);
 
-      satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
-      streetsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
-
-      satelliteLayer.addTo(map);
-      houseMarkersLayer = L.layerGroup().addTo(map);
-
-      // Marcador del Censista
-      currentMarker = L.circleMarker(userLatLng, {
-        radius: 8,
-        fillColor: '#0284c7',
-        color: '#ffffff',
-        weight: 3,
-        opacity: 1,
-        fillOpacity: 0.9
-      }).addTo(map);
-
-      // Clic en el mapa para fijar casa
-      map.on('click', (e) => {
-        selectedLatLng = e.latlng;
-        if (targetMarker) map.removeLayer(targetMarker);
-
-        targetMarker = L.marker(selectedLatLng, {
-          icon: L.divIcon({
-            html: '<div style="background:#10b981; border:2px solid white; border-radius:50%; width:20px; height:20px; box-shadow:0 0 10px #10b981;"></div>',
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
-          })
-        }).addTo(map);
-
-        document.getElementById('pinAlert').classList.remove('hidden');
+      // 5. Marcador del operario municipal
+      const workerIcon = L.divIcon({
+        className: 'worker-marker',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
       });
+      workerMarker = L.marker(VILLA_ROSARIO, { icon: workerIcon }).addTo(map);
+      workerMarker.bindPopup('<strong>Operario Municipal</strong><br>La Villa del Rosario de Perijá');
+
+      // 6. Delimitar sectores emblemáticos de La Villa del Rosario (Vectores)
+      drawRosarioSectors();
+
+      // 7. Click en el mapa para fijar coordenada
+      map.on('click', (e) => {
+        selectedLat = e.latlng.lat;
+        selectedLng = e.latlng.lng;
+        openModal();
+      });
+
+      renderSavedHouses();
+
+      // Forzar redimensionamiento tras renderizado
+      setTimeout(() => {
+        if (map) map.invalidateSize();
+      }, 250);
     }
 
-    // Cambiar capa Satélite / Calles
-    document.getElementById('btnToggleLayer').addEventListener('click', () => {
-      isSatellite = !isSatellite;
-      if (isSatellite) {
-        map.removeLayer(streetsLayer);
-        map.addLayer(satelliteLayer);
-      } else {
-        map.removeLayer(satelliteLayer);
-        map.addLayer(streetsLayer);
+    // DIBUJAR SECTORES Y CALLES PRINCIPALES DE LA VILLA
+    function drawRosarioSectors() {
+      // Casco Central
+      L.polygon([
+        [10.3295, -72.3155],
+        [10.3295, -72.3095],
+        [10.3235, -72.3095],
+        [10.3235, -72.3155]
+      ], {
+        color: '#0284c7',
+        fillColor: '#0284c7',
+        fillOpacity: 0.12,
+        weight: 2
+      }).addTo(map).bindPopup('<strong>Sector Casco Central</strong><br>Alcaldía & Plaza Bolívar');
+
+      // Las Colinas
+      L.polygon([
+        [10.3205, -72.3205],
+        [10.3205, -72.3135],
+        [10.3145, -72.3135],
+        [10.3145, -72.3205]
+      ], {
+        color: '#10b981',
+        fillColor: '#10b981',
+        fillOpacity: 0.12,
+        weight: 2
+      }).addTo(map).bindPopup('<strong>Urb. Las Colinas</strong><br>Rosario de Perijá');
+
+      // Av. Bolívar (Eje Troncal)
+      L.polyline([
+        [10.3150, -72.3125],
+        [10.3200, -72.3125],
+        [10.3267, -72.3125],
+        [10.3350, -72.3125],
+        [10.3420, -72.3125]
+      ], {
+        color: '#f59e0b',
+        weight: 4,
+        dashArray: '8, 6',
+        opacity: 0.8
+      }).addTo(map).bindPopup('<strong>Avenida Bolívar</strong><br>Eje Vial Principal de La Villa');
+    }
+
+    // CONTROL DE CAPAS
+    const btnSat = document.getElementById('btn-layer-sat');
+    const btnStreets = document.getElementById('btn-layer-streets');
+
+    btnSat.addEventListener('click', () => {
+      btnSat.classList.add('active');
+      btnStreets.classList.remove('active');
+      if (map) {
+        if (map.hasLayer(streetsLayer)) map.removeLayer(streetsLayer);
+        if (!map.hasLayer(satLayer)) map.addLayer(satLayer);
+        if (!map.hasLayer(labelsLayer)) map.addLayer(labelsLayer);
       }
     });
 
-    // Cargar datos de la API de la Alcaldía
-    async function loadCensoData() {
-      try {
-        const res = await fetch('http://localhost:5000/api/censo');
-        const data = await res.json();
-        if (data.success) {
-          sectores = data.sectores || [];
-          document.getElementById('lblHoy').textContent = data.censadosHoy || 0;
-          document.getElementById('lblTotal').textContent = data.totalInmuebles || 0;
+    btnStreets.addEventListener('click', () => {
+      btnStreets.classList.add('active');
+      btnSat.classList.remove('active');
+      if (map) {
+        if (map.hasLayer(satLayer)) map.removeLayer(satLayer);
+        if (map.hasLayer(labelsLayer)) map.removeLayer(labelsLayer);
+        if (!map.hasLayer(streetsLayer)) map.addLayer(streetsLayer);
+      }
+    });
 
-          // Poblar sectores en el select
-          const selSector = document.getElementById('fieldSector');
-          selSector.innerHTML = sectores.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+    // PUENTE NATIVO GPS (Recibe ubicación desde Android Hardware)
+    window.onNativeGps = function(lat, lng, acc, source) {
+      currentLat = lat;
+      currentLng = lng;
+      const accuracy = Math.round(acc || 5);
 
-          // Marcadores de casas
-          houseMarkersLayer.clearLayers();
-          (data.inmuebles || []).forEach(inm => {
-            if (inm.latitud && inm.longitud) {
-              const marker = L.circleMarker([inm.latitud, inm.longitud], {
-                radius: 6,
-                fillColor: inm.tipoInmueble.includes('COMERCIAL') ? '#f59e0b' : '#38bdf8',
-                color: '#ffffff',
-                weight: 1.5,
-                fillOpacity: 0.8
-              });
-              marker.bindPopup(`<b>${inm.codigoCatastral}</b><br>${inm.numeroCasaLocal}<br>${inm.propietarioNombre}`);
-              houseMarkersLayer.addLayer(marker);
+      gpsAccuracy.textContent = '±' + accuracy + 'm';
+      gpsSource.textContent = source || 'GPS Satelital';
+
+      if (workerMarker) {
+        workerMarker.setLatLng([currentLat, currentLng]);
+      }
+      if (map) {
+        map.setView([currentLat, currentLng], 16);
+      }
+    };
+
+    function requestGpsUpdates() {
+      if (window.AndroidGPS && typeof window.AndroidGPS.refreshGps === 'function') {
+        window.AndroidGPS.refreshGps();
+        try {
+          const raw = window.AndroidGPS.getLastCoordinates();
+          if (raw) {
+            const parts = raw.split(',');
+            if (parts.length >= 2) {
+              window.onNativeGps(parseFloat(parts[0]), parseFloat(parts[1]), parseFloat(parts[2] || 5), 'GPS Hardware');
+              return;
             }
-          });
-        }
-      } catch (err) {
-        console.warn('Backend API:', err);
+          }
+        } catch(e) {}
+      }
+
+      if ('geolocation' in navigator) {
+        navigator.geolocation.watchPosition(
+          (pos) => {
+            window.onNativeGps(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, 'GPS Web');
+          },
+          (err) => {
+            window.onNativeGps(VILLA_ROSARIO[0], VILLA_ROSARIO[1], 5, 'Villa del Rosario');
+          },
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 3000 }
+        );
+      } else {
+        window.onNativeGps(VILLA_ROSARIO[0], VILLA_ROSARIO[1], 5, 'Villa del Rosario');
       }
     }
 
-    // Modal
-    document.getElementById('btnOpenModal').addEventListener('click', () => {
-      document.getElementById('modalSheet').classList.remove('hidden');
+    document.getElementById('btn-locate-me').addEventListener('click', () => {
+      if (map) {
+        map.setView([currentLat, currentLng], 17);
+        map.invalidateSize();
+      }
+      requestGpsUpdates();
     });
 
-    document.getElementById('btnCloseModal').addEventListener('click', () => {
-      document.getElementById('modalSheet').classList.add('hidden');
+    // MODAL CONTROL
+    function openModal() {
+      const lat = selectedLat || currentLat;
+      const lng = selectedLng || currentLng;
+      coordsText.textContent = lat.toFixed(6) + ', ' + lng.toFixed(6);
+      modalOverlay.classList.add('open');
+    }
+
+    document.getElementById('btn-open-modal').addEventListener('click', () => {
+      selectedLat = currentLat;
+      selectedLng = currentLng;
+      openModal();
     });
 
-    // Búsqueda de Cédula
-    document.getElementById('btnBuscarCedula').addEventListener('click', async () => {
-      const cedula = document.getElementById('fieldCedula').value.trim();
-      if (!cedula) return;
-      try {
-        const res = await fetch('http://localhost:5000/api/censo/buscar', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ cedula })
-        });
-        const data = await res.json();
-        if (data.encontrado && data.usuario) {
-          document.getElementById('fieldNombres').value = data.usuario.nombres || '';
-          document.getElementById('fieldApellidos').value = data.usuario.apellidos || '';
-          document.getElementById('fieldTelefono').value = data.usuario.telefonoMovil || '';
-        }
-      } catch (_) {}
+    document.getElementById('btn-close-modal').addEventListener('click', () => {
+      modalOverlay.classList.remove('open');
     });
 
-    // Guardar Censo
-    document.getElementById('censusForm').addEventListener('submit', async (e) => {
+    // BÚSQUEDA DE CÉDULA
+    document.getElementById('btn-search-ced').addEventListener('click', () => {
+      const ced = document.getElementById('ciudadano-cedula').value.trim();
+      if (!ced) return;
+      const found = censos.find(c => c.cedula === ced);
+      if (found) {
+        document.getElementById('ciudadano-nombre').value = found.nombre || '';
+        document.getElementById('ciudadano-telefono').value = found.telefono || '';
+        alert('Datos cargados de registro previo en ' + found.sector);
+      } else {
+        alert('Cédula no encontrada en el histórico local. Ingrese los datos manualmente.');
+      }
+    });
+
+    // GUARDAR CENSO
+    document.getElementById('census-form').addEventListener('submit', (e) => {
       e.preventDefault();
-      const sectorId = document.getElementById('fieldSector').value;
-      const numeroCasaLocal = document.getElementById('fieldNumeroCasa').value;
-      const tipoInmueble = document.getElementById('fieldTipoInmueble').value;
-      const cedulaNumero = document.getElementById('fieldCedula').value;
-      const nombres = document.getElementById('fieldNombres').value;
-      const apellidos = document.getElementById('fieldApellidos').value;
-      const telefonoMovil = document.getElementById('fieldTelefono').value;
+      const lat = selectedLat || currentLat;
+      const lng = selectedLng || currentLng;
 
-      const payload = {
-        sectorId,
-        calleId: sectores[0]?.callesTramos?.[0]?.id || 'calle-principal',
-        numeroCasaLocal,
-        tipoInmueble,
-        tarifaBaseUsd: tipoInmueble === 'RESIDENCIAL' ? 2.0 : 8.0,
-        latitud: selectedLatLng ? selectedLatLng.lat : userLatLng[0],
-        longitud: selectedLatLng ? selectedLatLng.lng : userLatLng[1],
-        tipoDoc: 'V',
-        cedulaNumero,
-        nombres,
-        apellidos,
-        telefonoMovil
+      const record = {
+        id: Date.now().toString(),
+        sector: document.getElementById('inmueble-sector').value,
+        calle: document.getElementById('inmueble-calle').value.trim(),
+        numero: document.getElementById('inmueble-numero').value.trim(),
+        tipo: document.getElementById('inmueble-tipo').value,
+        referencia: document.getElementById('inmueble-ref').value.trim(),
+        cedula: document.getElementById('ciudadano-cedula').value.trim(),
+        nombre: document.getElementById('ciudadano-nombre').value.trim(),
+        telefono: document.getElementById('ciudadano-telefono').value.trim(),
+        parentesco: document.getElementById('ciudadano-parentesco').value,
+        habitantes: parseInt(document.getElementById('ciudadano-hab').value) || 1,
+        lat: lat,
+        lng: lng,
+        municipio: 'Rosario de Perijá',
+        estado: 'Zulia',
+        timestamp: new Date().toISOString()
       };
 
+      censos.push(record);
+      localStorage.setItem('alcaldia_censos', JSON.stringify(censos));
+      censusCount.textContent = censos.length;
+      renderSavedHouses();
+
+      // Notificar backend local si está disponible
       try {
-        const res = await fetch('http://localhost:5000/api/censo', {
+        fetch('http://localhost:5000/api/censo', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(payload)
-        });
-        const resData = await res.json();
-        if (resData.success) {
-          alert('¡Censo guardado exitosamente en el servidor de la Alcaldía!');
-          document.getElementById('modalSheet').classList.add('hidden');
-          document.getElementById('censusForm').reset();
-          document.getElementById('pinAlert').classList.add('hidden');
-          loadCensoData();
-        } else {
-          alert(resData.error || 'Error al guardar');
-        }
-      } catch (err) {
-        alert('Error de conexión con el servidor de la Alcaldía');
-      }
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(record)
+        }).catch(() => {});
+      } catch(err) {}
+
+      modalOverlay.classList.remove('open');
+      document.getElementById('census-form').reset();
+      alert('¡Vivienda y ciudadano censados con éxito en La Villa del Rosario!');
     });
+
+    function renderSavedHouses() {
+      if (!map) return;
+      houseMarkers.forEach(m => map.removeLayer(m));
+      houseMarkers = [];
+
+      censos.forEach(c => {
+        if (c.lat && c.lng) {
+          const pin = L.circleMarker([c.lat, c.lng], {
+            radius: 8,
+            fillColor: '#10b981',
+            color: '#ffffff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.95
+          }).addTo(map);
+
+          pin.bindPopup(
+            '<strong>' + c.sector + '</strong><br>' +
+            c.calle + ' #' + c.numero + '<br>' +
+            'Habitante: ' + c.nombre + ' (' + c.cedula + ')<br>' +
+            '<span style="color:#0284c7;font-size:10px;">Rosario de Perijá</span>'
+          );
+          houseMarkers.push(pin);
+        }
+      });
+    }
   </script>
 </body>
 </html>

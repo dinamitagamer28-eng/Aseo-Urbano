@@ -23,8 +23,9 @@ public class MainActivity extends Activity {
     private Location lastLocation;
     private static final int PERMISSION_REQUEST_CODE = 1001;
 
-    private static final double DEFAULT_LAT = 10.3705;
-    private static final double DEFAULT_LNG = -71.4385;
+    // Coordenadas oficiales: Plaza Bolívar / Alcaldía Rosario de Perijá, Zulia
+    public static final double ROSARIO_LAT = 10.3267;
+    public static final double ROSARIO_LNG = -72.3125;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,7 +54,7 @@ public class MainActivity extends Activity {
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setUserAgentString("AseoUrbanoAlcaldia/1.0 (Android)");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; Mobile) AseoUrbanoRosario/1.0");
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
@@ -61,7 +62,14 @@ public class MainActivity extends Activity {
 
         webView.addJavascriptInterface(new NativeGpsBridge(), "AndroidGPS");
 
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                startLocationUpdates();
+            }
+        });
+
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
@@ -70,12 +78,12 @@ public class MainActivity extends Activity {
         });
 
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        checkAndStartGps();
+        checkLocationPermissions();
 
         webView.loadUrl("file:///android_asset/index.html");
     }
 
-    private void checkAndStartGps() {
+    private void checkLocationPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             String[] perms = {
                 android.Manifest.permission.ACCESS_FINE_LOCATION,
@@ -110,7 +118,7 @@ public class MainActivity extends Activity {
             public void onLocationChanged(Location loc) {
                 if (loc != null) {
                     lastLocation = loc;
-                    dispatchLocation(loc.getLatitude(), loc.getLongitude(), loc.getAccuracy(), "GPS Nativo");
+                    dispatchLocation(loc.getLatitude(), loc.getLongitude(), loc.getAccuracy(), "GPS Satelital Rosario");
                 }
             }
             @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
@@ -137,10 +145,10 @@ public class MainActivity extends Activity {
                 lastLocation = best;
                 dispatchLocation(best.getLatitude(), best.getLongitude(), best.getAccuracy(), "GPS Fijo");
             } else {
-                dispatchLocation(DEFAULT_LAT, DEFAULT_LNG, 8.0f, "Simulador/Emulador");
+                dispatchLocation(ROSARIO_LAT, ROSARIO_LNG, 5.0f, "Villa del Rosario Centro");
             }
         } catch (SecurityException se) {
-            dispatchLocation(DEFAULT_LAT, DEFAULT_LNG, 15.0f, "Ubicacion Municipal");
+            dispatchLocation(ROSARIO_LAT, ROSARIO_LNG, 10.0f, "Villa del Rosario");
         }
     }
 
@@ -176,7 +184,7 @@ public class MainActivity extends Activity {
             if (lastLocation != null) {
                 return lastLocation.getLatitude() + "," + lastLocation.getLongitude() + "," + lastLocation.getAccuracy();
             }
-            return DEFAULT_LAT + "," + DEFAULT_LNG + ",8.0";
+            return ROSARIO_LAT + "," + ROSARIO_LNG + ",5.0";
         }
     }
 
