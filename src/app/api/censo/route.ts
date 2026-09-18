@@ -91,7 +91,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // 0. VERIFICACIÓN DE LOGIN PARA APLICATIVO MÓVIL Y WEB
+    // 0. VERIFICACIÓN ESTRICTA DE LOGIN: SOLO USUARIOS CREADOS EN LA WEB
     if (body.action === 'login') {
       const input = (body.usuario || body.identifier || body.correo || body.cedula || '').trim();
       const password = (body.password || '').trim();
@@ -106,8 +106,8 @@ export async function POST(request: Request) {
       const inputLower = input.toLowerCase();
       const cleanDigits = input.replace(/[^0-9]/g, '');
 
-      // Buscar usuario en base de datos
-      let matchedUser = await prisma.usuario.findFirst({
+      // Buscar usuario en base de datos por correo exacto o cédula registrada
+      const matchedUser = await prisma.usuario.findFirst({
         where: {
           OR: [
             { email: inputLower },
@@ -124,35 +124,37 @@ export async function POST(request: Request) {
         orderBy: { createdAt: 'desc' }
       });
 
-      // Búsqueda por rol si escribieron 'admin', 'supervisor' o 'cuadrilla'
-      if (!matchedUser && (inputLower === 'admin' || inputLower === 'alcaldia' || inputLower === 'cuadrilla' || inputLower === 'supervisor')) {
-        matchedUser = await prisma.usuario.findFirst({
-          where: { rol: { in: ['ADMIN', 'SUPERVISOR_CAMPO'] } },
-          orderBy: { createdAt: 'desc' }
-        });
-      }
-
+      // Si el usuario no fue creado en la base de datos de la web: DENEGAR ACCESO TOTALMENTE
       if (!matchedUser) {
         return NextResponse.json(
-          { success: false, error: 'Usuario no encontrado en la base de datos municipal.' },
+          { 
+            success: false, 
+            error: '🚫 Acceso Denegado: Este usuario no existe. Debes crear tu cuenta primero en la página web del Aseo Urbano.' 
+          },
+          { status: 404, headers: corsHeaders }
+        );
+      }
+
+      // Si no tiene contraseña creada en la web
+      if (!matchedUser.passwordHash) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: '🚫 Esta cuenta no tiene una contraseña creada en la web. Regístrate en la página web del Aseo para definir tu contraseña.' 
+          },
           { status: 401, headers: corsHeaders }
         );
       }
 
-      let valid = false;
-      if (matchedUser.passwordHash) {
-        valid = await bcrypt.compare(password, matchedUser.passwordHash);
-      }
+      // Validar estrictamente la contraseña contra el hash de la base de datos
+      const isValidPassword = await bcrypt.compare(password, matchedUser.passwordHash);
 
-      // Claves de contingencia o respaldo para personal de campo
-      const cleanPassUpper = password.toUpperCase();
-      if (!valid && (cleanPassUpper === 'ADMIN2026' || cleanPassUpper === 'ROSARIO2026' || cleanPassUpper === 'CUADRILLA2026' || password === cleanDigits)) {
-        valid = true;
-      }
-
-      if (!valid) {
+      if (!isValidPassword) {
         return NextResponse.json(
-          { success: false, error: 'Contraseña incorrecta. Verifica e intenta de nuevo.' },
+          { 
+            success: false, 
+            error: '🚫 Contraseña incorrecta. Debes ingresar la misma contraseña con la que creaste tu usuario en la web del Aseo.' 
+          },
           { status: 401, headers: corsHeaders }
         );
       }

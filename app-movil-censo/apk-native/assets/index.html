@@ -1338,7 +1338,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div class="modal-body">
         <div class="form-group">
           <label>URL / IP de la Base de Datos Central (Alcaldía):</label>
-          <input type="text" id="server-url-input" class="input-field" placeholder="http://192.168.86.250:5000">
+          <input type="text" id="server-url-input" class="input-field" placeholder="http://192.168.86.248:5000">
         </div>
 
         <button onclick="testServerConnection()" class="btn-primary" style="background: #0284c7;">
@@ -1363,7 +1363,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     let satLayer = null, labelsLayer = null, streetsLayer = null;
     let houseMarkers = [];
 
-    const DEFAULT_SERVER = 'http://192.168.86.250:5000';
+    const DEFAULT_SERVER = 'http://192.168.86.248:5000';
     let serverBaseUrl = localStorage.getItem('alcaldia_server_url') || DEFAULT_SERVER;
 
     let censos = [];
@@ -1507,18 +1507,27 @@ svg.leaflet-image-layer.leaflet-interactive path {
     }
 
     // Si ya existe sesión previa guardada
-    const rawSession = localStorage.getItem('alcaldia_session');
-    if (rawSession) {
-      try {
-        const u = JSON.parse(rawSession);
-        applyUserSession(u);
-        startApp();
-      } catch(e) {
-        startApp();
-      }
+        // Migrar IP si apuntaba a la anterior
+    if (localStorage.getItem('alcaldia_server_url') && localStorage.getItem('alcaldia_server_url').includes('192.168.86.250')) {
+      localStorage.setItem('alcaldia_server_url', DEFAULT_SERVER);
+      serverBaseUrl = DEFAULT_SERVER;
     }
 
-    // SUBMIT LOGIN CON USUARIO Y CONTRASEÑA
+    // Verificar si existe sesión válida creada por la web
+    const rawSession = localStorage.getItem('alcaldia_session');
+    if (rawSession && rawSession.startsWith('{')) {
+      try {
+        const u = JSON.parse(rawSession);
+        if (u && u.id && u.nombre) {
+          applyUserSession(u);
+          startApp();
+        }
+      } catch(e) {}
+    } else {
+      localStorage.removeItem('alcaldia_session');
+    }
+
+    // SUBMIT LOGIN CON VALIDACIÓN ESTRICTA EN LA WEB DEL ASEO
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const userVal = loginUser.value.trim();
@@ -1531,10 +1540,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
       loginError.style.display = 'none';
       btnSubmitLogin.disabled = true;
-      btnSubmitLogin.innerHTML = '<span>Verificando credenciales...</span>';
+      btnSubmitLogin.innerHTML = '<span>Verificando con la Base de Datos...</span>';
 
       try {
-        // 1. Validar directamente contra el servidor central de la alcaldía
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 9000);
+
         const res = await fetch(serverBaseUrl + '/api/censo', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1542,61 +1553,40 @@ svg.leaflet-image-layer.leaflet-interactive path {
             action: 'login',
             usuario: userVal,
             password: passVal
-          })
+          }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         const data = await res.json();
 
+        // 1. Si el usuario existe en la web y la contraseña es correcta
         if (res.ok && data.success && data.user) {
           localStorage.setItem('alcaldia_session', JSON.stringify(data.user));
           applyUserSession(data.user);
-          btnSubmitLogin.innerHTML = '<span>✓ ¡Acceso Correcto!</span>';
+          btnSubmitLogin.innerHTML = '<span>✓ ¡Acceso Concedido!</span>';
           setTimeout(() => {
             startApp();
             btnSubmitLogin.disabled = false;
             btnSubmitLogin.innerHTML = '<span>Iniciar Sesión en el Censo</span> <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
           }, 400);
           return;
-        } else if (res.status === 401 || (data && !data.success)) {
-          showLoginError(data.error || 'Usuario o contraseña incorrectos.');
-          btnSubmitLogin.disabled = false;
-          btnSubmitLogin.innerHTML = '<span>Iniciar Sesión en el Censo</span> <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
-          return;
         }
+
+        // 2. Si el servidor respondió con rechazo (no existe o clave errónea)
+        const errorMsg = data && data.error ? data.error : '🚫 Acceso Denegado: Credenciales no válidas en la web del Aseo.';
+        showLoginError(errorMsg);
+        btnSubmitLogin.disabled = false;
+        btnSubmitLogin.innerHTML = '<span>Iniciar Sesión en el Censo</span> <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+        return;
+
       } catch (netErr) {
-        console.warn('Servidor municipal no disponible, verificando contingencia offline:', netErr);
-      }
-
-      // 2. Respaldo Offline / Modo Campo (cuando el teléfono está sin internet en la calle)
-      const uLower = userVal.toLowerCase();
-      const cleanDigits = userVal.replace(/[^0-9]/g, '');
-      const isGabriel = (uLower.includes('gabobrice') || uLower.includes('gabriel') || cleanDigits === '30643300');
-      const isAdmin = (uLower === 'admin' || isGabriel);
-      const isMasterKey = (passVal.toUpperCase() === 'ADMIN2026' || passVal.toUpperCase() === 'ROSARIO2026' || passVal === '30643300');
-
-      if (isAdmin || isMasterKey) {
-        const offlineUser = {
-          id: '021b1f86-5084-49c5-9120-378797105565',
-          nombre: 'Gabriel Briceño',
-          email: 'gabobrice33@gmail.com',
-          cedula: 'V-30643300',
-          rol: 'ADMIN',
-          telefono: '04246242648'
-        };
-        localStorage.setItem('alcaldia_session', JSON.stringify(offlineUser));
-        applyUserSession(offlineUser);
-        btnSubmitLogin.innerHTML = '<span>✓ Acceso Concedido (Modo Campo)</span>';
-        setTimeout(() => {
-          startApp();
-          btnSubmitLogin.disabled = false;
-          btnSubmitLogin.innerHTML = '<span>Iniciar Sesión en el Censo</span> <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
-        }, 400);
+        console.error('Error al contactar servidor:', netErr);
+        showLoginError('⚠️ No se pudo conectar con el servidor de la web del Aseo (' + serverBaseUrl + ').\n\nAsegúrate de que tu teléfono y la computadora estén en la misma red Wi-Fi o pulsa "⚙️ Cambiar Servidor" para colocar la IP de tu equipo.');
+        btnSubmitLogin.disabled = false;
+        btnSubmitLogin.innerHTML = '<span>Iniciar Sesión en el Censo</span> <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
         return;
       }
-
-      showLoginError('No se pudo verificar el usuario. Comprueba tus datos o la conexión con la base de datos.');
-      btnSubmitLogin.disabled = false;
-      btnSubmitLogin.innerHTML = '<span>Iniciar Sesión en el Censo</span> <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
     });
 
     function showLoginError(msg) {
