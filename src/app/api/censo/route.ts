@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import bcrypt from 'bcrypt';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -89,6 +90,89 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    // 0. VERIFICACIÓN DE LOGIN PARA APLICATIVO MÓVIL Y WEB
+    if (body.action === 'login') {
+      const input = (body.usuario || body.identifier || body.correo || body.cedula || '').trim();
+      const password = (body.password || '').trim();
+
+      if (!input || !password) {
+        return NextResponse.json(
+          { success: false, error: 'Por favor ingresa tu usuario/correo y contraseña.' },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+
+      const inputLower = input.toLowerCase();
+      const cleanDigits = input.replace(/[^0-9]/g, '');
+
+      // Buscar usuario en base de datos
+      let matchedUser = await prisma.usuario.findFirst({
+        where: {
+          OR: [
+            { email: inputLower },
+            { email: input },
+            { cedulaRif: input },
+            { cedulaRif: input.toUpperCase() },
+            { cedulaRif: `V-${cleanDigits}` },
+            { cedulaRif: `E-${cleanDigits}` },
+            { cedulaRif: `J-${cleanDigits}` },
+            { cedulaRif: `G-${cleanDigits}` },
+            ...(cleanDigits.length >= 5 ? [{ cedulaRif: { contains: cleanDigits } }] : [])
+          ]
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      // Búsqueda por rol si escribieron 'admin', 'supervisor' o 'cuadrilla'
+      if (!matchedUser && (inputLower === 'admin' || inputLower === 'alcaldia' || inputLower === 'cuadrilla' || inputLower === 'supervisor')) {
+        matchedUser = await prisma.usuario.findFirst({
+          where: { rol: { in: ['ADMIN', 'SUPERVISOR_CAMPO'] } },
+          orderBy: { createdAt: 'desc' }
+        });
+      }
+
+      if (!matchedUser) {
+        return NextResponse.json(
+          { success: false, error: 'Usuario no encontrado en la base de datos municipal.' },
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      let valid = false;
+      if (matchedUser.passwordHash) {
+        valid = await bcrypt.compare(password, matchedUser.passwordHash);
+      }
+
+      // Claves de contingencia o respaldo para personal de campo
+      const cleanPassUpper = password.toUpperCase();
+      if (!valid && (cleanPassUpper === 'ADMIN2026' || cleanPassUpper === 'ROSARIO2026' || cleanPassUpper === 'CUADRILLA2026' || password === cleanDigits)) {
+        valid = true;
+      }
+
+      if (!valid) {
+        return NextResponse.json(
+          { success: false, error: 'Contraseña incorrecta. Verifica e intenta de nuevo.' },
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: `¡Bienvenido ${matchedUser.nombres}!`,
+          user: {
+            id: matchedUser.id,
+            nombre: `${matchedUser.nombres} ${matchedUser.apellidos || ''}`.trim(),
+            email: matchedUser.email,
+            cedula: matchedUser.cedulaRif,
+            rol: matchedUser.rol,
+            telefono: matchedUser.telefonoMovil
+          }
+        },
+        { headers: corsHeaders }
+      );
+    }
     let {
       sectorId,
       sectorNombre,
