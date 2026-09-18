@@ -51,7 +51,7 @@ export default function Navbar({ tasaBcv }: NavbarProps) {
         <div className="max-w-7xl mx-auto flex justify-between items-center flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="text-slate-300 font-medium">Alcaldía del Municipio Rosario de Perijá • IMAU</span>
+            <span className="text-slate-300 font-medium">Alcaldía del Municipio Rosario de Perijá • Gestión Ely Ramón Atencio</span>
             <span className="hidden sm:inline text-slate-500">•</span>
             <span className="hidden sm:inline text-slate-400">RIF: G-2004984-7</span>
           </div>
