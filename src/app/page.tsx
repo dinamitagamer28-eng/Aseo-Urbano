@@ -33,7 +33,7 @@ export default async function HomePage() {
             Plan Piloto Operativo: Sector Las Colinas • Parroquia El Rosario
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-            Sistema Integral de <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">Aseo Urbano</span> y Control Fiscal
+            Sistema Integral de <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">Aseo Urbano (IMAU)</span> y Control Fiscal
           </h1>
           <p className="text-base sm:text-lg text-slate-400">
             Plataforma municipal de recaudación digital a tasa oficial BCV, auditoría inmutable para la Contraloría Municipal, herramientas de censo GPS en campo y operativa para cuadrillas de recolección en Rosario de Perijá.
