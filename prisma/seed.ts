@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -258,6 +259,20 @@ async function main() {
       apellidos: 'Villalobos (Contraloría)',
       telefonoMovil: '0414-9990011',
       rol: 'AUDITOR_CONTRALORIA',
+    },
+  });
+
+  const adminHash = await bcrypt.hash('ADMIN2026', 10);
+  const adminUser = await prisma.usuario.create({
+    data: {
+      tipoDoc: 'V',
+      cedulaRif: 'INT-00000001',
+      nombres: 'Administrador Control Fiscal',
+      apellidos: 'IMAUR',
+      telefonoMovil: '0414-0000000',
+      email: 'admin@rosariodeperija.gob.ve',
+      passwordHash: adminHash,
+      rol: 'ADMIN',
     },
   });
 
