@@ -60,8 +60,8 @@ export default function DescargarAppCensoPage() {
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
             <div className="flex items-center gap-2">
-            <img src="/icons/imau_nav_badge.png" alt="IMAU" className="w-6 h-6 rounded-md" />
-            <span className="text-xs text-slate-300 font-bold">IMAU Rosario de Perijá</span>
+            <img src="/icons/imaur_nav_badge.png" alt="IMAUR" className="w-6 h-6 rounded-md" />
+            <span className="text-xs text-slate-300 font-bold">IMAUR Rosario de Perijá</span>
           </div>
           </div>
         </div>

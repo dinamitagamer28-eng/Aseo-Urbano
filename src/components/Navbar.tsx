@@ -48,7 +48,7 @@ export default function Navbar({ tasaBcv }: NavbarProps) {
         <div className="max-w-7xl mx-auto flex justify-between items-center flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="text-slate-300 font-medium">Alcaldía del Municipio Rosario de Perijá</span>
+            <span className="text-slate-300 font-medium">Alcaldía del Municipio Rosario de Perijá • IMAUR</span>
             <span className="hidden sm:inline text-slate-500">•</span>
             <span className="hidden sm:inline text-slate-400">RIF: G-2004984-7</span>
           </div>
@@ -68,7 +68,7 @@ export default function Navbar({ tasaBcv }: NavbarProps) {
           {isCiudadano && (
             <Link href="/" className="flex items-center gap-3 group transition">
               <div className="w-12 h-12 rounded-full overflow-hidden shadow-lg shadow-sky-500/20 flex items-center justify-center border-2 border-sky-400/80 bg-white p-0.5 flex-shrink-0 group-hover:scale-105 transition-transform">
-                <img src="/icons/imau_escudo_original.png" alt="Escudo Oficial Rosario de Perijá" className="w-full h-full object-contain" />
+                <img src="/icons/imaur_escudo_original.png" alt="Escudo Oficial Rosario de Perijá" className="w-full h-full object-contain" />
               </div>
               <div>
                 <div className="font-bold text-lg leading-tight tracking-tight text-white flex items-center gap-1.5">
@@ -85,7 +85,7 @@ export default function Navbar({ tasaBcv }: NavbarProps) {
           {isCuadrilla && (
             <Link href="/" className="flex items-center gap-3 group transition">
               <div className="w-12 h-12 rounded-full overflow-hidden shadow-lg shadow-amber-500/20 flex items-center justify-center border-2 border-amber-400/80 bg-white p-0.5 flex-shrink-0 group-hover:scale-105 transition-transform">
-                <img src="/icons/imau_escudo_original.png" alt="Escudo Oficial Rosario de Perijá" className="w-full h-full object-contain" />
+                <img src="/icons/imaur_escudo_original.png" alt="Escudo Oficial Rosario de Perijá" className="w-full h-full object-contain" />
               </div>
               <div>
                 <div className="font-bold text-lg leading-tight tracking-tight text-white flex items-center gap-1.5">
@@ -102,7 +102,7 @@ export default function Navbar({ tasaBcv }: NavbarProps) {
           {isAdmin && (
             <Link href="/" className="flex items-center gap-3 group transition">
               <div className="w-12 h-12 rounded-full overflow-hidden shadow-lg shadow-emerald-500/20 flex items-center justify-center border-2 border-emerald-400/80 bg-white p-0.5 flex-shrink-0 group-hover:scale-105 transition-transform">
-                <img src="/icons/imau_escudo_original.png" alt="Escudo Oficial Rosario de Perijá" className="w-full h-full object-contain" />
+                <img src="/icons/imaur_escudo_original.png" alt="Escudo Oficial Rosario de Perijá" className="w-full h-full object-contain" />
               </div>
               <div>
                 <div className="font-bold text-lg leading-tight tracking-tight text-white flex items-center gap-1.5">
@@ -119,14 +119,12 @@ export default function Navbar({ tasaBcv }: NavbarProps) {
           {isHome && (
             <Link href="/" className="flex items-center gap-3 group transition">
               <div className="w-12 h-12 rounded-full overflow-hidden shadow-lg shadow-emerald-500/20 flex items-center justify-center border-2 border-amber-400/80 bg-white p-0.5 flex-shrink-0 group-hover:scale-105 transition-transform">
-                <img src="/icons/imau_escudo_original.png" alt="Escudo Oficial Rosario de Perijá" className="w-full h-full object-contain" />
+                <img src="/icons/imaur_escudo_original.png" alt="Escudo Oficial Rosario de Perijá" className="w-full h-full object-contain" />
               </div>
               <div>
                 <div className="font-bold text-lg leading-tight tracking-tight text-white flex items-center gap-2">
                   <span>ASEO URBANO</span>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    IMAU
-                  </span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">IMAUR</span>
                 </div>
                 <p className="text-xs text-slate-400">Alcaldía de Rosario de Perijá • Edo. Zulia</p>
               </div>
