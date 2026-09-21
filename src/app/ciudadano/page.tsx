@@ -375,7 +375,7 @@ export default function CiudadanoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col selection:bg-emerald-600 selection:text-white">
       <Navbar tasaBcv={tasaBcv} />
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 space-y-6">
@@ -383,20 +383,20 @@ export default function CiudadanoPage() {
         <PWAInstallPrompt />
 
         {/* Search Header Bar */}
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                <Users className="w-6 h-6 text-sky-400" />
+              <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                <Users className="w-6 h-6 text-emerald-700" />
                 Portal del Contribuyente
               </h1>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-600">
                 Consulta tu solvencia, paga en Bolívares a tasa oficial BCV y reporta incidencias en tu sector.
               </p>
             </div>
             {contribuyenteData && (
-              <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors border border-slate-700 text-sm font-semibold shadow-sm">
-                <Settings className="w-4 h-4 text-sky-400" />
+              <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors border border-slate-200 text-sm font-semibold shadow-sm">
+                <Settings className="w-4 h-4 text-emerald-700" />
                 Ajustes
               </button>
             )}
@@ -406,19 +406,19 @@ export default function CiudadanoPage() {
         {contribuyenteData && inmuebleVinculado ? (
           <>
             {/* Citizen Property Card */}
-            <div className="bg-gradient-to-r from-slate-900 to-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-slate-800 pb-4">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-slate-200 pb-4">
                 <div>
-                  <div className="text-xs text-sky-400 font-semibold uppercase tracking-wider">Inmueble Registrado</div>
-                  <h2 className="text-xl font-bold text-white mt-0.5">
+                  <div className="text-xs text-emerald-700 font-bold uppercase tracking-wider">Inmueble Registrado</div>
+                  <h2 className="text-xl font-bold text-slate-900 mt-0.5">
                     {contribuyenteData.nombres} {contribuyenteData.apellidos}
                   </h2>
                   <div className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
-                    <span className="bg-slate-800 px-2 py-0.5 rounded text-slate-300 font-mono">
+                    <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700 font-mono font-bold border border-slate-200">
                       C.I: {contribuyenteData.tipoDoc}-{contribuyenteData.cedulaRif}
                     </span>
                     <span>•</span>
-                    <span className="bg-sky-950 text-sky-300 px-2 py-0.5 rounded border border-sky-800">
+                    <span className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 font-mono font-bold">
                       Catastro: {inmuebleVinculado.codigoCatastral}
                     </span>
                   </div>
@@ -427,12 +427,12 @@ export default function CiudadanoPage() {
                 {/* Solvency Badge Traffic Light */}
                 <div>
                   {estadoCuenta === 'SOLVENTE' ? (
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-400 font-bold text-sm shadow-sm">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 font-bold text-sm shadow-sm">
                       <CheckCircle2 className="w-5 h-5" />
                       <span>INMUEBLE SOLVENTE</span>
                     </div>
                   ) : (
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400 font-bold text-sm shadow-sm animate-pulse">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 font-bold text-sm shadow-sm animate-pulse">
                       <AlertTriangle className="w-5 h-5" />
                       <span>MES PENDIENTE DE PAGO</span>
                     </div>
@@ -442,17 +442,17 @@ export default function CiudadanoPage() {
 
               {/* Location and Schedule Details */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                   <span className="text-slate-500 block">Sector Piloto:</span>
-                  <strong className="text-slate-200 text-sm font-semibold">{inmuebleVinculado.sector?.nombre}</strong>
+                  <strong className="text-slate-800 text-sm font-bold">{inmuebleVinculado.sector?.nombre}</strong>
                 </div>
-                <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                   <span className="text-slate-500 block">Dirección / Casa:</span>
-                  <strong className="text-slate-200 text-sm font-semibold">
+                  <strong className="text-slate-800 text-sm font-bold">
                     {inmuebleVinculado.calle?.nombreCalle} - {inmuebleVinculado.numeroCasaLocal}
                   </strong>
                 </div>
-                <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                   <span className="text-slate-500 block">Cronograma de Aseo:</span>
                   <strong className="text-emerald-400 text-sm font-semibold">
                     {inmuebleVinculado.calle?.diaRecoleccion || 'LUNES Y JUEVES'} ({inmuebleVinculado.calle?.horaEstimada || '07:30 AM'})
@@ -578,7 +578,7 @@ export default function CiudadanoPage() {
                   <div className="flex justify-end items-center gap-2 pt-1 flex-wrap">
                     <button
                       onClick={() => handleMarcarReporteVisto(repRechazado.id)}
-                      className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 shadow-sm"
+                      className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-800 font-semibold rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 shadow-sm"
                     >
                       <Check className="w-4 h-4 text-emerald-400" />
                       <span>OK, Entendido (Ya lo vi)</span>
@@ -599,13 +599,11 @@ export default function CiudadanoPage() {
             })()}
 
             {/* Navigation Tabs */}
-            <div className="flex border-b border-slate-800 gap-2 overflow-x-auto pb-1">
+            <div className="flex border-b border-slate-200 gap-2 overflow-x-auto pb-1">
               <button
                 onClick={() => setActiveTab('estado')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
-                  activeTab === 'estado'
-                    ? 'bg-sky-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  activeTab === 'estado' ? 'bg-emerald-700 text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 <Truck className="w-4 h-4" />
@@ -615,9 +613,7 @@ export default function CiudadanoPage() {
               <button
                 onClick={() => setActiveTab('cronograma')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
-                  activeTab === 'cronograma'
-                    ? 'bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  activeTab === 'cronograma' ? 'bg-emerald-700 text-white font-bold shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 <Calendar className="w-4 h-4" />
@@ -627,9 +623,7 @@ export default function CiudadanoPage() {
               <button
                 onClick={() => setActiveTab('pago')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
-                  activeTab === 'pago'
-                    ? 'bg-sky-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  activeTab === 'pago' ? 'bg-emerald-700 text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 <CreditCard className="w-4 h-4" />
@@ -639,9 +633,7 @@ export default function CiudadanoPage() {
               <button
                 onClick={() => setActiveTab('reportar')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
-                  activeTab === 'reportar'
-                    ? 'bg-sky-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  activeTab === 'reportar' ? 'bg-emerald-700 text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 <Camera className="w-4 h-4" />
@@ -651,9 +643,7 @@ export default function CiudadanoPage() {
               <button
                 onClick={() => setActiveTab('mis-reportes')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
-                  activeTab === 'mis-reportes'
-                    ? 'bg-sky-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  activeTab === 'mis-reportes' ? 'bg-emerald-700 text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 <FileText className="w-4 h-4" />
@@ -665,7 +655,7 @@ export default function CiudadanoPage() {
             {activeTab === 'estado' && (
               <div className="space-y-6 animate-in fade-in duration-200">
                 {/* Solvency Certificate Download Card (If Solvent or Has Approved Receipts) */}
-                <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 border-2 border-emerald-500/50 rounded-3xl p-5 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="bg-emerald-800 border-2 border-emerald-600 rounded-3xl p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-white">
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
                       <Award className="w-6 h-6 animate-pulse" />
@@ -685,7 +675,7 @@ export default function CiudadanoPage() {
                   <button
                     onClick={() => handleDescargarSolvencia()}
                     disabled={generandoSolvencia}
-                    className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-black text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer shrink-0 disabled:opacity-50"
+                    className="px-5 py-3 bg-white hover:bg-emerald-50 text-emerald-900 rounded-xl font-black text-xs shadow-lg transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer shrink-0 disabled:opacity-50"
                   >
                     <FileCheck className="w-4 h-4" />
                     <span>{generandoSolvencia ? 'Generando PDF...' : 'DESCARGAR SOLVENCIA (PDF)'}</span>
@@ -693,14 +683,14 @@ export default function CiudadanoPage() {
                 </div>
 
                 {/* Truck Status Alert */}
-                <div className="bg-gradient-to-r from-sky-950 to-slate-900 border border-sky-600/40 rounded-3xl p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-slate-800">
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-sky-600/20 border border-sky-500/40 flex items-center justify-center text-sky-400 flex-shrink-0">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 flex-shrink-0">
                       <Truck className="w-7 h-7 animate-bounce" />
                     </div>
                     <div>
-                      <div className="text-xs text-sky-400 font-bold uppercase tracking-wider">Unidad en Ruta Hoy</div>
-                      <h3 className="text-lg font-bold text-white">Camión 01 (Compactador) en Las Colinas</h3>
+                      <div className="text-xs text-emerald-700 font-bold uppercase tracking-wider">Unidad en Ruta Hoy</div>
+                      <h3 className="text-lg font-bold text-slate-900">Camión 01 (Compactador) en Las Colinas</h3>
                       <p className="text-xs text-slate-300 mt-0.5">
                         Próximo paso estimado por tu calle ({inmuebleVinculado.calle?.nombreCalle || 'Calle Principal'}): <strong>Hoy 08:30 AM</strong>
                       </p>
@@ -708,17 +698,17 @@ export default function CiudadanoPage() {
                   </div>
                   <button
                     onClick={() => setActiveTab('pago')}
-                    className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold text-xs shadow-md transition-colors whitespace-nowrap"
+                    className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md transition-colors whitespace-nowrap"
                   >
                     Ver Cuenta & Pagar
                   </button>
                 </div>
 
                 {/* Live Satellite Tracking Map (Sierra de Perijá & Truck Radar) */}
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-800 pb-3">
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-200 pb-3">
                     <div>
-                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                         <MapPin className="w-5 h-5 text-amber-400" />
                         Monitoreo Satelital GPS en Vivo • Rosario de Perijá
                       </h3>
@@ -732,7 +722,7 @@ export default function CiudadanoPage() {
                     </span>
                   </div>
 
-                  <div className="rounded-2xl overflow-hidden border border-slate-800">
+                  <div className="rounded-2xl overflow-hidden border border-slate-200">
                     <LeafletMap
                       center={[10.3180, -72.3150]}
                       zoom={16}
@@ -780,8 +770,8 @@ export default function CiudadanoPage() {
                 </div>
 
                 {/* Recent Receipts List */}
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                     <ShieldCheck className="w-5 h-5 text-emerald-400" />
                     Tus Comprobantes Fiscales y Pagos Reportados
                   </h3>
@@ -791,7 +781,7 @@ export default function CiudadanoPage() {
                       {inmuebleVinculado.recibos.map((recibo: any) => (
                         <div
                           key={recibo.id}
-                          className={`bg-slate-950 p-4 rounded-2xl border transition-all ${
+                          className={`bg-slate-50 p-4 rounded-2xl border border-slate-200 transition-all text-slate-800 ${
                             recibo.estado === 'RECHAZADO'
                               ? 'border-2 border-red-500/80 bg-red-950/15 shadow-lg shadow-red-950/20'
                               : recibo.estado === 'APROBADO'
@@ -802,7 +792,7 @@ export default function CiudadanoPage() {
                           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-mono font-bold text-sky-400 text-sm">
+                                <span className="font-mono font-bold text-emerald-700 text-sm font-bold">
                                   {recibo.numeroReciboFiscal}
                                 </span>
                                 <span
@@ -833,7 +823,7 @@ export default function CiudadanoPage() {
                                 </span>
                               </div>
                               <div className="text-xs text-slate-400 mt-1">
-                                {new Date(recibo.createdAt).toLocaleDateString('es-VE')} • Método: {recibo.metodoPago} • Ref: <strong className="text-slate-200 font-mono">{recibo.referenciaBancaria || 'Taquilla'}</strong>
+                                {new Date(recibo.createdAt).toLocaleDateString('es-VE')} • Método: {recibo.metodoPago} • Ref: <strong className="text-slate-800 font-mono font-bold">{recibo.referenciaBancaria || 'Taquilla'}</strong>
                               </div>
                             </div>
                             <div className="flex items-center gap-3 justify-between sm:justify-end">
@@ -869,7 +859,7 @@ export default function CiudadanoPage() {
                                   recibo.estado === 'RECHAZADO'
                                     ? 'bg-red-950/80 hover:bg-red-800 border-red-500/60 text-red-200'
                                     : recibo.estado === 'APROBADO'
-                                    ? 'bg-slate-800 hover:bg-sky-600 border-slate-700 text-white'
+                                    ? 'bg-white hover:bg-emerald-50 border-slate-200 text-slate-700 hover:text-emerald-800 font-bold'
                                     : 'bg-amber-950/80 hover:bg-amber-800 border-amber-500/60 text-amber-200'
                                 }`}
                               >
@@ -925,25 +915,25 @@ export default function CiudadanoPage() {
             {activeTab === 'pago' && (
               <div className="space-y-6 animate-in fade-in duration-200">
                 {/* Dynamic Dual Calculator */}
-                <div className="bg-gradient-to-br from-sky-950 via-slate-900 to-slate-900 border border-sky-500/40 rounded-3xl p-6 shadow-2xl space-y-4">
+                <div className="bg-emerald-800 text-white rounded-3xl p-6 shadow-md space-y-4">
                   <div className="flex justify-between items-center flex-wrap gap-2 border-b border-sky-800/40 pb-3">
                     <div>
-                      <span className="text-xs text-sky-400 font-semibold uppercase">Liquidación Oficial del Mes</span>
+                      <span className="text-xs text-emerald-200 font-semibold uppercase">Liquidación Oficial del Mes</span>
                       <h3 className="text-xl font-extrabold text-white">Tasa de Aseo Urbano - Sector {inmuebleVinculado.sector?.nombre}</h3>
                     </div>
-                    <div className="bg-sky-900/60 px-3 py-1 rounded-full border border-sky-600/40 text-xs font-bold text-sky-200">
+                    <div className="bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-600 text-xs font-bold text-emerald-200">
                       Tasa BCV del día: Bs. {tasaBcv.toFixed(2)}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
-                      <span className="text-xs text-slate-400">Tarifa Base fijada en Ordenanza:</span>
+                    <div className="bg-emerald-900/60 p-4 rounded-2xl border border-emerald-700">
+                      <span className="text-xs text-slate-600">Tarifa Base fijada en Ordenanza:</span>
                       <div className="text-3xl font-black text-white font-mono mt-1">${tarifaUsd.toFixed(2)} <span className="text-sm text-slate-400 font-normal">USD</span></div>
                       <span className="text-[11px] text-slate-500">Tarifa Residencial {inmuebleVinculado.sector?.nombre}</span>
                     </div>
 
-                    <div className="bg-sky-900/40 p-4 rounded-2xl border border-sky-600/40">
+                    <div className="bg-emerald-950/60 p-4 rounded-2xl border border-emerald-600">
                       <span className="text-xs text-sky-300">TOTAL A LIQUIDAR EN BOLÍVARES:</span>
                       <div className="text-3xl font-black text-amber-400 font-mono mt-1">Bs. {montoTotalBs.toFixed(2)}</div>
                       <span className="text-[11px] text-slate-300">Equivalente exacto a tasa oficial de hoy</span>
@@ -953,8 +943,8 @@ export default function CiudadanoPage() {
 
                 {/* Payment Methods */}
                 <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <CreditCard className="w-5 h-5 text-sky-400" />
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-emerald-700" />
                     Selecciona tu Método de Pago
                   </h3>
 
@@ -965,8 +955,8 @@ export default function CiudadanoPage() {
                       onClick={() => setMetodoPago('PAGO_MOVIL')}
                       className={`p-3 rounded-xl border text-xs font-bold transition-all ${
                         metodoPago === 'PAGO_MOVIL'
-                          ? 'bg-sky-600 border-sky-500 text-white shadow-md'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                          ? 'bg-emerald-700 border-emerald-700 text-white shadow-md font-bold'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
                       📲 Pago Móvil
@@ -977,7 +967,7 @@ export default function CiudadanoPage() {
                       className={`p-3 rounded-xl border text-xs font-bold transition-all ${
                         metodoPago === 'ZELLE'
                           ? 'bg-purple-600 border-purple-500 text-white shadow-md'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
                       💵 Zelle
@@ -988,7 +978,7 @@ export default function CiudadanoPage() {
                       className={`p-3 rounded-xl border text-xs font-bold transition-all ${
                         metodoPago === 'TAQUILLA'
                           ? 'bg-emerald-600 border-emerald-500 text-white shadow-md'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
                       🏢 Taquilla Alcaldía
@@ -998,46 +988,46 @@ export default function CiudadanoPage() {
                   {/* Pago Movil Details */}
                   {metodoPago === 'PAGO_MOVIL' && (
                     <div className="space-y-4">
-                      <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
-                        <div className="text-xs font-bold text-sky-400 uppercase">Datos Oficiales para Pago Móvil</div>
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 text-slate-800">
+                        <div className="text-xs font-bold text-emerald-700 uppercase">Datos Oficiales para Pago Móvil</div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                          <div className="flex justify-between items-center bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                          <div className="flex justify-between items-center bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm text-slate-800">
                             <div>
                               <span className="text-slate-500 block text-[10px]">Banco Receptor:</span>
-                              <strong className="text-slate-200">0102 - Banco de Venezuela</strong>
+                              <strong className="text-slate-800 font-semibold">0102 - Banco de Venezuela</strong>
                             </div>
                             <button
                               onClick={() => copyToClipboard('0102', 'banco')}
-                              className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-sky-400"
+                              className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-emerald-700 border border-slate-200"
                               title="Copiar"
                             >
                               {copiedField === 'banco' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                             </button>
                           </div>
 
-                          <div className="flex justify-between items-center bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                          <div className="flex justify-between items-center bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm text-slate-800">
                             <div>
                               <span className="text-slate-500 block text-[10px]">RIF de la Alcaldía:</span>
-                              <strong className="text-slate-200">G-2004984-7</strong>
+                              <strong className="text-slate-800 font-semibold">G-2004984-7</strong>
                             </div>
                             <button
                               onClick={() => copyToClipboard('G20049847', 'rif')}
-                              className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-sky-400"
+                              className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-emerald-700 border border-slate-200"
                               title="Copiar"
                             >
                               {copiedField === 'rif' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                             </button>
                           </div>
 
-                          <div className="flex justify-between items-center bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                          <div className="flex justify-between items-center bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm text-slate-800">
                             <div>
                               <span className="text-slate-500 block text-[10px]">Teléfono Pago Móvil:</span>
-                              <strong className="text-slate-200">0414-6000000</strong>
+                              <strong className="text-slate-800 font-semibold">0414-6000000</strong>
                             </div>
                             <button
                               onClick={() => copyToClipboard('04146000000', 'telefono')}
-                              className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-sky-400"
+                              className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-emerald-700 border border-slate-200"
                               title="Copiar"
                             >
                               {copiedField === 'telefono' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -1046,7 +1036,7 @@ export default function CiudadanoPage() {
 
                           <div className="flex justify-between items-center bg-slate-900 p-2.5 rounded-xl border border-sky-600/40">
                             <div>
-                              <span className="text-sky-400 block text-[10px] font-bold">Monto Exacto a Transferir:</span>
+                              <span className="text-emerald-700 block text-[10px] font-bold">Monto Exacto a Transferir:</span>
                               <strong className="text-amber-400 font-mono font-extrabold text-sm">Bs. {montoTotalBs.toFixed(2)}</strong>
                             </div>
                             <button
@@ -1070,7 +1060,7 @@ export default function CiudadanoPage() {
                             <select
                               value={bancoEmisor}
                               onChange={(e) => setBancoEmisor(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-sky-500"
+                              className="w-full bg-white border border-slate-300 rounded-xl p-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                             >
                               <option value="Banesco">0134 - Banesco</option>
                               <option value="Banco de Venezuela">0102 - Banco de Venezuela</option>
@@ -1112,7 +1102,7 @@ export default function CiudadanoPage() {
                               value={referencia}
                               onChange={(e) => setReferencia(e.target.value.replace(/\D/g, ''))}
                               placeholder="Ej: 894512"
-                              className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-sky-500 font-mono"
+                              className="w-full bg-white border border-slate-300 rounded-xl p-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 font-mono"
                             />
                           </div>
                         </div>
@@ -1129,14 +1119,14 @@ export default function CiudadanoPage() {
                                 setArchivoComprobante(e.target.files[0]);
                               }
                             }}
-                            className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2 text-sm text-white focus:outline-none focus:border-sky-500 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-sky-600 file:text-white hover:file:bg-sky-500 cursor-pointer"
+                            className="w-full bg-white border border-slate-300 rounded-xl p-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-sky-600 file:text-white hover:file:bg-sky-500 cursor-pointer"
                           />
                         </div>
 
                         <button
                           type="submit"
                           disabled={pagoSubmitting}
-                          className="w-full py-4 bg-gradient-to-r from-emerald-600 to-sky-600 hover:from-emerald-500 hover:to-sky-500 text-white rounded-2xl font-extrabold text-sm shadow-xl shadow-sky-600/30 flex items-center justify-center gap-2 transition-all"
+                          className="w-full py-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl font-extrabold text-sm shadow-lg shadow-emerald-700/20 flex items-center justify-center gap-2 transition-all"
                         >
                           <Sparkles className="w-5 h-5 text-amber-300" />
                           <span>{pagoSubmitting ? 'Procesando Recibo...' : 'Registrar Pago y Emitir Recibo Digital'}</span>
@@ -1146,7 +1136,7 @@ export default function CiudadanoPage() {
                   )}
 
                   {metodoPago === 'ZELLE' && (
-                    <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3 text-xs">
+                    <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3 text-slate-800 text-xs">
                       <div className="font-bold text-purple-400 uppercase">Instrucciones de Pago por Zelle</div>
                       <p className="text-slate-300">
                         Envía <strong>${tarifaUsd.toFixed(2)} USD</strong> a la cuenta autorizada de la Alcaldía:
@@ -1171,7 +1161,7 @@ export default function CiudadanoPage() {
                               value={referencia}
                               onChange={(e) => setReferencia(e.target.value)}
                               placeholder="ej: tu_correo@gmail.com"
-                              className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+                              className="w-full bg-white border border-slate-300 rounded-xl p-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:outline-none focus:border-purple-500"
                             />
                           </div>
                           <div>
@@ -1205,7 +1195,7 @@ export default function CiudadanoPage() {
                   )}
 
                   {metodoPago === 'TAQUILLA' && (
-                    <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3 text-xs">
+                    <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3 text-slate-800 text-xs">
                       <div className="font-bold text-emerald-400 uppercase">Pago Presencial en Taquilla Municipal</div>
                       <p className="text-slate-300">
                         Acércate a la taquilla de recaudación de la Alcaldía (Plaza Bolívar) e indica tu número de Cédula: <strong>{contribuyenteData.cedulaRif}</strong> o Código Catastral: <strong>{inmuebleVinculado.codigoCatastral}</strong>.
@@ -1225,7 +1215,7 @@ export default function CiudadanoPage() {
                 <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
                   <div>
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                      <Camera className="w-6 h-6 text-sky-400" />
+                      <Camera className="w-6 h-6 text-emerald-700" />
                       Reportar Incidencia o Falla en tu Calle
                     </h3>
                     <p className="text-xs text-slate-400 mt-1">
@@ -1261,8 +1251,8 @@ export default function CiudadanoPage() {
                             onClick={() => setTipoProblema(cat.id)}
                             className={`p-3 rounded-xl border text-left font-bold transition-all ${
                               tipoProblema === cat.id
-                                ? 'bg-sky-600 border-sky-500 text-white shadow-md'
-                                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                                ? 'bg-emerald-700 border-emerald-700 text-white shadow-md font-bold'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                             }`}
                           >
                             {cat.label}
@@ -1276,7 +1266,7 @@ export default function CiudadanoPage() {
                       <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Foto Obligatoria del Problema:
                       </label>
-                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                         {archivoReporte ? (
                           <div className="w-24 h-24 rounded-xl border border-sky-500 overflow-hidden shrink-0">
                             <img src={URL.createObjectURL(archivoReporte)} alt="Preview" className="w-full h-full object-cover" />
@@ -1321,7 +1311,7 @@ export default function CiudadanoPage() {
                         </button>
                       </div>
 
-                      <div className="rounded-2xl overflow-hidden border border-slate-800">
+                      <div className="rounded-2xl overflow-hidden border border-slate-200">
                         <LeafletMap
                           center={[reporteCoords.lat, reporteCoords.lng]}
                           zoom={16}
@@ -1344,7 +1334,7 @@ export default function CiudadanoPage() {
                         />
                       </div>
                       <div className="flex justify-between items-center text-[11px] text-slate-400 mt-1.5 flex-wrap gap-1">
-                        <span>Coordenadas fijadas: <strong className="text-sky-400 font-mono">{reporteCoords.lat.toFixed(5)}, {reporteCoords.lng.toFixed(5)}</strong></span>
+                        <span>Coordenadas fijadas: <strong className="text-emerald-700 font-mono">{reporteCoords.lat.toFixed(5)}, {reporteCoords.lng.toFixed(5)}</strong></span>
                         <span className="text-slate-500">Toca en el mapa si deseas ajustar la posición</span>
                       </div>
                     </div>
@@ -1359,14 +1349,14 @@ export default function CiudadanoPage() {
                         value={descripcionReporte}
                         onChange={(e) => setDescripcionReporte(e.target.value)}
                         placeholder="Ej: Bolsas acumuladas frente al árbol de mango en la esquina."
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-sky-500"
+                        className="w-full bg-white border border-slate-300 rounded-xl p-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                       />
                     </div>
 
                     <button
                       type="submit"
                       disabled={reporteSubmitting}
-                      className="w-full py-3.5 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl font-bold text-sm shadow-xl shadow-sky-600/30 flex items-center justify-center gap-2 transition-all"
+                      className="w-full py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-700/20 flex items-center justify-center gap-2 transition-all"
                     >
                       <Camera className="w-5 h-5" />
                       <span>{reporteSubmitting ? 'Enviando Reporte...' : 'Enviar Reporte a la Cuadrilla'}</span>
@@ -1379,9 +1369,9 @@ export default function CiudadanoPage() {
             {/* TAB CONTENT: Mis Reportes & Seguimiento en Vivo */}
             {activeTab === 'mis-reportes' && (
               <div className="space-y-4 animate-in fade-in duration-200">
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-sky-400" />
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-emerald-700" />
                     Historial de Reportes y Estado en Tiempo Real
                   </h3>
 
@@ -1390,14 +1380,14 @@ export default function CiudadanoPage() {
                       {contribuyenteData.reportesCreados.map((rep: any) => (
                         <div
                           key={rep.id}
-                          className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3"
+                          className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3 text-slate-800"
                         >
                           <div className="flex justify-between items-start flex-wrap gap-2">
                             <div>
-                              <div className="font-mono font-bold text-sky-400 text-sm">
+                              <div className="font-mono font-bold text-emerald-700 text-sm font-bold">
                                 {rep.folioIncidencia}
                               </div>
-                              <h4 className="font-semibold text-white text-sm mt-0.5">
+                              <h4 className="font-bold text-slate-900 text-sm mt-0.5">
                                 {rep.tipoProblema.replace('_', ' ')}
                               </h4>
                               <p className="text-xs text-slate-400 mt-0.5">
@@ -1418,7 +1408,7 @@ export default function CiudadanoPage() {
                                   <span>REPORTE RECHAZADO</span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-sky-500/10 text-sky-400 border border-sky-500/30 rounded-full text-xs font-bold animate-pulse">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-sky-500/10 text-emerald-700 border border-sky-500/30 rounded-full text-xs font-bold animate-pulse">
                                   <Clock className="w-4 h-4" />
                                   <span>EN PROCESO / CUADRILLA</span>
                                 </span>
@@ -1476,7 +1466,7 @@ export default function CiudadanoPage() {
                                 <span>Si consideras que la situación persiste, puedes corregir y enviar un nuevo reporte.</span>
                                 <button
                                   onClick={() => setActiveTab('reportar')}
-                                  className="text-xs text-sky-400 hover:text-sky-300 font-bold underline"
+                                  className="text-xs text-emerald-700 hover:text-sky-300 font-bold underline"
                                 >
                                   Crear nuevo reporte →
                                 </button>
@@ -1501,11 +1491,11 @@ export default function CiudadanoPage() {
             <span className="ml-3 text-slate-400 font-semibold">Cargando tus datos del inmueble...</span>
           </div>
         ) : (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center space-y-4 animate-in fade-in">
-            <div className="w-14 h-14 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center mx-auto text-sky-400">
+          <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center space-y-4 shadow-sm animate-in fade-in text-slate-800">
+            <div className="w-14 h-14 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center mx-auto text-emerald-700">
               <Users className="w-7 h-7" />
             </div>
-            <h3 className="text-lg font-bold text-white">Consulta o Vincula tu Inmueble</h3>
+            <h3 className="text-lg font-bold text-slate-900">Consulta o Vincula tu Inmueble</h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto">
               Ingresa tu Cédula de Identidad para ver tu estado de cuenta, realizar pagos digitales a tasa oficial BCV y reportar incidencias.
             </p>
@@ -1515,11 +1505,11 @@ export default function CiudadanoPage() {
                 value={cedulaInput}
                 onChange={(e) => setCedulaInput(e.target.value)}
                 placeholder="Ej. 33891378"
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-sky-500"
+                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-600"
               />
               <button
                 type="submit"
-                className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition shadow-md shrink-0"
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition shadow-md shrink-0"
               >
                 Cargar
               </button>
@@ -1538,27 +1528,27 @@ export default function CiudadanoPage() {
       {/* Settings Modal */}
       {isSettingsOpen && contribuyenteData && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-6 relative">
+          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-6 relative text-slate-800">
             <button onClick={() => setIsSettingsOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
               <X className="w-5 h-5" />
             </button>
             <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <Settings className="w-5 h-5 text-sky-400" />
+              <Settings className="w-5 h-5 text-emerald-700" />
               Ajustes de Cuenta
             </h3>
             
             <div className="space-y-4 mb-6">
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <div className="text-xs text-slate-500 uppercase font-bold">Datos Personales</div>
-                <div className="font-semibold text-slate-200">{contribuyenteData.nombres} {contribuyenteData.apellidos}</div>
+                <div className="font-semibold text-slate-800 font-semibold">{contribuyenteData.nombres} {contribuyenteData.apellidos}</div>
                 <div className="text-slate-400 text-sm">C.I / RIF: {contribuyenteData.tipoDoc}-{contribuyenteData.cedulaRif}</div>
                 <div className="text-slate-400 text-sm">Correo: {contribuyenteData.email}</div>
               </div>
               
               {inmuebleVinculado && (
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                   <div className="text-xs text-slate-500 uppercase font-bold">Inmueble Vinculado</div>
-                  <div className="text-slate-200 text-sm">{inmuebleVinculado.codigoCatastral}</div>
+                  <div className="text-slate-800 font-semibold text-sm">{inmuebleVinculado.codigoCatastral}</div>
                   <div className="text-slate-400 text-sm">Sector: {inmuebleVinculado.sector?.nombre}</div>
                   <div className="text-slate-400 text-sm">Dirección: {inmuebleVinculado.direccionExacta || inmuebleVinculado.numeroCasaLocal}</div>
                 </div>

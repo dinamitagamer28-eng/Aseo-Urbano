@@ -30,7 +30,7 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
   const isPendiente = recibo?.estado === 'PENDIENTE_VALIDACION' || recibo?.estado === 'PENDIENTE';
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-emerald-600 selection:text-slate-900">
       <Navbar tasaBcv={tasaBcv.valorUsdBs} />
 
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-10 space-y-6">
@@ -52,22 +52,22 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
               <ShieldCheck className="w-9 h-9" />
             )}
           </div>
-          <h1 className="text-2xl font-extrabold text-white">Validación de Comprobante Fiscal</h1>
-          <p className="text-xs text-slate-400">
+          <h1 className="text-2xl font-black text-slate-900">Validación de Comprobante Fiscal</h1>
+          <p className="text-xs text-slate-600">
             Contraloría Municipal y Dirección de Servicios Públicos • Rosario de Perijá
           </p>
         </div>
 
         {recibo ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6 text-slate-800">
             {/* Status Header */}
             <div
               className={`p-4 rounded-2xl flex items-center justify-between gap-3 border ${
                 isRechazado
-                  ? 'bg-red-950/60 border-red-500/50'
+                  ? 'bg-red-50 border-red-200'
                   : isPendiente
-                  ? 'bg-amber-950/60 border-amber-500/50'
-                  : 'bg-emerald-950/60 border-emerald-500/40'
+                  ? 'bg-amber-50 border-amber-200'
+                  : 'bg-emerald-50 border-emerald-200'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -79,7 +79,7 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
                   <CheckCircle2 className="w-6 h-6 text-emerald-400 flex-shrink-0" />
                 )}
                 <div>
-                  <h3 className="font-bold text-white text-sm">
+                  <h3 className="font-bold text-slate-900 text-sm">
                     {isRechazado
                       ? 'Comprobante Fiscal Rechazado (No Válido)'
                       : isPendiente
@@ -88,7 +88,7 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
                   </h3>
                   <p
                     className={`text-[11px] ${
-                      isRechazado ? 'text-red-300' : isPendiente ? 'text-amber-300' : 'text-emerald-300'
+                      isRechazado ? 'text-red-700 font-semibold' : isPendiente ? 'text-amber-700 font-semibold' : 'text-emerald-700 font-semibold'
                     }`}
                   >
                     {isRechazado
@@ -102,7 +102,7 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
               <span
                 className={`px-3 py-1 font-black rounded-lg text-xs tracking-wider ${
                   isRechazado
-                    ? 'bg-red-600 text-white'
+                    ? 'bg-red-600 text-slate-900'
                     : isPendiente
                     ? 'bg-amber-500 text-slate-950'
                     : 'bg-emerald-500 text-slate-950'
@@ -113,9 +113,9 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
             </div>
 
             {/* Inmutable Folio Block */}
-            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
-              <span className="text-xs text-slate-400">Número de Recibo Fiscal:</span>
-              <div className="text-2xl font-black text-sky-400 font-mono tracking-tight">
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
+              <span className="text-xs text-slate-600">Número de Recibo Fiscal:</span>
+              <div className="text-2xl font-black text-emerald-700 font-mono tracking-tight">
                 {recibo.numeroReciboFiscal}
               </div>
               <div className="text-xs text-slate-500">
@@ -124,25 +124,25 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
             </div>
 
             {/* Details Table */}
-            <div className="space-y-3 text-xs divide-y divide-slate-850">
+            <div className="space-y-3 text-xs divide-y divide-slate-200">
               <div className="flex justify-between py-2">
                 <span className="text-slate-400">Contribuyente:</span>
-                <strong className="text-white">{recibo.usuario.nombres} {recibo.usuario.apellidos}</strong>
+                <strong className="text-slate-900">{recibo.usuario.nombres} {recibo.usuario.apellidos}</strong>
               </div>
 
               <div className="flex justify-between py-2">
                 <span className="text-slate-400">Cédula / RIF:</span>
-                <strong className="text-white font-mono">{recibo.usuario.tipoDoc}-{recibo.usuario.cedulaRif}</strong>
+                <strong className="text-slate-900 font-mono">{recibo.usuario.tipoDoc}-{recibo.usuario.cedulaRif}</strong>
               </div>
 
               <div className="flex justify-between py-2">
                 <span className="text-slate-400">Código Catastral:</span>
-                <strong className="text-slate-200">{recibo.inmueble.codigoCatastral} ({recibo.inmueble.numeroCasaLocal})</strong>
+                <strong className="text-slate-800">{recibo.inmueble.codigoCatastral} ({recibo.inmueble.numeroCasaLocal})</strong>
               </div>
 
               <div className="flex justify-between py-2">
                 <span className="text-slate-400">Sector / Parroquia:</span>
-                <strong className="text-slate-200">{recibo.inmueble.sector.nombre}</strong>
+                <strong className="text-slate-800">{recibo.inmueble.sector.nombre}</strong>
               </div>
 
               <div className="flex justify-between py-2">
@@ -152,18 +152,18 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
 
               <div className="flex justify-between py-2">
                 <span className="text-slate-400">Forma de Pago / Ref:</span>
-                <strong className="text-slate-200">{recibo.metodoPago} ({recibo.referenciaBancaria || 'Taquilla'})</strong>
+                <strong className="text-slate-800">{recibo.metodoPago} ({recibo.referenciaBancaria || 'Taquilla'})</strong>
               </div>
 
               <div className="flex justify-between py-2">
                 <span className="text-slate-400">Fecha y Hora de Emisión:</span>
-                <strong className="text-slate-300">{new Date(recibo.createdAt).toLocaleString('es-VE')}</strong>
+                <strong className="text-slate-700">{new Date(recibo.createdAt).toLocaleString('es-VE')}</strong>
               </div>
 
               <div className="flex justify-between items-baseline pt-4">
-                <span className="text-sm font-bold text-white">TOTAL CANCELADO:</span>
+                <span className="text-sm font-bold text-slate-900">TOTAL CANCELADO:</span>
                 <div className="text-right">
-                  <div className="text-2xl font-black text-emerald-400 font-mono">
+                  <div className="text-2xl font-black text-emerald-700 font-mono">
                     Bs. {recibo.montoTotalBs.toFixed(2)}
                   </div>
                   <div className="text-xs text-slate-500">
@@ -174,15 +174,15 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
             </div>
 
             {/* QR Token Fingerprint */}
-            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[10px] font-mono text-slate-500 truncate">
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-[10px] font-mono text-slate-600 truncate">
               Firma criptográfica: {recibo.codigoQrHash}
             </div>
           </div>
         ) : (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center space-y-3">
+          <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center space-y-3 text-slate-800">
             <AlertTriangle className="w-10 h-10 text-amber-400 mx-auto" />
-            <h3 className="text-lg font-bold text-white">Comprobante no encontrado</h3>
-            <p className="text-xs text-slate-400">
+            <h3 className="text-lg font-bold text-slate-900">Comprobante no encontrado</h3>
+            <p className="text-xs text-slate-600">
               No se localizó ningún recibo fiscal con el folio <strong>{folio}</strong> en la base de datos municipal.
             </p>
           </div>
@@ -191,7 +191,7 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
         <div className="text-center pt-2">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-sky-400 hover:text-sky-300"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700 hover:text-emerald-800 font-bold"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Volver al Portal Principal</span>

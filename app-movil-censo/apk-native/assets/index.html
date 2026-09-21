@@ -1238,13 +1238,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <input type="text" id="inmueble-numero" class="input-field" placeholder="Ej: 14-B" required>
           </div>
           <div class="form-group">
-            <label>Tipo de Inmueble</label>
+            <label>Estrato Socioeconómico / Categoría *</label>
             <select id="inmueble-tipo" class="input-field">
-              <option value="RESIDENCIAL">Residencial / Vivienda Familiar</option>
-              <option value="COMERCIAL_PEQ">Comercio Pequeño / Local</option>
-              <option value="COMERCIAL_GDE">Comercio Grande / Depósito</option>
-              <option value="INDUSTRIAL">Industrial / Taller</option>
-              <option value="BALDIO">Terreno Baldío / Parcela</option>
+              <option value="POPULAR">Popular</option>
+              <option value="MEDIO">Medio</option>
+              <option value="COMERCIAL">Comercial</option>
+              <option value="INDUSTRIAL">Industrial</option>
+              <option value="RURAL">Rural</option>
             </select>
           </div>
         </div>
@@ -1721,7 +1721,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 calle: inm.calleNombre || 'Calle Principal',
                 numero: inm.numeroCasaLocal || 'S/N',
                 referencia: inm.referenciaUbic || '',
-                tipoInmueble: inm.tipoInmueble || 'RESIDENCIAL',
+                tipoInmueble: inm.tipoInmueble || 'POPULAR',
                 cedula: inm.propietarioCedula || '',
                 nombre: inm.propietarioNombre || '',
                 telefono: inm.telefonoMovil || '',

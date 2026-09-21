@@ -39,6 +39,13 @@ async function main() {
     },
   });
 
+  const parroquiaDonaldo = await prisma.parroquia.create({
+    data: {
+      codigo: 'PAR-DON',
+      nombre: 'Parroquia Donaldo García',
+    },
+  });
+
   // 2. Sectores de La Villa del Rosario
   const sectorColinas = await prisma.sector.create({
     data: {

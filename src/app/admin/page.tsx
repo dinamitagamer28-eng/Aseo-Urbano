@@ -750,7 +750,7 @@ export default function AdminDashboard() {
 
   if (status === 'loading' || (session?.user as any)?.rol !== 'ADMIN') {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-700">
         <div className="flex items-center gap-3">
           <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
           <span>Verificando credenciales de Contraloría...</span>
@@ -1001,17 +1001,17 @@ export default function AdminDashboard() {
 
               {/* Channels breakdown */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl">
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
                   <div className="text-xs text-slate-400 font-medium">Pago Móvil Interbancario</div>
                   <div className="text-2xl font-black text-sky-400 mt-1 font-mono">{pctPagoMovil}%</div>
                   <div className="text-xs text-slate-400 mt-1">{recibosPagoMovil.length} transacciones registradas</div>
                 </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl">
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
                   <div className="text-xs text-slate-400 font-medium">Taquilla Municipal (POS / Efectivo)</div>
                   <div className="text-2xl font-black text-emerald-400 mt-1 font-mono">{pctTaquillaPos}%</div>
                   <div className="text-xs text-slate-400 mt-1">{recibosTaquillaPos.length} recibos en sede</div>
                 </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl">
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
                   <div className="text-xs text-slate-400 font-medium">Transferencia & Otros</div>
                   <div className="text-2xl font-black text-purple-400 mt-1 font-mono">{pctTransf}%</div>
                   <div className="text-xs text-slate-400 mt-1">{recibosTransf.length} pagos conciliados</div>
@@ -1020,14 +1020,14 @@ export default function AdminDashboard() {
 
               {/* Sector ranking and fleet */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
                     <PieChart className="w-4 h-4 text-emerald-400" />
                     <span>Recaudación por Sector</span>
                   </h3>
                   <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                     {recaudacionPorSector.map((s, idx) => (
-                      <div key={idx} className="flex justify-between items-center p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+                      <div key={idx} className="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-800">
                         <span className="font-semibold text-white">{s.sector}</span>
                         <div className="text-right">
                           <span className="font-mono text-emerald-400 font-bold">${s.totalUsd.toFixed(2)} USD</span>
@@ -1038,14 +1038,14 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
                     <Truck className="w-4 h-4 text-sky-400" />
                     <span>Toneladas Recolectadas por Camión</span>
                   </h3>
                   <div className="space-y-3">
                     {camionesStats.map((c) => (
-                      <div key={c.codigo} className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                      <div key={c.codigo} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-slate-800">
                         <div className="flex justify-between text-xs">
                           <span className="font-bold text-white">{c.codigo} (Capacidad {c.capacidad} Ton)</span>
                           <span className="font-mono text-sky-400 font-bold">{c.toneladas.toFixed(1)} Ton ({c.pct}%)</span>
@@ -1065,10 +1065,10 @@ export default function AdminDashboard() {
           {/* TAB 3: AUDITORÍA DE FOLIOS */}
           {activeTab === 'auditoria' && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
                 <div className="flex justify-between items-center flex-wrap gap-3">
                   <div>
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
                       <ShieldCheck className="w-6 h-6 text-sky-400" />
                       <span>Libro Diario de Ingresos Inmutable (Contraloría Municipal)</span>
                     </h2>
@@ -1103,13 +1103,13 @@ export default function AdminDashboard() {
                       value={searchAuditoria}
                       onChange={(e) => setSearchAuditoria(e.target.value)}
                       placeholder="Buscar por correlativo, recibo, cédula, nombre o sector..."
-                      className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
                     />
                   </div>
                   <select
                     value={filtroEstadoAuditoria}
                     onChange={(e) => setFiltroEstadoAuditoria(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-sky-500"
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   >
                     <option value="TODOS">Todos los Estados</option>
                     <option value="APROBADO">Solvente / Aprobado</option>
@@ -1121,7 +1121,7 @@ export default function AdminDashboard() {
                 {/* Receipts Table */}
                 <div className="overflow-x-auto max-h-[500px]">
                   <table className="w-full text-xs text-left">
-                    <thead className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
+                    <thead className="bg-slate-50 text-slate-700 font-bold uppercase tracking-wider sticky top-0 text-[10px] border-b border-slate-200">
                       <tr>
                         <th className="p-3">Folio</th>
                         <th className="p-3">Recibo Fiscal</th>
@@ -1145,8 +1145,8 @@ export default function AdminDashboard() {
                           <td className="p-3 font-mono text-slate-300">{r.cedula}</td>
                           <td className="p-3 font-semibold text-white">{r.contribuyente}</td>
                           <td className="p-3 text-slate-300">{r.sector}</td>
-                          <td className="p-3 font-mono font-bold text-emerald-400">${Number(r.montoUsd).toFixed(2)}</td>
-                          <td className="p-3 font-mono font-bold text-emerald-400">Bs. {Number(r.montoBs).toFixed(2)}</td>
+                          <td className="p-3 font-mono font-bold text-emerald-700">${Number(r.montoUsd).toFixed(2)}</td>
+                          <td className="p-3 font-mono font-bold text-emerald-700">Bs. {Number(r.montoBs).toFixed(2)}</td>
                           <td className="p-3 text-slate-300">{r.metodo}</td>
                           <td className="p-3">
                             <span
@@ -1207,10 +1207,10 @@ export default function AdminDashboard() {
           {/* TAB 4: VALIDAR PAGOS DIGITALES */}
           {activeTab === 'validar' && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
                 <div className="flex justify-between items-center flex-wrap gap-3">
                   <div>
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
                       <Clock className="w-6 h-6 text-amber-400" />
                       <span>Bandeja de Pagos Digitales para Conciliación</span>
                     </h2>
@@ -1219,7 +1219,7 @@ export default function AdminDashboard() {
                     </p>
                   </div>
 
-                  <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
+                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
                     <button
                       onClick={() => setFiltroValidar('PENDIENTES')}
                       className={`px-3 py-1.5 rounded-lg transition ${
@@ -1254,7 +1254,7 @@ export default function AdminDashboard() {
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
-                      <thead className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider">
+                      <thead className="bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
                         <tr>
                           <th className="p-3">Recibo</th>
                           <th className="p-3">Contribuyente</th>
@@ -1276,7 +1276,7 @@ export default function AdminDashboard() {
                               <div className="text-[10px] text-slate-400 font-mono">{r.cedula}</div>
                             </td>
                             <td className="p-3 text-slate-300">{r.sector}</td>
-                            <td className="p-3 font-mono font-bold text-emerald-400">Bs. {Number(r.montoBs).toFixed(2)}</td>
+                            <td className="p-3 font-mono font-bold text-emerald-700">Bs. {Number(r.montoBs).toFixed(2)}</td>
                             <td className="p-3 font-mono text-slate-300">${Number(r.montoUsd).toFixed(2)}</td>
                             <td className="p-3 font-mono text-amber-300">{r.referencia || 'N/A'}</td>
                             <td className="p-3">
@@ -1349,10 +1349,10 @@ export default function AdminDashboard() {
           {/* TAB 6: ZONIFICACIÓN Y TARIFAS */}
           {activeTab === 'tarifas' && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-                <div className="flex justify-between items-start flex-wrap gap-2 border-b border-slate-800 pb-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
+                <div className="flex justify-between items-start flex-wrap gap-2 border-b border-slate-100 pb-4">
                   <div>
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
                       <Settings className="w-6 h-6 text-sky-400" />
                       <span>Zonificación Tarifaria por Sector ({sectoresTarifas.length} Sectores del Municipio)</span>
                     </h2>
@@ -1369,7 +1369,7 @@ export default function AdminDashboard() {
                     value={searchTarifas}
                     onChange={(e) => setSearchTarifas(e.target.value)}
                     placeholder="Buscar sector por nombre o código..."
-                    className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   />
                 </div>
 
@@ -1377,22 +1377,22 @@ export default function AdminDashboard() {
                   {sectoresFiltrados.map((s) => (
                     <div
                       key={s.id}
-                      className="p-4 bg-slate-950 border border-slate-800/80 rounded-2xl flex flex-col justify-between gap-3 shadow-md hover:border-slate-700 transition"
+                      className="p-4 bg-white border border-slate-200 rounded-2xl flex flex-col justify-between gap-3 shadow-sm hover:border-emerald-300 transition"
                     >
                       <div>
                         <div className="flex justify-between items-start">
-                          <span className="font-mono text-xs font-bold text-sky-400">{s.codigo}</span>
-                          <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-bold">
+                          <span className="font-mono text-xs font-bold text-emerald-800">{s.codigo}</span>
+                          <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-full font-bold">
                             {s.estrato}
                           </span>
                         </div>
-                        <h4 className="font-bold text-white text-sm mt-1">{s.nombre}</h4>
+                        <h4 className="font-bold text-slate-900 text-sm mt-1">{s.nombre}</h4>
                         <p className="text-xs text-slate-400">{typeof s.parroquia === 'string' ? s.parroquia : s.parroquia?.nombre || 'El Rosario'}</p>
                       </div>
 
-                      <div className="flex justify-between items-center pt-2 border-t border-slate-800/80">
+                      <div className="flex justify-between items-center pt-2 border-t border-slate-100">
                         <div>
-                          <div className="text-base font-mono font-black text-emerald-400">
+                          <div className="text-base font-mono font-black text-emerald-700">
                             ${(s.tarifaUsd || 3).toFixed(2)} USD
                           </div>
                           <div className="text-[10px] font-mono text-slate-400">
@@ -1422,14 +1422,14 @@ export default function AdminDashboard() {
           {/* TAB 7: PERSONAL ALCALDÍA */}
           {activeTab === 'personal' && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-                <div className="flex justify-between items-start flex-wrap gap-4 border-b border-slate-800 pb-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
+                <div className="flex justify-between items-start flex-wrap gap-4 border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-3">
                     <span className="p-2.5 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                       <Users className="w-6 h-6" />
                     </span>
                     <div>
-                      <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
                         <span>Gestión de Funcionarios de la Alcaldía</span>
                         <span className="text-xs bg-emerald-950 text-emerald-300 border border-emerald-600/40 px-2.5 py-0.5 rounded-full font-mono font-bold">
                           {personalAlcaldia.length} Registrados
@@ -1471,14 +1471,14 @@ export default function AdminDashboard() {
                       value={searchPersonal}
                       onChange={(e) => setSearchPersonal(e.target.value)}
                       placeholder="Buscar por nombre, cédula o correo..."
-                      className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
                     />
                   </div>
 
                   <select
                     value={filtroRolPersonal}
                     onChange={(e) => setFiltroRolPersonal(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-emerald-500 cursor-pointer w-full sm:w-auto"
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 cursor-pointer w-full sm:w-auto"
                   >
                     <option value="TODOS">Todos los Roles</option>
                     <option value="ADMIN">Administrador Fiscal</option>
@@ -1492,7 +1492,7 @@ export default function AdminDashboard() {
                 {/* Personal Table */}
                 <div className="overflow-x-auto max-h-[500px]">
                   <table className="w-full text-xs text-left">
-                    <thead className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
+                    <thead className="bg-slate-50 text-slate-700 font-bold uppercase tracking-wider sticky top-0 text-[10px] border-b border-slate-200">
                       <tr>
                         <th className="p-3.5">Funcionario</th>
                         <th className="p-3.5">Cédula Laboral</th>
@@ -1522,7 +1522,7 @@ export default function AdminDashboard() {
                               </div>
                             </td>
                             <td className="p-3.5 font-mono text-slate-300">
-                              <span className="bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                              <span className="bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 font-bold text-slate-800">
                                 {p.cedulaRif}
                               </span>
                             </td>
@@ -1600,10 +1600,10 @@ export default function AdminDashboard() {
           {/* TAB 8: MONITOREO GPS / MAPA */}
           {activeTab === 'mapa' && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-                <div className="flex justify-between items-start flex-wrap gap-4 border-b border-slate-800 pb-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
+                <div className="flex justify-between items-start flex-wrap gap-4 border-b border-slate-100 pb-4">
                   <div>
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
                       <MapPin className="w-6 h-6 text-emerald-400" />
                       <span>Geovisor Catastral e Inteligencia Territorial (GPS)</span>
                     </h2>
@@ -1616,7 +1616,7 @@ export default function AdminDashboard() {
                     <select
                       value={filtroMapaSector}
                       onChange={(e) => setFiltroMapaSector(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none"
+                      className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
                     >
                       <option value="">Todos los Sectores</option>
                       {sectoresTarifas.map((s) => (
@@ -1629,7 +1629,7 @@ export default function AdminDashboard() {
                     <select
                       value={filtroMapaEstado}
                       onChange={(e) => setFiltroMapaEstado(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none"
+                      className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
                     >
                       <option value="TODOS">Todos los Estados</option>
                       <option value="SOLVENTE">Solventes</option>
@@ -1640,7 +1640,7 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Map Component */}
-                <div className="h-[520px] rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
+                <div className="h-[520px] rounded-2xl overflow-hidden border border-slate-200 bg-slate-100">
                   <LeafletMap
                     initialCenter={mapCenter}
                     initialZoom={mapZoom}
@@ -1679,10 +1679,10 @@ export default function AdminDashboard() {
           {/* TAB 9: TAQUILLA */}
           {activeTab === 'taquilla' && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
-                <div className="flex justify-between items-start flex-wrap gap-2 border-b border-slate-800 pb-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6 text-slate-800">
+                <div className="flex justify-between items-start flex-wrap gap-2 border-b border-slate-100 pb-4">
                   <div>
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
                       <Printer className="w-6 h-6 text-emerald-400" />
                       <span>Ventanilla de Cobro Rápido en Taquilla</span>
                     </h2>
@@ -1701,7 +1701,7 @@ export default function AdminDashboard() {
                       value={taquillaCedula}
                       onChange={(e) => setTaquillaCedula(e.target.value)}
                       placeholder="Ej. 14234567 o V-14234567"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm font-mono focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-slate-900 text-sm font-mono focus:ring-2 focus:ring-emerald-600"
                     />
                   </div>
 
@@ -1712,7 +1712,7 @@ export default function AdminDashboard() {
                       value={taquillaNombre}
                       onChange={(e) => setTaquillaNombre(e.target.value)}
                       placeholder="Ej. Juan Pérez"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:ring-2 focus:ring-emerald-600"
                     />
                   </div>
 
@@ -1721,7 +1721,7 @@ export default function AdminDashboard() {
                     <select
                       value={taquillaSectorId}
                       onChange={(e) => setTaquillaSectorId(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-emerald-500 cursor-pointer"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:ring-2 focus:ring-emerald-600 cursor-pointer"
                     >
                       {sectoresTarifas.map((s) => (
                         <option key={s.id} value={s.id}>
@@ -1736,7 +1736,7 @@ export default function AdminDashboard() {
                     <select
                       value={metodoTaquilla}
                       onChange={(e) => setMetodoTaquilla(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-emerald-500 cursor-pointer"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:ring-2 focus:ring-emerald-600 cursor-pointer"
                     >
                       <option value="PUNTO_VENTA">Punto de Venta (Tarjeta Débito/Crédito)</option>
                       <option value="EFECTIVO_BS">Efectivo en Bolívares</option>
@@ -1753,7 +1753,7 @@ export default function AdminDashboard() {
                       min="0.5"
                       value={montoTaquillaUsd}
                       onChange={(e) => setMontoTaquillaUsd(parseFloat(e.target.value) || 3)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-emerald-400 text-base font-mono font-bold focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-emerald-700 text-base font-mono font-bold focus:ring-2 focus:ring-emerald-600"
                     />
                     <span className="text-xs text-amber-400 font-mono mt-1 block">
                       Total a Cobrar: Bs. {(montoTaquillaUsd * tasaBcv).toFixed(2)}
@@ -1766,7 +1766,7 @@ export default function AdminDashboard() {
                       type="text"
                       value={taquillaUbicacion}
                       onChange={(e) => setTaquillaUbicacion(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:ring-2 focus:ring-emerald-600"
                     />
                   </div>
 
@@ -1790,8 +1790,8 @@ export default function AdminDashboard() {
       {/* MODAL: Modificar Tarifa */}
       {editingTarifaSector && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="text-lg font-bold text-white">Modificar Tarifa: {editingTarifaSector.nombre}</h3>
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl text-slate-800 shadow-2xl">
+            <h3 className="text-lg font-black text-slate-900">Modificar Tarifa: {editingTarifaSector.nombre}</h3>
             <form onSubmit={handleGuardarTarifaSector} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">Tarifa Mensual ($ USD)</label>
@@ -1801,7 +1801,7 @@ export default function AdminDashboard() {
                   min="0.5"
                   value={nuevoMontoTarifa}
                   onChange={(e) => setNuevoMontoTarifa(parseFloat(e.target.value) || 3)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-emerald-400 font-mono font-bold"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-emerald-700 font-mono font-bold"
                 />
                 <span className="text-xs text-amber-400 font-mono mt-1 block">
                   Equivalente: Bs. {(nuevoMontoTarifa * tasaBcv).toFixed(2)}
@@ -1831,8 +1831,8 @@ export default function AdminDashboard() {
       {/* MODAL: Crear Personal */}
       {modalCrearPersonalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="text-lg font-bold text-white">Registrar Funcionario Municipal</h3>
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl text-slate-800 shadow-2xl">
+            <h3 className="text-lg font-black text-slate-900">Registrar Funcionario Municipal</h3>
             <form onSubmit={handleCrearPersonal} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">Nombres *</label>
@@ -1842,7 +1842,7 @@ export default function AdminDashboard() {
                   value={formNuevoPersonal.nombres}
                   onChange={(e) => setFormNuevoPersonal({ ...formNuevoPersonal, nombres: e.target.value })}
                   placeholder="Ej. Pedro"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 text-xs"
                 />
               </div>
               <div>
@@ -1852,7 +1852,7 @@ export default function AdminDashboard() {
                   value={formNuevoPersonal.apellidos}
                   onChange={(e) => setFormNuevoPersonal({ ...formNuevoPersonal, apellidos: e.target.value })}
                   placeholder="Ej. González"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 text-xs"
                 />
               </div>
               <div>
@@ -1863,7 +1863,7 @@ export default function AdminDashboard() {
                   value={formNuevoPersonal.cedula}
                   onChange={(e) => setFormNuevoPersonal({ ...formNuevoPersonal, cedula: e.target.value })}
                   placeholder="Ej. 18234567"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs font-mono"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 text-xs font-mono"
                 />
               </div>
               <div>
@@ -1873,7 +1873,7 @@ export default function AdminDashboard() {
                   value={formNuevoPersonal.email}
                   onChange={(e) => setFormNuevoPersonal({ ...formNuevoPersonal, email: e.target.value })}
                   placeholder="ej. pedro@rosariodeperija.gob.ve"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 text-xs"
                 />
               </div>
               <div>
@@ -1881,7 +1881,7 @@ export default function AdminDashboard() {
                 <select
                   value={formNuevoPersonal.rol}
                   onChange={(e) => setFormNuevoPersonal({ ...formNuevoPersonal, rol: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 text-xs"
                 >
                   <option value="SUPERVISOR_CAMPO">Supervisor de Cuadrilla</option>
                   <option value="CENSO">Empadronador de Censo</option>
@@ -1897,7 +1897,7 @@ export default function AdminDashboard() {
                   value={formNuevoPersonal.password}
                   onChange={(e) => setFormNuevoPersonal({ ...formNuevoPersonal, password: e.target.value })}
                   placeholder="Por defecto: ADMIN2026"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 text-xs"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
@@ -1924,8 +1924,8 @@ export default function AdminDashboard() {
       {/* MODAL: Editar Personal */}
       {modalEditarPersonalOpen && editingPersonal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="text-lg font-bold text-white">Editar Funcionario</h3>
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl text-slate-800 shadow-2xl">
+            <h3 className="text-lg font-black text-slate-900">Editar Funcionario</h3>
             <form onSubmit={handleActualizarPersonal} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">Nombres</label>
@@ -1934,7 +1934,7 @@ export default function AdminDashboard() {
                   required
                   value={editingPersonal.nombres}
                   onChange={(e) => setEditingPersonal({ ...editingPersonal, nombres: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 text-xs"
                 />
               </div>
               <div>
@@ -1943,7 +1943,7 @@ export default function AdminDashboard() {
                   type="text"
                   value={editingPersonal.apellidos || ''}
                   onChange={(e) => setEditingPersonal({ ...editingPersonal, apellidos: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 text-xs"
                 />
               </div>
               <div>
@@ -1951,7 +1951,7 @@ export default function AdminDashboard() {
                 <select
                   value={editingPersonal.rol}
                   onChange={(e) => setEditingPersonal({ ...editingPersonal, rol: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 text-xs"
                 >
                   <option value="SUPERVISOR_CAMPO">Supervisor de Cuadrilla</option>
                   <option value="CENSO">Empadronador de Censo</option>
@@ -1984,8 +1984,8 @@ export default function AdminDashboard() {
       {/* MODAL: Cambiar Password Personal */}
       {modalPasswordPersonalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="text-lg font-bold text-white">Cambiar Contraseña: {targetPasswordPersonalNombre}</h3>
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl text-slate-800 shadow-2xl">
+            <h3 className="text-lg font-black text-slate-900">Cambiar Contraseña: {targetPasswordPersonalNombre}</h3>
             <form onSubmit={handleCambiarPassword} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">Nueva Contraseña</label>
@@ -1995,7 +1995,7 @@ export default function AdminDashboard() {
                   value={nuevoPasswordPersonal}
                   onChange={(e) => setNuevoPasswordPersonal(e.target.value)}
                   placeholder="Ingresa nueva contraseña"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 text-xs"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
@@ -2021,9 +2021,9 @@ export default function AdminDashboard() {
 
       {/* MODAL: Ficha Catastral Oficial */}
       {fichaCatastralModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto text-slate-800">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-4">
               <div>
                 <span className="text-xs font-mono font-bold text-sky-400">Ficha Catastral Oficial</span>
                 <h3 className="text-lg font-black text-white mt-0.5">{fichaCatastralModal.codigoCatastral}</h3>
@@ -2037,14 +2037,14 @@ export default function AdminDashboard() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
                 <div className="text-[11px] font-bold text-sky-400 uppercase tracking-wider">Contribuyente Registrado</div>
                 <div><strong>Nombre:</strong> {fichaCatastralModal.contribuyenteNombre}</div>
                 <div><strong>Cédula / RIF:</strong> {fichaCatastralModal.contribuyenteCedula}</div>
                 <div><strong>Teléfono:</strong> {fichaCatastralModal.contribuyenteTelefono}</div>
               </div>
 
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
                 <div className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Dirección Catastral</div>
                 <div><strong>Sector:</strong> {fichaCatastralModal.sectorNombre}</div>
                 <div><strong>Calle:</strong> {fichaCatastralModal.calleNombre}</div>
@@ -2052,7 +2052,7 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
               <label className="text-xs font-bold text-slate-300 block">Modificar Estado de Solvencia Fiscal:</label>
               <div className="flex flex-wrap gap-2">
                 {['SOLVENTE', 'PENDIENTE', 'MORA', 'EXONERADO'].map((est) => (
@@ -2063,7 +2063,7 @@ export default function AdminDashboard() {
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
                       fichaCatastralModal.estadoCuenta === est
                         ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
-                        : 'bg-slate-900 text-slate-300 border border-slate-700 hover:bg-slate-800'
+                        : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
                     }`}
                   >
                     {est}
@@ -2086,8 +2086,8 @@ export default function AdminDashboard() {
 
       {/* Comprobante Image Viewer Modal */}
       {comprobanteModalUrl && (
-        <div className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-slate-800">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-white text-sm">Comprobante de Pago Adjunto por el Ciudadano</h3>
               <button
@@ -2097,7 +2097,7 @@ export default function AdminDashboard() {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="rounded-xl overflow-hidden border border-slate-800 bg-slate-950 max-h-96 flex items-center justify-center">
+            <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 max-h-96 flex items-center justify-center">
               <img src={comprobanteModalUrl} alt="Comprobante" className="max-h-96 w-auto object-contain rounded-lg" />
             </div>
             <div className="flex justify-end">
@@ -2114,9 +2114,9 @@ export default function AdminDashboard() {
 
       {/* Rejection Modal */}
       {rechazarModalRecibo && (
-        <div className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-red-500/40 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
               <div>
                 <div className="text-xs font-mono font-bold text-red-400">
                   {rechazarModalRecibo.numeroReciboFiscal} • {rechazarModalRecibo.contribuyente}
@@ -2142,7 +2142,7 @@ export default function AdminDashboard() {
                 rows={3}
                 value={motivoRechazoInput}
                 onChange={(e) => setMotivoRechazoInput(e.target.value)}
-                className="w-full bg-slate-950 border border-red-500/30 focus:border-red-500 rounded-xl p-3 text-xs text-white focus:outline-none"
+                className="w-full bg-white border border-red-300 focus:border-red-500 rounded-xl p-3 text-xs text-slate-900 focus:outline-none"
               />
               <div className="flex justify-end gap-2 pt-2">
                 <button
