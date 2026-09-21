@@ -6,6 +6,11 @@ export default withAuth(
     const token = req.nextauth.token;
     const pathname = req.nextUrl.pathname;
 
+    // Permitir acceso público a login y registro ciudadano
+    if (pathname.startsWith("/ciudadano/login") || pathname.startsWith("/ciudadano/registro")) {
+      return NextResponse.next();
+    }
+
     // Solo usuarios con rol ADMIN pueden entrar a /admin
     if (pathname.startsWith("/admin") && token?.rol !== "ADMIN") {
       return NextResponse.redirect(new URL("/login", req.url));
@@ -15,7 +20,13 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ req, token }) => {
+        const pathname = req.nextUrl.pathname;
+        if (pathname.startsWith("/ciudadano/login") || pathname.startsWith("/ciudadano/registro")) {
+          return true;
+        }
+        return !!token;
+      },
     },
     pages: {
       signIn: "/login",

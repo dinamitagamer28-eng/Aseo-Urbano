@@ -175,6 +175,58 @@ export async function POST(request: Request) {
         { headers: corsHeaders }
       );
     }
+
+    // ACCIÓN: CREAR CALLE DESDE WEB O APK
+    if (body.action === 'crear_calle') {
+      const { sectorId, nombreCalle, diaRecoleccion, horaEstimada } = body;
+      if (!sectorId || !nombreCalle) {
+        return NextResponse.json(
+          { success: false, error: 'sectorId y nombreCalle son requeridos.' },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+      const existingCallesCount = await prisma.calleTramo.count({ where: { sectorId } });
+      const nuevaCalle = await prisma.calleTramo.create({
+        data: {
+          sectorId,
+          nombreCalle: nombreCalle.trim(),
+          ordenRecoleccion: existingCallesCount + 1,
+          diaRecoleccion: diaRecoleccion || 'LUNES Y JUEVES',
+          horaEstimada: horaEstimada || '07:00 AM'
+        }
+      });
+      return NextResponse.json({ success: true, calle: nuevaCalle }, { headers: corsHeaders });
+    }
+
+    // ACCIÓN: CREAR SECTOR DESDE WEB O APK
+    if (body.action === 'crear_sector') {
+      const { nombre, totalFamilias, estrato, codigo } = body;
+      if (!nombre) {
+        return NextResponse.json(
+          { success: false, error: 'El nombre del sector es requerido.' },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+      let parroquia = await prisma.parroquia.findFirst({ where: { codigo: 'PAR-ROS' } });
+      if (!parroquia) {
+        parroquia = await prisma.parroquia.create({
+          data: { codigo: 'PAR-ROS', nombre: 'Parroquia El Rosario' }
+        });
+      }
+      const nuevoSector = await prisma.sector.create({
+        data: {
+          parroquiaId: parroquia.id,
+          codigo: codigo || `SEC-${Date.now().toString().slice(-4)}`,
+          nombre: nombre.trim(),
+          estrato: estrato || 'POPULAR',
+          activo: true,
+          centroLat: 10.3267,
+          centroLng: -72.3125
+        }
+      });
+      return NextResponse.json({ success: true, sector: nuevoSector }, { headers: corsHeaders });
+    }
+
     let {
       sectorId,
       sectorNombre,

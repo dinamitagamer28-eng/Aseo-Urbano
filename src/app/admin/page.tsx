@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AdminSidebar from '@/components/AdminSidebar';
 import SectoresManagement from '@/components/SectoresManagement';
+import CensoTerritorialSection from '@/components/CensoTerritorialSection';
 import LeafletMap from '@/components/LeafletMap';
 import ReceiptModal, { ReciboData } from '@/components/ReceiptModal';
 import {
@@ -759,7 +760,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-emerald-600 selection:text-white">
       {/* Sidebar Responsive */}
       <AdminSidebar
         activeTab={activeTab}
@@ -777,20 +778,20 @@ export default function AdminDashboard() {
       {/* Main Content Area (padded left on lg to accommodate w-72 sidebar) */}
       <div className="flex-1 flex flex-col min-w-0 lg:pl-72">
         {/* Sticky Top Header Bar */}
-        <header className="bg-slate-900 border-b border-slate-800 py-3.5 px-4 sm:px-6 sticky top-0 z-30 shadow-md">
+        <header className="bg-white border-b border-slate-200 py-3.5 px-4 sm:px-6 sticky top-0 z-30 shadow-sm">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsOpenMobile(true)}
-                className="lg:hidden p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white border border-slate-700 cursor-pointer"
+                className="lg:hidden p-2 rounded-xl bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 cursor-pointer"
                 title="Abrir menú"
               >
                 <Menu className="w-5 h-5" />
               </button>
 
               <div>
-                <h1 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-700" />
                   {activeTab === 'kpis' && 'Tablero Ejecutivo & KPIs'}
                   {activeTab === 'analiticas' && 'Analíticas & Reportes Oficiales'}
                   {activeTab === 'auditoria' && 'Auditoría Fiscal & Folios Inmutables'}
@@ -801,16 +802,16 @@ export default function AdminDashboard() {
                   {activeTab === 'mapa' && 'Sala Situacional: Monitoreo GPS'}
                   {activeTab === 'taquilla' && 'Taquilla Municipal de Cobro'}
                 </h1>
-                <p className="text-[11px] text-slate-400 hidden sm:block">
-                  Alcaldía del Municipio Rosario de Perijá • Control Fiscal y Recaudación Digital
+                <p className="text-[11px] text-slate-500 hidden sm:block">
+                  Alcaldía Bolivariana de Rosario de Perijá • Control Fiscal y Recaudación Digital
                 </p>
               </div>
             </div>
 
             {/* Right actions: BCV rate and refresh */}
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold text-amber-400 font-mono shadow-inner">
-                <DollarSign className="w-4 h-4 text-emerald-400" />
+              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 font-mono shadow-sm">
+                <DollarSign className="w-4 h-4 text-emerald-700" />
                 <span>
                   Tasa BCV: Bs. {tasaBcv.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}
                 </span>
@@ -819,10 +820,10 @@ export default function AdminDashboard() {
               <button
                 onClick={cargarDatosCompletos}
                 disabled={loadingData}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 title="Recargar base de datos"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${loadingData ? 'animate-spin text-emerald-400' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingData ? 'animate-spin text-emerald-700' : ''}`} />
                 <span className="hidden sm:inline">{loadingData ? 'Cargando...' : 'Actualizar'}</span>
               </button>
             </div>
@@ -831,74 +832,81 @@ export default function AdminDashboard() {
 
         {/* Dynamic Main Body Content */}
         <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-          {/* TAB 1: KPIS & EXECUTIVE DASHBOARD (Matches boss screenshot 100%) */}
+          {/* TAB 1: KPIS & EXECUTIVE DASHBOARD */}
           {activeTab === 'kpis' && (
             <div className="space-y-6 animate-in fade-in duration-200">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-                  <div className="text-xs text-slate-400 font-medium">Recaudación Neta Total</div>
-                  <div className="text-3xl font-black text-emerald-400 mt-1 font-mono">
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition">
+                  <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Recaudación Neta Total</div>
+                  <div className="text-3xl font-black text-emerald-700 mt-1 font-mono">
                     Bs. {totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
-                  <div className="text-xs text-slate-400 mt-1">
-                    Equivalente: <strong className="text-white">${totalUsd.toFixed(2)} USD</strong> (Tasa BCV {tasaBcv.toFixed(2)})
+                  <div className="text-xs text-slate-500 mt-1">
+                    Equivalente: <strong className="text-slate-900">${totalUsd.toFixed(2)} USD</strong> (Tasa BCV {tasaBcv.toFixed(2)})
                   </div>
                 </div>
 
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-                  <div className="text-xs text-slate-400 font-medium">Folios Fiscales Emitidos</div>
-                  <div className="text-3xl font-black text-sky-400 mt-1 font-mono">
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition">
+                  <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Folios Fiscales Emitidos</div>
+                  <div className="text-3xl font-black text-sky-700 mt-1 font-mono">
                     #{recibosFiscales.length}
                   </div>
-                  <div className="text-xs text-slate-400 mt-1">
+                  <div className="text-xs text-slate-500 mt-1">
                     {recibosFiscales.filter((r) => r.estado === 'APROBADO').length} Solventes • {totalDigitalesPendientes} Por Validar
                   </div>
                 </div>
 
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-                  <div className="text-xs text-slate-400 font-medium">Incidencias Atendidas</div>
-                  <div className="text-3xl font-black text-amber-400 mt-1 font-mono">
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition">
+                  <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Incidencias Atendidas</div>
+                  <div className="text-3xl font-black text-amber-700 mt-1 font-mono">
                     {reportesResueltosCount} / {reportesIncidencias.length}
                   </div>
-                  <div className="text-xs text-slate-400 mt-1">
+                  <div className="text-xs text-slate-500 mt-1">
                     Reportes ciudadanos con evidencia fotográfica
                   </div>
                 </div>
 
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-                  <div className="text-xs text-slate-400 font-medium">Sectores y Rutas Activas</div>
-                  <div className="text-3xl font-black text-purple-400 mt-1 font-mono">
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition">
+                  <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Sectores y Rutas Activas</div>
+                  <div className="text-3xl font-black text-purple-700 mt-1 font-mono">
                     {sectoresTarifas.length}
                   </div>
-                  <div className="text-xs text-slate-400 mt-1">
+                  <div className="text-xs text-slate-500 mt-1">
                     Cobertura en las 3 Parroquias de Rosario
                   </div>
                 </div>
               </div>
 
+              {/* PADRÓN TERRITORIAL DEL CENSO DE SECTORES Y CALLES (Sincronizado en Vivo con APK Móvil) */}
+              <CensoTerritorialSection
+                sectores={sectoresTarifas}
+                inmueblesCensados={inmueblesCensados}
+                onRefresh={cargarDatosCompletos}
+              />
+
               {/* Table of Latest Receipts */}
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
                 <div className="flex justify-between items-center flex-wrap gap-2">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-emerald-400" />
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-emerald-700" />
                     <span>Últimos Recibos Fiscales Registrados</span>
                   </h3>
                   <button
                     onClick={() => setActiveTab('auditoria')}
-                    className="text-xs text-sky-400 hover:underline font-semibold cursor-pointer"
+                    className="text-xs text-emerald-700 hover:text-emerald-800 hover:underline font-bold cursor-pointer"
                   >
                     Ver todos los folios ↗
                   </button>
                 </div>
 
                 {recibosFiscales.length === 0 ? (
-                  <div className="text-center py-10 text-slate-500 text-sm">
+                  <div className="text-center py-10 text-slate-400 text-sm">
                     Aún no se han emitido recibos fiscales en esta jornada. Cobra en taquilla o valida pagos digitales.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
-                      <thead className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider">
+                      <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200">
                         <tr>
                           <th className="p-3">Folio</th>
                           <th className="p-3">Nº Recibo Fiscal</th>
@@ -911,19 +919,19 @@ export default function AdminDashboard() {
                           <th className="p-3 text-center">Acción</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-800">
+                      <tbody className="divide-y divide-slate-100">
                         {recibosFiscales.slice(0, 8).map((r) => (
-                          <tr key={r.id} className="hover:bg-slate-850/50">
-                            <td className="p-3 font-mono font-bold text-slate-400">#{r.folioCorrelativo}</td>
-                            <td className="p-3 font-mono font-bold text-sky-400">{r.numeroReciboFiscal}</td>
-                            <td className="p-3 text-slate-400">{r.fecha}</td>
-                            <td className="p-3 font-mono text-slate-300">{r.cedula}</td>
-                            <td className="p-3 font-semibold text-white">{r.contribuyente}</td>
-                            <td className="p-3 font-mono font-bold text-emerald-400">
+                          <tr key={r.id} className="hover:bg-slate-50/80">
+                            <td className="p-3 font-mono font-bold text-slate-500">#{r.folioCorrelativo}</td>
+                            <td className="p-3 font-mono font-bold text-sky-700">{r.numeroReciboFiscal}</td>
+                            <td className="p-3 text-slate-500">{r.fecha}</td>
+                            <td className="p-3 font-mono text-slate-700">{r.cedula}</td>
+                            <td className="p-3 font-bold text-slate-900">{r.contribuyente}</td>
+                            <td className="p-3 font-mono font-bold text-emerald-700">
                               Bs. {Number(r.montoBs).toFixed(2)}
                             </td>
                             <td className="p-3">
-                              <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-[10px] font-semibold text-slate-300">
+                              <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[10px] font-semibold text-slate-700">
                                 {r.metodo}
                               </span>
                             </td>
@@ -931,10 +939,10 @@ export default function AdminDashboard() {
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                   r.estado === 'APROBADO'
-                                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                                     : r.estado === 'PENDIENTE_VALIDACION'
-                                    ? 'bg-amber-950 text-amber-300 border border-amber-500/40'
-                                    : 'bg-rose-950 text-rose-300 border border-rose-500/40'
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    : 'bg-rose-100 text-rose-800 border border-rose-300'
                                 }`}
                               >
                                 {r.estado}
@@ -943,7 +951,7 @@ export default function AdminDashboard() {
                             <td className="p-3 text-center">
                               <button
                                 onClick={() => handleVerReciboModal(r)}
-                                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold transition-colors"
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
                               >
                                 Ver Recibo
                               </button>

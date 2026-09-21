@@ -876,12 +876,34 @@ export async function liquidarCobroTaquillaExpress(data: {
 }
 
 export async function obtenerTodosSectoresConTarifas() {
+  const FAMILIAS_MAP: Record<string, number> = {
+    'Sector Casco Central': 350,
+    'Sector Las Colinas': 1030,
+    'Sector Colina I': 1030,
+    'Sector Colina II': 516,
+    'Sector Matica I': 170,
+    'Sector Matica II': 230,
+    'Sector Villa Encantada': 120,
+    'Sector La Matica': 400,
+    'Sector San José': 110,
+    'Sector Las Palmeras': 95,
+    'Sector El Carmen': 85,
+    'Sector Noriega Trigo': 90,
+    'Sector Aurora': 75,
+    'Sector La Florida': 80,
+    'Sector Juan Vicente Gómez': 105,
+    'Sector 2 de Febrero': 90,
+    'Sector Corito': 115,
+    'Sector Los Haticos': 95,
+  };
+
   const sectores = await prisma.sector.findMany({
     orderBy: { nombre: 'asc' },
     include: {
       tarifasSectores: true,
       parroquia: true,
-      _count: { select: { inmuebles: true } },
+      callesTramos: { orderBy: { ordenRecoleccion: 'asc' } },
+      _count: { select: { inmuebles: true, callesTramos: true } },
     },
   });
 
@@ -892,6 +914,9 @@ export async function obtenerTodosSectoresConTarifas() {
     parroquia: s.parroquia?.nombre || 'El Rosario',
     estrato: s.estrato || 'RESIDENCIAL',
     inmueblesCount: s._count.inmuebles,
+    callesCount: s._count.callesTramos,
+    callesTramos: s.callesTramos || [],
+    totalFamilias: FAMILIAS_MAP[s.nombre] || (s.callesTramos?.length ? s.callesTramos.length * 18 : 60),
     tarifaUsd: s.tarifasSectores?.[0]?.montoTarifaUsd || 3.00,
     tarifaId: s.tarifasSectores?.[0]?.id || null,
     descripcion: s.tarifasSectores?.[0]?.descripcionOrdenanza || 'Ordenanza Municipal de Aseo Urbano 2026',

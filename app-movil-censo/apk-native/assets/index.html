@@ -1400,7 +1400,36 @@ svg.leaflet-image-layer.leaflet-interactive path {
       'El Carmen': ['Calle El Carmen', 'Calle Santa Inés']
     };
 
-        function isInsideRosario(lat, lng) {
+        
+    function applySectoresData(sectoresList) {
+      if (!Array.isArray(sectoresList) || sectoresList.length === 0) return;
+      sectoresList.forEach(s => {
+        const sName = s.nombre.replace('Sector ', '').trim();
+        SECTOR_COORDS[s.nombre] = [s.centroLat || 10.3267, s.centroLng || -72.3125];
+        SECTOR_COORDS[sName] = [s.centroLat || 10.3267, s.centroLng || -72.3125];
+        if (s.callesTramos && s.callesTramos.length > 0) {
+          const streetNames = s.callesTramos.map(c => c.nombreCalle);
+          ROSARIO_STREETS[s.nombre] = streetNames;
+          ROSARIO_STREETS[sName] = streetNames;
+        }
+      });
+
+      const sectorSelect = document.getElementById('inmueble-sector');
+      if (sectorSelect) {
+        const cur = sectorSelect.value;
+        sectorSelect.innerHTML = '';
+        sectoresList.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.nombre;
+          opt.textContent = s.nombre;
+          if (s.nombre === cur || s.nombre.replace('Sector ', '').trim() === cur) opt.selected = true;
+          sectorSelect.appendChild(opt);
+        });
+      }
+      onSectorChange(false);
+    }
+  
+    function isInsideRosario(lat, lng) {
       if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) return false;
       return (lat >= 10.2500 && lat <= 10.4000 && lng >= -72.3800 && lng <= -72.2400);
     }
@@ -1561,6 +1590,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
         clearTimeout(timeoutId);
 
         const data = await res.json();
+        if (data && data.sectores && Array.isArray(data.sectores)) {
+          try { localStorage.setItem('alcaldia_sectores_cache', JSON.stringify(data.sectores)); } catch(e) {}
+          applySectoresData(data.sectores);
+        }
 
         // 1. Si el usuario existe en la web y la contraseña es correcta
         if (res.ok && data.success && data.user) {
