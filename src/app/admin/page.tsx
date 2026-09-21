@@ -969,14 +969,14 @@ export default function AdminDashboard() {
           {/* TAB 2: ANALÍTICAS */}
           {activeTab === 'analiticas' && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 border border-emerald-500/30 rounded-3xl p-6 shadow-2xl flex flex-col md:flex-row justify-between md:items-center gap-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-4 text-slate-800">
                 <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/40 mb-2">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200 mb-2">
                     <BarChart3 className="w-3.5 h-3.5" />
                     <span>Reportes Ejecutivos y Contraloría Municipal</span>
                   </div>
-                  <h2 className="text-2xl font-black text-white">Analíticas de Recaudación & Operatividad</h2>
-                  <p className="text-xs text-slate-400">
+                  <h2 className="text-2xl font-black text-slate-900">Analíticas de Recaudación & Operatividad</h2>
+                  <p className="text-xs text-slate-600">
                     Monitoreo en tiempo real de ingresos por concepto de tasa de aseo urbano en Rosario de Perijá
                   </p>
                 </div>
@@ -1021,14 +1021,14 @@ export default function AdminDashboard() {
               {/* Sector ranking and fleet */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <PieChart className="w-4 h-4 text-emerald-400" />
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <PieChart className="w-4 h-4 text-emerald-700" />
                     <span>Recaudación por Sector</span>
                   </h3>
                   <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                     {recaudacionPorSector.map((s, idx) => (
                       <div key={idx} className="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-800">
-                        <span className="font-semibold text-white">{s.sector}</span>
+                        <span className="font-semibold text-slate-900">{s.sector}</span>
                         <div className="text-right">
                           <span className="font-mono text-emerald-400 font-bold">${s.totalUsd.toFixed(2)} USD</span>
                           <span className="text-slate-400 text-[10px] block">Bs. {s.totalBs.toFixed(2)}</span>
@@ -1039,21 +1039,21 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-slate-800">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Truck className="w-4 h-4 text-sky-400" />
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-emerald-700" />
                     <span>Toneladas Recolectadas por Camión</span>
                   </h3>
                   <div className="space-y-3">
                     {camionesStats.map((c) => (
                       <div key={c.codigo} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-slate-800">
                         <div className="flex justify-between text-xs">
-                          <span className="font-bold text-white">{c.codigo} (Capacidad {c.capacidad} Ton)</span>
+                          <span className="font-bold text-slate-900">{c.codigo} (Capacidad {c.capacidad} Ton)</span>
                           <span className="font-mono text-sky-400 font-bold">{c.toneladas.toFixed(1)} Ton ({c.pct}%)</span>
                         </div>
-                        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                           <div className="bg-sky-500 h-full rounded-full" style={{ width: `${Math.min(100, c.pct)}%` }}></div>
                         </div>
-                        <div className="text-[10px] text-slate-400">Rutas: {c.rutas}</div>
+                        <div className="text-[10px] text-slate-500">Rutas: {c.rutas}</div>
                       </div>
                     ))}
                   </div>
@@ -2117,7 +2117,7 @@ export default function AdminDashboard() {
       {/* Rejection Modal */}
       {rechazarModalRecibo && (
         <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-2 border-red-500/40 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-white border-2 border-red-200 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-slate-800">
             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
               <div>
                 <div className="text-xs font-mono font-bold text-red-400">
