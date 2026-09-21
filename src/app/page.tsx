@@ -1,25 +1,13 @@
 import React from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
-import prisma from '@/lib/prisma';
 import { getTasaBcvActual } from '@/lib/bcv';
-import { Truck, Users, ShieldCheck, ArrowRight, CheckCircle2, QrCode, Smartphone } from 'lucide-react';
+import { Truck, Users, ArrowRight, CheckCircle2, QrCode } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const tasaBcv = await getTasaBcvActual();
-
-  // Metrics from DB
-  const totalInmuebles = await prisma.inmuebleCatastro.count();
-  const totalSectores = await prisma.sector.count();
-  const totalRecaudado = await prisma.reciboPago.aggregate({
-    _sum: { montoTotalBs: true, montoTotalUsd: true },
-    where: { estado: 'APROBADO' },
-  });
-  const totalReportesResueltos = await prisma.reporteIncidencia.count({
-    where: { estado: 'RESUELTO' },
-  });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-sky-500 selection:text-white">
@@ -27,7 +15,21 @@ export default async function HomePage() {
 
       {/* Hero Section */}
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
-        <div className="text-center space-y-4 max-w-3xl mx-auto">
+        <div className="text-center space-y-5 max-w-3xl mx-auto">
+          {/* Logo Oficial IMAUR en la web */}
+          <div className="flex justify-center pt-2">
+            <div className="relative group">
+              <div className="absolute -inset-1.5 bg-gradient-to-r from-emerald-500 via-amber-400 to-sky-500 rounded-3xl blur opacity-30 group-hover:opacity-70 transition duration-500"></div>
+              <div className="relative w-28 h-28 sm:w-36 sm:h-36 rounded-3xl overflow-hidden border-2 border-amber-400/80 bg-slate-900/90 shadow-2xl p-1.5 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <img
+                  src="/icons/imaur_logo_512.png"
+                  alt="Logo Oficial IMAUR - Rosario de Perijá"
+                  className="w-full h-full object-contain drop-shadow-md"
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-semibold tracking-wide uppercase">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
             Plan Piloto Operativo: Sector Las Colinas • Parroquia El Rosario
@@ -40,51 +42,8 @@ export default async function HomePage() {
           </p>
         </div>
 
-        {/* Live KPIs Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
-            <div className="text-xs text-slate-400 font-medium">Recaudación Neta</div>
-            <div className="text-2xl font-black text-emerald-400 mt-1 font-mono">
-              Bs. {`${(totalRecaudado._sum.montoTotalBs || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}`}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
-              Equiv. \$`${(totalRecaudado._sum.montoTotalUsd || 0).toFixed(2)}` USD
-            </div>
-          </div>
-
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
-            <div className="text-xs text-slate-400 font-medium">Padrón Catastral</div>
-            <div className="text-2xl font-black text-sky-400 mt-1 font-mono">
-              {`${totalInmuebles}`} <span className="text-sm font-normal text-slate-400">viviendas</span>
-            </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
-              Sector Las Colinas (Piloto)
-            </div>
-          </div>
-
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
-            <div className="text-xs text-slate-400 font-medium">Sectores Mapeados</div>
-            <div className="text-2xl font-black text-amber-400 mt-1 font-mono">
-              {`${totalSectores}`} <span className="text-sm font-normal text-slate-400">zonas</span>
-            </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
-              Expansión a toda La Villa
-            </div>
-          </div>
-
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
-            <div className="text-xs text-slate-400 font-medium">Incidencias Resueltas</div>
-            <div className="text-2xl font-black text-purple-400 mt-1 font-mono">
-              {`${totalReportesResueltos}`} <span className="text-sm font-normal text-slate-400">con foto</span>
-            </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
-              100% con evidencia en campo
-            </div>
-          </div>
-        </div>
-
-        {/* 4 Main Apps Access Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 pt-4">
+        {/* 3 Main Apps Access Cards (Exacto a produccion en 13.140.37.157 con las mejoras IMAUR) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
           
           {/* Card 1: App Ciudadana */}
           <div className="bg-gradient-to-b from-slate-900 to-slate-900/90 border border-sky-500/30 rounded-3xl p-6 shadow-xl hover:border-sky-500 transition-all flex flex-col justify-between group">
@@ -203,44 +162,6 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* Card 4: Panel Admin & Taquilla */}
-          <div className="bg-gradient-to-b from-slate-900 to-slate-900/90 border border-emerald-500/30 rounded-3xl p-6 shadow-xl hover:border-emerald-500 transition-all flex flex-col justify-between group">
-            <div className="space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-white">Panel Admin</h3>
-                <p className="text-xs text-emerald-400 font-semibold uppercase tracking-wider mt-0.5">Gestión y Contraloría</p>
-              </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Tablero de control gerencial, taquilla express para cobro en ventanilla y exportación de Libros de Ingresos en Excel y PDF.
-              </p>
-              <ul className="text-xs text-slate-300 space-y-1 pt-1">
-                <li className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                  <span>Taquilla express con recibos térmicos</span>
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                  <span>Exportación a Excel / PDF</span>
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                  <span>Zonificación y Geovisor Catastral</span>
-                </li>
-              </ul>
-            </div>
-            <div className="pt-5">
-              <Link
-                href="/admin"
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-600/30 transition-all"
-              >
-                <span>Panel de Control</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </div>
 
         </div>
       </main>
