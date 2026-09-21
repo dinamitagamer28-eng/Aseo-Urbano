@@ -96,7 +96,7 @@ function MapInternal({
   const finalCenter = center || initialCenter || [10.3180, -72.3150];
   const finalZoom = zoom || initialZoom || 15;
   const [L, setL] = useState<any>(null);
-  const mapContainerId = useId().replace(/:/g, '');
+  const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const layersRef = useRef<{
     tileSatellite?: any;
@@ -139,54 +139,69 @@ function MapInternal({
 
   // Initialize Map
   useEffect(() => {
-    if (!L) return;
+    if (!L || !containerRef.current) return;
 
-    const container = document.getElementById(mapContainerId);
-    if (!container) return;
+    const container = containerRef.current;
 
     if (mapRef.current) {
       mapRef.current.remove();
       mapRef.current = null;
     }
 
-    const map = L.map(mapContainerId, {
-      center: center,
-      zoom: zoom,
+    const map = L.map(container, {
+      center: finalCenter,
+      zoom: finalZoom,
       zoomControl: interactive,
       dragging: interactive,
       scrollWheelZoom: false,
     });
 
-    // 1. ESRI World Imagery (High-Resolution Satellite with Mountain Reliefs of Sierra de Perijá)
-    const tileSatellite = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      {
-        maxZoom: 19,
-        attribution: '&copy; Esri, Maxar, Earthstar Geographics, USDA, USGS | Sierra de Perijá',
-      }
-    );
+    map.setView(finalCenter, finalZoom);
 
-    // 2. High Contrast Labels Overlay for Streets and Sectors
-    const tileLabels = L.tileLayer(
-      'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-      {
-        maxZoom: 19,
-        opacity: 0.85,
-      }
-    );
-
-    // 3. OpenStreetMap Streets alternative
+    // 1. OpenStreetMap (ultra-reliable global fallback)
     const tileStreets = L.tileLayer(
       'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       {
         maxZoom: 19,
+        subdomains: ['a', 'b', 'c'],
         attribution: '&copy; OpenStreetMap contributors | Rosario de Perijá',
       }
     );
 
-    // Default to Satellite HD with Labels
-    tileSatellite.addTo(map);
-    tileLabels.addTo(map);
+    // 2. ESRI World Imagery (Satellite HD with native zoom 18)
+    const tileSatellite = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        maxZoom: 19,
+        maxNativeZoom: 18,
+        attribution: '&copy; Esri, Maxar, Earthstar Geographics | Sierra de Perijá',
+      }
+    );
+
+    // 3. Labels Overlay
+    const tileLabels = L.tileLayer(
+      'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+      {
+        maxZoom: 19,
+        maxNativeZoom: 18,
+        opacity: 0.85,
+      }
+    );
+
+    // Add selected layer
+    if (mapType === 'satellite') {
+      tileSatellite.addTo(map);
+      tileLabels.addTo(map);
+    } else {
+      tileStreets.addTo(map);
+    }
+
+    // Tile error fallback: if satellite fails to load, ensure streets are shown
+    tileSatellite.on('tileerror', () => {
+      if (!map.hasLayer(tileStreets)) {
+        tileStreets.addTo(map);
+      }
+    });
 
     const polygonGroup = L.layerGroup().addTo(map);
     const routeGroup = L.layerGroup().addTo(map);
@@ -213,13 +228,37 @@ function MapInternal({
 
     mapRef.current = map;
 
+    // Trigger invalidateSize to prevent grey box when loading inside dynamic/hidden tabs
+    const invalidate = () => {
+      try {
+        if (mapRef.current) {
+          mapRef.current.invalidateSize({ pan: false });
+        }
+      } catch (err) {}
+    };
+
+    const timer1 = setTimeout(invalidate, 50);
+    const timer2 = setTimeout(invalidate, 200);
+    const timer3 = setTimeout(invalidate, 600);
+    const timer4 = setTimeout(invalidate, 1200);
+
+    const ro = new ResizeObserver(() => {
+      invalidate();
+    });
+    ro.observe(container);
+
     return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+      clearTimeout(timer4);
+      ro.disconnect();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
     };
-  }, [L, mapContainerId]);
+  }, [L]);
 
   // Handle Map Type Change
   useEffect(() => {
@@ -242,7 +281,14 @@ function MapInternal({
   useEffect(() => {
     if (!mapRef.current) return;
     try {
-      mapRef.current.flyTo(finalCenter, finalZoom, { duration: 1.0 });
+      if (mapRef.current._loaded) {
+        mapRef.current.flyTo(finalCenter, finalZoom, { duration: 1.0 });
+      } else {
+        mapRef.current.setView(finalCenter, finalZoom);
+      }
+      setTimeout(() => {
+        try { mapRef.current?.invalidateSize(); } catch (e) {}
+      }, 150);
     } catch (e) {}
   }, [finalCenter?.[0], finalCenter?.[1], finalZoom]);
 
@@ -635,7 +681,7 @@ function MapInternal({
   return (
     <div className="relative w-full rounded-2xl overflow-hidden border border-slate-700/60 shadow-2xl bg-slate-950 font-sans isolate z-0">
       {/* Map Container */}
-      <div id={mapContainerId} style={{ height, width: '100%' }} className="z-0" />
+      <div ref={containerRef} style={{ height, width: '100%' }} className="z-0 w-full h-full" />
 
       {/* Floating Controls Overlay (Top Right) */}
       {showControls && (

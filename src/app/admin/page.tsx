@@ -1642,6 +1642,8 @@ export default function AdminDashboard() {
                 {/* Map Component */}
                 <div className="h-[520px] rounded-2xl overflow-hidden border border-slate-200 bg-slate-100">
                   <LeafletMap
+                    center={mapCenter}
+                    zoom={mapZoom}
                     initialCenter={mapCenter}
                     initialZoom={mapZoom}
                     sectoresPolygons={sectoresTarifas.map((s, idx) => ({
