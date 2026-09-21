@@ -15,7 +15,7 @@ export default function DescargarAppCensoPage() {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        fullUrl = 'http://192.168.86.248:5000/censo-aseo-alcaldia.apk';
+        fullUrl = 'http://13.140.37.157/censo-aseo-alcaldia.apk';
       } else {
         fullUrl = `${window.location.origin}/censo-aseo-alcaldia.apk`;
       }
